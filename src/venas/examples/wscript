@@ -1,6 +1,8 @@
 # -*- Mode: python; py-indent-offset: 4; indent-tabs-mode: nil; coding: utf-8; -*-
 
 def build(bld):
-    obj = bld.create_ns3_program('venas-example', ['venas'])
-    obj.source = 'venas-example.cc'
+    obj = bld.create_ns3_program('orbis-example', ['core', 'point-to-point', 'topology-read', 'network', 'applications', 'internet', 'visualizer'])
+    obj.source = 'orbis-example.cc'
 
+    obj = bld.create_ns3_program('venas-example', ['core', 'point-to-point','topology-read','internet'])
+    obj.source = 'venas-example.cc'

@@ -17,7 +17,7 @@ def build(bld):
     module_test = bld.create_ns3_module_test_library('venas')
     module_test.source = [
         'test/venas-test-suite.cc',
-        'test/location-test-suite.cc',
+        'test/location-test-suite.cc'
         ]
 
     headers = bld.new_task_gen(features=['ns3header'])

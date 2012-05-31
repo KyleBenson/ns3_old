@@ -12,6 +12,7 @@ what the severity.
 **/
 
 #include "location.h"
+using namespace ns3;
 
 Location::Location(float latitude,float longitude):
   lat(latitude),lon(longitude){}

@@ -2,6 +2,7 @@
 
 // Include a header file from your module to test.
 #include "ns3/location.h"
+#include "ns3/core-module.h"
 #include <list>
 
 // An essential include is test.h
@@ -18,17 +19,17 @@ using namespace ns3;
 class LocationTestCase : public TestCase
 {
 public:
-  LocationTestCase (Location * a, Location * b, std::string name);
+  LocationTestCase (Ptr<Location> a, Ptr<Location> b,std::string name);
   virtual ~LocationTestCase ();
 
 private:
   virtual void DoRun (void);
-  Location *la;
-  Location *lb;
+  Ptr<Location> la;
+  Ptr<Location> lb;
 };
 
 // Add some help text to this case to describe what it is intended to test
-LocationTestCase::LocationTestCase (Location *a, Location *b,std::string name)
+LocationTestCase::LocationTestCase (Ptr<Location> a, Ptr<Location> b,std::string name)
   : TestCase (name), la(a), lb(b) {}
 
 // This destructor does nothing but we include it as a reminder that
@@ -67,24 +68,24 @@ public:
 LocationTestSuite::LocationTestSuite ()
   : TestSuite ("location", UNIT)
 {
-  Location *a = new Location(40.123456789,-90.0987654321);
-  Location *b = new Location(40.123456123,-90.0987651234);
+  Ptr<Location> a = CreateObject<Location>(40.123456789,-90.0987654321);
+  Ptr<Location> b = CreateObject<Location>(40.123456123,-90.0987651234);
   AddTestCase (new LocationTestCase(a,b,"Points equal within tolerance (doubles)"));
 
-  Location *c = new Location((float)39.8395659871,(float)169.6547461661674657);
-  Location *d = new Location((float)39.839565056123,(float)169.654746987651234);
+  Ptr<Location> c = CreateObject<Location>((float)39.8395659871,(float)169.6547461661674657);
+  Ptr<Location> d = CreateObject<Location>((float)39.839565056123,(float)169.654746987651234);
   AddTestCase (new LocationTestCase(c,d,"Points equal within tolerance (floats)"));
 
-  Location *e = new Location(39546389,-16625885);
-  Location *f = new Location(39546389,-16625885);
+  Ptr<Location> e = CreateObject<Location>(39546389,-16625885);
+  Ptr<Location> f = CreateObject<Location>(39546389,-16625885);
   AddTestCase (new LocationTestCase(e,f,"Points equal (ints)"));
 
   std::list<Location> locs;
   locs.push_front(*a);
   locs.push_front(*c);
   locs.push_front(*e);
-  Location *comp_cent = Location::centroid(locs.begin(),locs.end());
-  Location *real_cent = new Location(39.836470533,20.976698667);
+  Ptr<Location> comp_cent = Location::centroid(locs.begin(),locs.end());
+  Ptr<Location> real_cent = CreateObject<Location>(39.836470533,20.976698667);
   AddTestCase (new LocationTestCase(comp_cent,real_cent,"Centroid works"));
 }
 
