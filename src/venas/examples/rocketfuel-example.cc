@@ -1,7 +1,7 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
 /** A simple example showing an mesh topology of point-to-point connected nodes
-    generated using ORBIS. **/
+    generated using Rocketfuel. **/
 
 #include "ns3/core-module.h"
 #include "ns3/point-to-point-module.h"
@@ -92,9 +92,9 @@ main (int argc, char *argv[])
     echoClient.Install (routers.Get (2));
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
-  printf("making routes...\n");
+
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
-  printf("generated routes!\n");
+
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(2),true);
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(21),true)
