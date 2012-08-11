@@ -11,6 +11,8 @@
 #include "ns3/topology-read-module.h"
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
+#include "boost/algorithm/string/split.hpp"
+#include "boost/algorithm/string/classification.hpp"
 //#include "boost/system"
 #include <iostream>
 
@@ -22,7 +24,7 @@ int
 main (int argc, char *argv[])
 {
   bool verbose = true;
-  std::string rocketfuel_file = "rocketfuel/maps/3356.r1.cch";
+  std::string rocketfuel_file = "rocketfuel/maps/3356.cch";
 
   CommandLine cmd;
   cmd.AddValue ("file", "File to read Rocketfuel topology from", rocketfuel_file);
@@ -57,24 +59,56 @@ main (int argc, char *argv[])
   //addresses to the new network they've created between themselves.
   NetDeviceContainer router_devices;
   Ipv4AddressHelper address;
-  address.SetBase ("10.1.0.0", "255.255.255.0");
+  //address.SetBase ("10.1.0.0", "255.255.255.0");
   Ipv4InterfaceContainer router_interfaces;
   InternetStackHelper stack;
   stack.Install (routers);
 
   for (TopologyReader::ConstLinksIterator iter = topo_reader.LinksBegin();
        iter != topo_reader.LinksEnd(); iter++) {
-    NodeContainer new_nodes;
-    new_nodes.Add(iter->GetFromNode());
-    new_nodes.Add(iter->GetToNode());
+    //Attributes
+    for (TopologyReader::Link::ConstAttributesIterator attr = iter->AttributesBegin();
+         attr != iter->AttributesEnd(); attr++) {
+      NS_LOG_INFO("Attribute: " + boost::lexical_cast<std::string>(attr->second));
+    }
 
-    NetDeviceContainer new_devs = pointToPoint.Install(new_nodes);
+    NodeContainer from_node;
+    NodeContainer to_node;
+    from_node.Add(iter->GetFromNode());
+    to_node.Add(iter->GetToNode());
+    NodeContainer both_nodes (from_node, to_node);
+
+    NetDeviceContainer new_devs = pointToPoint.Install(both_nodes);
+    NetDeviceContainer from_dev;
+    from_dev.Add(new_devs.Get(0));
+    NetDeviceContainer to_dev;
+    to_dev.Add(new_devs.Get(1));
     router_devices.Add(new_devs);
 
-    router_interfaces.Add(address.Assign (new_devs));
-    address.NewNetwork();
+    // Split addresses into /24 network address and 8-bit base address
+    std::string from_addr = iter->GetAttribute("From Address");
+    std::string to_addr = iter->GetAttribute("To Address");
+    std::vector<std::string> from_addr_vec;
+    std::vector<std::string> to_addr_vec;
+    boost::algorithm::split (from_addr_vec, from_addr, boost::algorithm::is_any_of("."));
+    boost::algorithm::split (to_addr_vec, to_addr, boost::algorithm::is_any_of("."));
+
+    address.SetBase (Ipv4Address( (from_addr_vec[0] + "." + from_addr_vec[1] + "." + from_addr_vec[2] + ".0").c_str() ),
+                     Ipv4Mask("255.255.255.0"), Ipv4Address( ("0.0.0." + from_addr_vec[3]).c_str() ));
+    std::cout << "This right?: " << from_addr << " == " << Ipv4Address(from_addr.c_str()) << std::endl;
+    Ipv4InterfaceContainer from_iface = address.Assign (from_dev);
+    router_interfaces.Add(from_iface);
+
+    address.SetBase (Ipv4Address( (to_addr_vec[0] + "." + to_addr_vec[1] + "." + to_addr_vec[2] + ".0").c_str() ),
+                     Ipv4Mask("255.255.255.0"), Ipv4Address( ("0.0.0." + to_addr_vec[3]).c_str() ));
+    std::cout << "This right?: " << to_addr << " == " << Ipv4Address(to_addr.c_str()) << std::endl;
+    Ipv4InterfaceContainer to_iface = address.Assign (to_dev);
+    router_interfaces.Add(to_iface);
+
+    std::cout << iter->GetAttribute("From Address") << " should = " << from_iface.GetAddress(0) << std::endl;
+    std::cout << iter->GetAttribute("To Address") << " should = " << to_iface.GetAddress(0) << std::endl;
+    //address.NewNetwork();
   }
-  //router_devices = pointToPoint.Install(routers.Get(2),routers.Get(3))
 
   //Application
   UdpEchoServerHelper echoServer (9);

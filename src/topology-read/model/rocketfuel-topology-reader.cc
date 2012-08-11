@@ -153,14 +153,18 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
   if (argv[8])
     {
       name = argv[8];
+      std::remove(name.begin(), name.end(), '!');
+      //cut off '='
+      if (name[name.size() - 1] == '!')
+        name.erase(name.size() - 1);
     }
 
   radius = ::atoi (&argv[9][1]);
   // Why are we skipping all nodes beyond radius 0??  Maybe this creates disconnected topologies...
-  if (radius > 0)
+  /*if (radius > 0)
     {
       return nodes;
-    }
+      }*/
 
   /* uid @loc [+] [bb] (num_neigh) [&ext] -> <nuid-1> <nuid-2> ... {-euid} ... =name[!] rn */
   NS_LOG_INFO ("Load Node[" << uid << "]: location: " << loc << " dns: " << dns
@@ -210,17 +214,20 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
 
               link->SetAttribute("From Location", loc);
               //link->SetAttribute("From Address", name);
-              link->SetAttribute("From Address", nodeAddresses[uid]);
+              link->SetAttribute("From Address", nodeAddresses[name]);
 
               linkMap[uid + ">" + nuid] = link;
-              AddLink (*link);
-              linksNumber++;
             }
           else
             {
               link->SetAttribute("To Location", loc);
               //link->SetAttribute("To Address", name);
-              link->SetAttribute("To Address", nodeAddresses[uid]);
+              link->SetAttribute("To Address", nodeAddresses[name]);
+
+              //update links with full information now that we have it
+              AddLink (*link);
+              linksNumber++;
+              linkMap[nuid + ">" + uid] = link;
             }
         }
     }
@@ -336,9 +343,11 @@ RocketfuelTopologyReader::TryBuildAliases (void)
   std::string aliasFileName = GetFileName();
   std::string uid;
   std::string address;
+  std::string name;
   size_t extIndex = aliasFileName.rfind (".cch");
   std::string line;
   size_t firstSpace;
+  size_t secondSpace;
 
   if (extIndex == std::string::npos)
     {
@@ -363,11 +372,13 @@ RocketfuelTopologyReader::TryBuildAliases (void)
         break;
 
       firstSpace = line.find(" ");
+      secondSpace = line.rfind(" ");
       uid = line.substr (0, firstSpace);
-      address = line.substr (firstSpace + 1, line.rfind(" ") - firstSpace);
-
-      nodeAddresses[uid] = address;
-      NS_LOG_INFO ("Uid: " << uid << ", IP: " << address);
+      address = line.substr (firstSpace + 1, secondSpace - firstSpace - 1);
+      name = line.substr (secondSpace + 1);
+      
+      nodeAddresses[name] = address;
+      NS_LOG_INFO ("Uid: " << uid << ", IP: " << address << ", Name: " << name);
     }
 
   aliasFile.close();
