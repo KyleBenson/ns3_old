@@ -121,8 +121,9 @@ public:
      */
     ConstAttributesIterator AttributesEnd (void) const;
 
+    Link (); // Needed to create STL containers of Links outside topology-reader base class
+
 private:
-    Link ();
     std::string m_fromName;
     Ptr< Node > m_fromPtr;
     std::string m_toName;

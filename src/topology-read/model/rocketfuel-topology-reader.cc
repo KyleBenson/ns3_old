@@ -23,6 +23,7 @@
 #include <iostream>
 #include <sstream>
 #include <regex.h>
+#include <algorithm>
 
 #include "ns3/log.h"
 #include "rocketfuel-topology-reader.h"
@@ -74,7 +75,12 @@ RocketfuelTopologyReader::~RocketfuelTopologyReader ()
 
 int linksNumber = 0;
 int nodesNumber = 0;
+// nodeMap indexed by "uid"
 std::map<std::string, Ptr<Node> > nodeMap;
+// linkMap indexed by "fromUid>toUid"
+std::map<std::string, TopologyReader::Link *> linkMap;
+// mapping of UIDs to IP addresses when alias files are available
+std::map<std::string, std::string> nodeAddresses;
 
 NodeContainer
 RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
@@ -93,7 +99,11 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
   NodeContainer nodes;
 
   uid = argv[0];
+
+  // Parse a normal-looking location string
   loc = argv[1];
+  std::replace(loc.begin(), loc.end(), '+', ' ');
+  loc = loc.substr(1); //cut off '@'
 
   if (argv[2])
     {
@@ -116,13 +126,14 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
       num_neigh = num_neigh_s;
     }
 
-  /* neighbors */
+  /* internal neighbors */
   if (argv[6])
     {
       char *nbr;
       char *stringp = argv[6];
       while ((nbr = strsep (&stringp, " \t")) != NULL)
         {
+          //need to cut off < and >
           nbr[strlen (nbr) - 1] = '\0';
           neigh_list.push_back (nbr + 1);
         }
@@ -132,7 +143,7 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
       NS_LOG_WARN ("Given number of neighbors = " << num_neigh << " != size of neighbors list = " << neigh_list.size ());
     }
 
-  /* externs */
+  /* external neighbors */
   if (argv[7])
     {
       //      euid = argv[7];
@@ -145,6 +156,7 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
     }
 
   radius = ::atoi (&argv[9][1]);
+  // Why are we skipping all nodes beyond radius 0??  Maybe this creates disconnected topologies...
   if (radius > 0)
     {
       return nodes;
@@ -188,10 +200,28 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
               nodes.Add (tmpNode);
               nodesNumber++;
             }
-          NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << uid << " to: " << nuid);
-          Link link (nodeMap[uid], uid, nodeMap[nuid], nuid);
-          AddLink (link);
-          linksNumber++;
+
+          // Only create link if the neighbor didn't create it already!
+          Link *link = linkMap[nuid + ">" + uid];
+          if (linkMap[nuid + ">" + uid] == 0)
+            {
+              NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << uid << " to: " << nuid);
+              link = new Link(nodeMap[uid], uid, nodeMap[nuid], nuid);
+
+              link->SetAttribute("From Location", loc);
+              //link->SetAttribute("From Address", name);
+              link->SetAttribute("From Address", nodeAddresses[uid]);
+
+              linkMap[uid + ">" + nuid] = link;
+              AddLink (*link);
+              linksNumber++;
+            }
+          else
+            {
+              link->SetAttribute("To Location", loc);
+              //link->SetAttribute("To Address", name);
+              link->SetAttribute("To Address", nodeAddresses[uid]);
+            }
         }
     }
   return nodes;
@@ -299,6 +329,49 @@ RocketfuelTopologyReader::GetFileType (const char *line)
   return RF_UNKNOWN;
 }
 
+void
+RocketfuelTopologyReader::TryBuildAliases (void)
+{
+  std::ifstream aliasFile;
+  std::string aliasFileName = GetFileName();
+  std::string uid;
+  std::string address;
+  size_t extIndex = aliasFileName.rfind (".cch");
+  std::string line;
+  size_t firstSpace;
+
+  if (extIndex == std::string::npos)
+    {
+      NS_LOG_WARN ("Could not find alias file for: " + aliasFileName);
+      return;
+    }
+
+  aliasFileName.replace (extIndex, 4, ".al");
+  aliasFile.open (aliasFileName.c_str ());
+  
+  if (!aliasFile.is_open())
+    {
+      NS_LOG_WARN ("Couldn't open the file " << aliasFileName);
+    }
+
+  NS_LOG_INFO ("Parsing alias file: " << aliasFileName);
+  while (!aliasFile.eof ())
+    {
+      getline (aliasFile, line);
+      
+      if (line.empty ())
+        break;
+
+      firstSpace = line.find(" ");
+      uid = line.substr (0, firstSpace);
+      address = line.substr (firstSpace + 1, line.rfind(" ") - firstSpace);
+
+      nodeAddresses[uid] = address;
+      NS_LOG_INFO ("Uid: " << uid << ", IP: " << address);
+    }
+
+  aliasFile.close();
+}
 
 NodeContainer
 RocketfuelTopologyReader::Read (void)
@@ -343,6 +416,8 @@ RocketfuelTopologyReader::Read (void)
               NS_LOG_INFO ("Unknown File Format (" << GetFileName () << ")");
               break;
             }
+          if (ftype == RF_MAPS)
+            TryBuildAliases();
         }
 
       regmatch_t regmatch[REGMATCH_MAX];
