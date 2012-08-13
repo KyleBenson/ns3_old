@@ -71,7 +71,9 @@ RocketfuelTopologyReader::~RocketfuelTopologyReader ()
   MAYSPACE END
 
 #define ROCKETFUEL_WEIGHTS_LINE \
-  START "([^ \t]+)" SPACE "([^ \t]+)" SPACE "([0-9.]+)" MAYSPACE END
+  START "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
+  // C++ regex library can't seem to support capturing adjacent groups so I had to modify rocketfuel traces for above pattern
+  // START "([A-Za-z,+.]+)([0-9]+)" SPACE "([A-Za-z,+.]+)([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
 
 int linksNumber = 0;
 int nodesNumber = 0;
@@ -81,6 +83,8 @@ std::map<std::string, Ptr<Node> > nodeMap;
 std::map<std::string, TopologyReader::Link *> linkMap;
 // mapping of UIDs to IP addresses when alias files are available
 std::map<std::string, std::string> nodeAddresses;
+// whether the file contains latencies or weights
+bool isLatencies;
 
 NodeContainer
 RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
@@ -159,8 +163,10 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
         name.erase(name.size() - 1);
     }
 
-  radius = ::atoi (&argv[9][1]);
-  // Why are we skipping all nodes beyond radius 0??  Maybe this creates disconnected topologies...
+  radius = ::atoi (&argv[9][0]);
+  std::cout << argv[9] << std::endl;
+  // Why are we skipping all nodes beyond radius 0??  This creates disconnected topologies because the
+  // other nodes still get created but will not have any links
   /*if (radius > 0)
     {
       return nodes;
@@ -237,58 +243,60 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
 NodeContainer
 RocketfuelTopologyReader::GenerateFromWeightsFile (int argc, char *argv[])
 {
-  /* uid @loc [+] [bb] (num_neigh) [&ext] -> <nuid-1> <nuid-2> ... {-euid} ... =name[!] rn */
-  std::string sname;
-  std::string tname;
-  char *endptr;
+  // Locations and uids are squished together unfortunately
+  /* location1uid1 location2uid2 latency */
+  std::string loc1 = argv[0];
+  std::string uid1 = argv[1];
+  std::string loc2 = argv[2];
+  std::string uid2 = argv[3];
+  std::string weight = argv[4];
   NodeContainer nodes;
 
-  sname = argv[0];
-  tname = argv[1];
-  double v = strtod (argv[2], &endptr); // weight
-  // cast v to void , to suppress 'v' set but not used compiler warning
-  (void) v;
-  if (*endptr != '\0')
-    {
-      NS_LOG_WARN ("invalid weight: " << argv[2]);
-      return nodes;
-    }
+  for (int i =0; i < argc; i++)
+    NS_LOG_INFO(argv[i]);
+
+  NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << uid1 << " (" << loc1 << ") to: " 
+               << uid2 << " (" << loc2 << ") with weight: " << weight);
+
+  std::replace(loc1.begin(), loc1.end(), '+', ' ');
+  std::replace(loc2.begin(), loc2.end(), '+', ' ');
 
   // Create node and link
-  if (!sname.empty () && !tname.empty ())
+  if (!uid1.empty () && !uid2.empty ())
     {
-      if (nodeMap[sname] == 0)
+      if (nodeMap[uid1] == 0)
         {
           Ptr<Node> tmpNode = CreateObject<Node> ();
-          nodeMap[sname] = tmpNode;
+          nodeMap[uid1] = tmpNode;
           nodes.Add (tmpNode);
           nodesNumber++;
         }
 
-      if (nodeMap[tname] == 0)
+      if (nodeMap[uid2] == 0)
         {
           Ptr<Node> tmpNode = CreateObject<Node> ();
-          nodeMap[tname] = tmpNode;
+          nodeMap[uid2] = tmpNode;
           nodes.Add (tmpNode);
           nodesNumber++;
         }
-      NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << sname << " to: " << tname);
-      TopologyReader::ConstLinksIterator iter;
-      bool found = false;
-      for (iter = LinksBegin (); iter != LinksEnd (); iter++)
-        {
-          if ((iter->GetFromNode () == nodeMap[tname])
-              && (iter->GetToNode () == nodeMap[sname]))
-            {
-              found = true;
-              break;
-            }
-        }
 
-      if (!found)
+      NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << uid1 << " (" << loc1 << ") to: " 
+                   << uid2 << " (" << loc2 << ") with weight: " << weight);
+
+      // Only create link if the neighbor didn't create it already!
+      if (linkMap[uid2 + ">" + uid1] == 0)
         {
-          Link link (nodeMap[sname], sname, nodeMap[tname], tname);
-          AddLink (link);
+          NS_LOG_INFO (linksNumber << ":" << nodesNumber << " From: " << uid1 << " (" << loc1 << ") to: " 
+                       << uid2 << " (" << loc2 << ") with weight: " << weight);
+
+          Link *link = new Link(nodeMap[uid1], uid1, nodeMap[uid2], uid2);
+          
+          link->SetAttribute("From Location", loc1);
+          link->SetAttribute("To Location", loc2);
+          link->SetAttribute( (isLatencies ? "Latency" : "Weight"), weight);
+          
+          linkMap[uid1 + ">" + uid2] = link;
+          AddLink (*link);
           linksNumber++;
         }
     }
@@ -416,6 +424,8 @@ RocketfuelTopologyReader::Read (void)
       lineBuffer.clear ();
 
       getline (topgen, line);
+      if (topgen.eof ())
+        break;
       buf = (char *)line.c_str ();
       //strncpy(buf, (char *)line.c_str(), sizeof(buf));
 
@@ -429,6 +439,12 @@ RocketfuelTopologyReader::Read (void)
             }
           if (ftype == RF_MAPS)
             TryBuildAliases();
+
+          // Determine whether it's weights or latencies
+          else if (ftype == RF_WEIGHTS)
+            {
+              isLatencies = (GetFileName ().find("latencies") != std::string::npos);
+            }
         }
 
       regmatch_t regmatch[REGMATCH_MAX];
