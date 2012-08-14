@@ -1,0 +1,150 @@
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/*
+ * Copyright (c) 2008 INRIA
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License version 2 as
+ * published by the Free Software Foundation;
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ *
+ * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
+ */
+#include "ron-helper.h"
+#include "ns3/ron-server.h"
+#include "ns3/ron-client.h"
+#include "ns3/uinteger.h"
+#include "ns3/names.h"
+
+namespace ns3 {
+
+RonServerHelper::RonServerHelper (uint16_t port)
+{
+  m_factory.SetTypeId (RonServer::GetTypeId ());
+  SetAttribute ("Port", UintegerValue (port));
+}
+
+void 
+RonServerHelper::SetAttribute (
+  std::string name, 
+  const AttributeValue &value)
+{
+  m_factory.Set (name, value);
+}
+
+ApplicationContainer
+RonServerHelper::Install (Ptr<Node> node) const
+{
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+RonServerHelper::Install (std::string nodeName) const
+{
+  Ptr<Node> node = Names::Find<Node> (nodeName);
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+RonServerHelper::Install (NodeContainer c) const
+{
+  ApplicationContainer apps;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      apps.Add (InstallPriv (*i));
+    }
+
+  return apps;
+}
+
+Ptr<Application>
+RonServerHelper::InstallPriv (Ptr<Node> node) const
+{
+  Ptr<Application> app = m_factory.Create<RonServer> ();
+  node->AddApplication (app);
+
+  return app;
+}
+
+  //////********************************************//////////////
+  //////********************************************//////////////
+  //////******************  CLIENT  ****************//////////////
+  //////********************************************//////////////
+  //////********************************************//////////////
+
+RonClientHelper::RonClientHelper (Ipv4Address address, uint16_t serverPort, uint16_t overlayPort)
+{
+  m_factory.SetTypeId (RonClient::GetTypeId ());
+  SetAttribute ("RemoteAddress", Ipv4AddressValue (address));
+  SetAttribute ("RemotePort", UintegerValue (serverPort));
+  SetAttribute ("OverlayPort", UintegerValue (overlayPort));
+}
+
+void 
+RonClientHelper::SetAttribute (
+  std::string name, 
+  const AttributeValue &value)
+{
+  m_factory.Set (name, value);
+}
+
+void
+RonClientHelper::SetFill (Ptr<Application> app, std::string fill)
+{
+  app->GetObject<RonClient>()->SetFill (fill);
+}
+
+void
+RonClientHelper::SetFill (Ptr<Application> app, uint8_t fill, uint32_t dataLength)
+{
+  app->GetObject<RonClient>()->SetFill (fill, dataLength);
+}
+
+void
+RonClientHelper::SetFill (Ptr<Application> app, uint8_t *fill, uint32_t fillLength, uint32_t dataLength)
+{
+  app->GetObject<RonClient>()->SetFill (fill, fillLength, dataLength);
+}
+
+ApplicationContainer
+RonClientHelper::Install (Ptr<Node> node) const
+{
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+RonClientHelper::Install (std::string nodeName) const
+{
+  Ptr<Node> node = Names::Find<Node> (nodeName);
+  return ApplicationContainer (InstallPriv (node));
+}
+
+ApplicationContainer
+RonClientHelper::Install (NodeContainer c) const
+{
+  ApplicationContainer apps;
+  for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
+    {
+      apps.Add (InstallPriv (*i));
+    }
+
+  return apps;
+}
+
+Ptr<Application>
+RonClientHelper::InstallPriv (Ptr<Node> node) const
+{
+  Ptr<Application> app = m_factory.Create<RonClient> ();
+  node->AddApplication (app);
+
+  return app;
+}
+
+} // namespace ns3

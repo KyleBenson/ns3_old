@@ -28,18 +28,48 @@ ReadLatencies (std::string fileName)
   return latencies;
 }
 
+// Traced source callbacks
+static void
+AckReceived (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
+{
+  NS_LOG_INFO ("Node " << nodeId << " received server ACK at " << Simulator::Now ().GetSeconds ());
+  *stream->GetStream () << "Node " << nodeId << " received server ACK at " << Simulator::Now ().GetSeconds () << std::endl;
+}
+
+static void
+PacketForwarded (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
+{
+  NS_LOG_INFO ("Node " << nodeId << " forwarded packet at " << Simulator::Now ().GetSeconds ());
+  *stream->GetStream () << "Node " << nodeId << " forwarded packet at " << Simulator::Now ().GetSeconds () << std::endl;
+}
+
+static void
+PacketSent (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
+{
+  NS_LOG_INFO ("Node " << nodeId << " sent packet at " << Simulator::Now ().GetSeconds ());
+  *stream->GetStream () << "Node " << nodeId << " sent packet at " << Simulator::Now ().GetSeconds () << std::endl;
+}
+
 int 
 main (int argc, char *argv[])
 {
-  bool verbose = true;
+  bool verbose = false;
+  bool trace_acks = false;
+  bool trace_forwards = false;
+  bool trace_sends = false;
   std::string rocketfuel_file = "rocketfuel/maps/3356.cch";
   std::string latency_file = "";
   std::string disaster_location = "Los Angeles, CA";
+  std::string trace_file = "";
   double failure_probability = 0.1;
 
   CommandLine cmd;
   cmd.AddValue ("file", "File to read Rocketfuel topology from", rocketfuel_file);
   cmd.AddValue ("latencies", "File to read latencies from in Rocketfuel weights file format", latency_file);
+  cmd.AddValue ("trace_file", "File to write traces to", trace_file);
+  cmd.AddValue ("trace_acks", "Whether to print traces when a client receives an ACK from the server", trace_acks);
+  cmd.AddValue ("trace_forwards", "Whether to print traces when a client forwards a packet", trace_forwards);
+  cmd.AddValue ("trace_sends", "Whether to print traces when a client sends a packet initially", trace_sends);
   cmd.AddValue ("verbose", "Whether to print verbose log info", verbose);
   cmd.AddValue ("disaster", "Where the disaster (and subsequent failures) is to occur "
                 "(use underscores for spaces so the command line parser will actually work", disaster_location);
@@ -52,8 +82,8 @@ main (int argc, char *argv[])
 
   if (verbose)
     {
-      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonClientApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
@@ -73,6 +103,16 @@ main (int argc, char *argv[])
           exit(-1);
         }
       latencies = ReadLatencies (latency_file);
+    }
+
+  // Open trace file if requested
+  bool tracing = false;
+  Ptr<OutputStreamWrapper> outputStream;
+  if (trace_file != "")
+    {
+      AsciiTraceHelper asciiTraceHelper;
+      outputStream = asciiTraceHelper.CreateFileStream (trace_file);
+      tracing = true;
     }
 
   RocketfuelTopologyReader topo_reader;
@@ -149,8 +189,8 @@ main (int argc, char *argv[])
        node != routers.End (); node++)
     {
       // We'll only install the overlay application on clients attached to stub networks,
-      // so we just choose the stub network routers here
-      if ((*node)->GetNDevices () == 1)
+      // so we just choose the stub network routers here (note that all nodes have a loopback device)
+      if ((*node)->GetNDevices () <= 2)
         overlayNodes.Add (*node);
 
       // We'll choose the router with the most connections to attach the server to so that we
@@ -159,43 +199,51 @@ main (int argc, char *argv[])
         serverNode = *node;
     }
 
-  NS_LOG_INFO (overlayNodes.GetN ());
-
   // add another node to the router picked as the server node to be the actual server
   pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
   Ptr<Node> serverProvider = serverNode;
   serverNode = CreateObject<Node> ();
   stack.Install (serverNode);
-  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,serverNode);
-  Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (1).first->GetAddress (2,0).GetLocal ();
+  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,serverProvider);
+  Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
   NS_LOG_INFO ("Done network setup!");
 
   //Application
-  UdpEchoServerHelper echoServer (9);
+  RonServerHelper ronServer (9);
 
-  ApplicationContainer serverApps = echoServer.Install (serverNode);
-  //ApplicationContainer serverApps = echoServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-  //ApplicationContainer serverApps = echoServer.Install (echoServerNode);
+  ApplicationContainer serverApps = ronServer.Install (serverNode);
+  //ApplicationContainer serverApps = ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+  //ApplicationContainer serverApps = ronServer.Install (ronServerNode);
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (Seconds (10.0));
 
   //Ipv4Address echo_addr = router_interfaces.Get (0).first->GetAddress (2,0).GetLocal ();
   //Ipv4Address echo_addr = routers.Get (0)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
   
-  UdpEchoClientHelper echoClient (serverAddress, 9);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  RonClientHelper ronClient (serverAddress, 9, 10);
+  ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
+  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
+  ApplicationContainer clientApps;
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
-      ApplicationContainer clientApps = echoClient.Install (*node);
-      clientApps.Start (Seconds (2.0));
-      clientApps.Stop (Seconds (10.0));
+      clientApps.Add (ronClient.Install (*node));
     }
-      
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (Seconds (10.0));
+
+  if (tracing)
+    {
+      for (ApplicationContainer::Iterator itr = clientApps.Begin ();
+           itr != clientApps.End (); itr++)
+        {
+          (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckRecvd, outputStream));
+        }
+    }
+
   // Fail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
        iface != ifacesToKill.End (); iface++)

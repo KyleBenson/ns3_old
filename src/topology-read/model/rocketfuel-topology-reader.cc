@@ -164,7 +164,7 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
     }
 
   radius = ::atoi (&argv[9][0]);
-  std::cout << argv[9] << std::endl;
+
   // Why are we skipping all nodes beyond radius 0??  This creates disconnected topologies because the
   // other nodes still get created but will not have any links
   /*if (radius > 0)
