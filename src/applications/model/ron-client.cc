@@ -28,6 +28,7 @@
 #include "ns3/packet.h"
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
+#include "ron-header.h"
 
 #include "ron-client.h"
 
@@ -57,7 +58,7 @@ RonClient::GetTypeId (void)
                    MakeIpv4AddressAccessor (&RonClient::m_servAddress),
                    MakeIpv4AddressChecker ())
     .AddAttribute ("Timeout", "Time to wait for a reply before trying to resend or send along an overlay node.",
-                   TimeValue (Seconds (10)),
+                   TimeValue (Seconds (3)),
                    MakeTimeAccessor (&RonClient::m_timeout),
                    MakeTimeChecker ())
     .AddAttribute ("MaxPackets", 
@@ -125,6 +126,9 @@ RonClient::StartApplication (void)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
+  if (m_startTime >= m_stopTime)
+    return;
+
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
 
   if (m_servSocket == 0)
@@ -140,6 +144,7 @@ RonClient::StartApplication (void)
       m_overSocket = Socket::CreateSocket (GetNode (), tid);
       InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), m_overPort);
       m_overSocket->Bind (local);
+
       if (addressUtils::IsMulticast (m_local))
         {
           Ptr<UdpSocket> udpSocket = DynamicCast<UdpSocket> (m_overSocket);
@@ -177,6 +182,12 @@ RonClient::StopApplication ()
       m_overSocket = 0;
     }
 
+  CancelSends ();
+}
+
+void
+RonClient::CancelSends ()
+{
   for (std::list<EventId>::iterator itr = m_sendEvents.begin ();
        itr != m_sendEvents.end (); itr++)
     Simulator::Cancel (*itr);
@@ -318,12 +329,18 @@ RonClient::Send (void)
       //
       p = Create<Packet> (m_size);
     }
+
+  // Create a RON header and add it to packet
+  RonHeader head (m_servAddress);
+  head.SetSeq (m_sent);
+  p->AddHeader (head);
+
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p, GetNode ()->GetId ());
   m_servSocket->Send (p);
   ScheduleTimeout (m_sent++);
-
+  //TODO: modify m_size based on size of the header
   NS_LOG_INFO ("Sent " << m_size << " bytes to " << m_servAddress);
 
   if (m_sent < m_count) 
@@ -343,46 +360,64 @@ RonClient::HandleRead (Ptr<Socket> socket)
     {
       if (InetSocketAddress::IsMatchingType (from))
         {
-          NS_LOG_INFO ("Received " << packet->GetSize () << " bytes from " <<
-                       InetSocketAddress::ConvertFrom (from).GetIpv4 ());
+          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+          NS_LOG_INFO ("Received " << packet->GetSize () << " bytes from " << source);
 
           // If the packet is destined for an overlay node, forward it
           if (forward)
             {
-              ForwardPacket (packet);
+              ForwardPacket (packet, source);
             }
 
           // Else it's from server, so process the ACK
           else
             {
-              ProcessAck (packet);
+              ProcessAck (packet, source);
             }
         }
     }
 }
 
 void
-RonClient::ForwardPacket (Ptr<Packet> packet)
+RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
 {
   packet->RemoveAllPacketTags ();
   packet->RemoveAllByteTags ();
-  
+
+  // Edit the packet's current RON header and get next hop
+  RonHeader head;
+  packet->RemoveHeader (head);
+
+  // If this is the first hop on the route, we need to set the source
+  // since NS3 doesn't give us a convenient way to access which interface
+  // the original packet was sent out on.
+  if (head.GetHop () == 0)
+    head.SetOrigin (source);
+
+  head.IncrHops ();
+  Ipv4Address destination (head.GetNextDest ());
+  packet->AddHeader (head);
+
   NS_LOG_LOGIC ("Forwarding packet");
-  //TODO: get destination
-  Ipv4Address destination ("1.1.1.1");
 
   m_forwardTrace (packet, GetNode ()-> GetId ());
   m_overSocket->SendTo (packet, 0, destination);
 }
 
 void
-RonClient::ProcessAck (Ptr<Packet> packet)
+RonClient::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
 {
-  //TODO: everything..
-  uint32_t seq = 0; //find it...
+  NS_LOG_LOGIC ("ACK received");
+
+  RonHeader head;
+  packet->PeekHeader (head);
+  uint32_t seq = head.GetSeq ();
   
   m_ackTrace (packet, GetNode ()-> GetId ());
   m_outstandingSeqs.erase (seq);
+
+  CancelSends ();
+  //TODO: store path? send more data?
 }
 
 void

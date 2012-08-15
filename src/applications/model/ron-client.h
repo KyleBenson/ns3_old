@@ -24,6 +24,7 @@
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
+#include "ns3/ron-header.h"
 
 #include <list>
 #include <set>
@@ -140,9 +141,10 @@ private:
   void SetTimeout (Time t);
   void Send (void);
   void ScheduleTransmit (Time dt);
+  void CancelSends (void);
 
-  void ForwardPacket (Ptr<Packet> packet);
-  void ProcessAck (Ptr<Packet> packet);
+  void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
+  void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
   void CheckTimeout (uint32_t seq);
   void ScheduleTimeout (uint32_t seq);
 
@@ -155,6 +157,7 @@ private:
 
   uint32_t m_sent;
   Ipv4Address m_servAddress;
+  Ipv4Address m_address;
   Ptr<Socket> m_servSocket;
   Ptr<Socket> m_overSocket;
   uint16_t m_servPort;

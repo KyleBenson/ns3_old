@@ -10,11 +10,14 @@
 #include "ns3/internet-module.h"
 #include "ns3/topology-read-module.h"
 #include "ns3/ipv4-address-generator.h"
+#include "ns3/ron-header.h"
 
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
 //#include "boost/system"
 #include <iostream>
+#include <sstream>
+#include <set>
 
 using namespace ns3;
 
@@ -32,31 +35,76 @@ ReadLatencies (std::string fileName)
 static void
 AckReceived (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
 {
-  NS_LOG_INFO ("Node " << nodeId << " received server ACK at " << Simulator::Now ().GetSeconds ());
-  *stream->GetStream () << "Node " << nodeId << " received server ACK at " << Simulator::Now ().GetSeconds () << std::endl;
+  RonHeader head;
+  p->PeekHeader (head);
+  bool usedOverlay = head.IsForward ();
+  
+  std::stringstream s;
+  s << "Node " << nodeId << " received " << (usedOverlay ? "indirect" : "direct") << " ACK at " << Simulator::Now ().GetSeconds ();
+
+  NS_LOG_INFO (s.str ());
+  *stream->GetStream () << s.str() << std::endl;
 }
 
 static void
 PacketForwarded (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
 {
-  NS_LOG_INFO ("Node " << nodeId << " forwarded packet at " << Simulator::Now ().GetSeconds ());
-  *stream->GetStream () << "Node " << nodeId << " forwarded packet at " << Simulator::Now ().GetSeconds () << std::endl;
+  RonHeader head;
+  p->PeekHeader (head);
+  
+  std::stringstream s;
+  s << "Node " << nodeId << " forwarded packet (hop=" << head.GetHop () << ") at " << Simulator::Now ().GetSeconds ();
+
+  NS_LOG_INFO (s.str ());
+  *stream->GetStream () << s.str() << std::endl;
 }
 
 static void
 PacketSent (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeId)
 {
-  NS_LOG_INFO ("Node " << nodeId << " sent packet at " << Simulator::Now ().GetSeconds ());
-  *stream->GetStream () << "Node " << nodeId << " sent packet at " << Simulator::Now ().GetSeconds () << std::endl;
+  RonHeader head;
+  p->PeekHeader (head);
+  bool usedOverlay = head.IsForward ();
+
+  std::stringstream s;
+  s << "Node " << nodeId << " sent " << (usedOverlay ? "indirect" : "direct") << " packet at " << Simulator::Now ().GetSeconds ();
+  
+  NS_LOG_INFO (s.str ());
+  *stream->GetStream () << s.str() << std::endl;
+}
+
+static void
+FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
+{
+  ipv4->SetDown (iface);
+  ipv4->SetForwarding (iface, false);
+}
+
+static void
+FailNode (Ptr<Node> node)
+{
+  Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+
+  for (uint32_t iface = 0; iface < ipv4->GetNInterfaces (); iface++)
+    {
+      FailIpv4 (ipv4, iface);
+    }
+
+  for (uint32_t app = 0; app < node->GetNApplications (); app++)
+    {
+      node->GetApplication (app)->SetAttribute ("StopTime", (TimeValue(Time(0))));
+    }
 }
 
 int 
 main (int argc, char *argv[])
 {
   bool verbose = false;
-  bool trace_acks = false;
-  bool trace_forwards = false;
-  bool trace_sends = false;
+  bool trace_acks = true;
+  bool trace_forwards = true;
+  bool trace_sends = true;
+  bool install_stubs = true;
+  bool report_disaster = true;
   std::string rocketfuel_file = "rocketfuel/maps/3356.cch";
   std::string latency_file = "";
   std::string disaster_location = "Los Angeles, CA";
@@ -72,8 +120,10 @@ main (int argc, char *argv[])
   cmd.AddValue ("trace_sends", "Whether to print traces when a client sends a packet initially", trace_sends);
   cmd.AddValue ("verbose", "Whether to print verbose log info", verbose);
   cmd.AddValue ("disaster", "Where the disaster (and subsequent failures) is to occur "
-                "(use underscores for spaces so the command line parser will actually work", disaster_location);
+                "(use underscores for spaces so the command line parser will actually work)", disaster_location);
   cmd.AddValue ("fail_prob", "Probability that a link in the disaster region will fail", failure_probability);
+  cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have only one link)", install_stubs);
+  cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
 
   cmd.Parse (argc,argv);
 
@@ -84,6 +134,7 @@ main (int argc, char *argv[])
     {
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
@@ -135,7 +186,8 @@ main (int argc, char *argv[])
   address.SetBase ("10.1.0.0", "255.255.255.252");
   Ipv4InterfaceContainer router_interfaces;
   Ipv4InterfaceContainer ifacesToKill;
-
+  std::map<uint32_t, Ptr <Node> > disasterNodes;
+  
   // Random variable for determining if links fail during the disaster
   UniformVariable random;
 
@@ -169,33 +221,50 @@ main (int argc, char *argv[])
     router_interfaces.Add(new_interfaces);
     address.NewNetwork();
 
-    // Failure model: if either endpoint is in the disaster city, fail node with failure_probability
+    // If the node is in the disaster region add them to the list
+    if (iter->GetAttribute ("From Location") == disaster_location)
+      {
+        disasterNodes.insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
+      }
+    if (iter->GetAttribute ("To Location") == disaster_location)
+      {
+        disasterNodes.insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
+      }
+
+    // Failure model: if either endpoint is in the disaster city, fail link with failure_probability
     if ((iter->GetAttribute ("From Location") == disaster_location ||
          iter->GetAttribute ("To Location") == disaster_location) &&
         random.GetValue () <= failure_probability)
       {
-        //new_devs.Get (0)->GetChannel ()->SetDown ();
-        //channelToKill = new_devs.Get (0)->GetChannel ();
         ifacesToKill.Add(new_interfaces.Get (0));
         ifacesToKill.Add(new_interfaces.Get (1));
       }
-  }
+}
 
   // Now we need to choose the server and the clients
   Ptr<Node> serverNode = routers.Get (0);
   NodeContainer overlayNodes;
+  NodeContainer failNodes;
 
   for (NodeContainer::Iterator node = routers.Begin ();
        node != routers.End (); node++)
     {
-      // We'll only install the overlay application on clients attached to stub networks,
+      // We may only install the overlay application on clients attached to stub networks,
       // so we just choose the stub network routers here (note that all nodes have a loopback device)
-      if ((*node)->GetNDevices () <= 2)
-        overlayNodes.Add (*node);
+      if (!install_stubs or (*node)->GetNDevices () <= 2) 
+        {
+          if (random.GetValue () < failure_probability and disasterNodes[(*node)->GetId ()] != 0)
+            failNodes.Add (*node);
+          else
+            overlayNodes.Add (*node);
+          //TODO: failed nodes may still be in the overlay, but we aren't looking at techniques for choosing overlay nodes yet
+        }
 
       // We'll choose the router with the most connections to attach the server to so that we
       // minimize the chance that it is cut off from the rest of the network.
-      if ((*node)->GetNDevices () > serverNode->GetNDevices ())
+      // We also assume that the server is outside of the disaster region (could be several).
+      if ((*node)->GetNDevices () > serverNode->GetNDevices ()
+          and disasterNodes[(*node)->GetId ()] != 0)
         serverNode = *node;
     }
 
@@ -225,13 +294,19 @@ main (int argc, char *argv[])
   ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
   ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
   ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
-
+  //ronClient.SetAttribute ("OverlayPort", UintegerValue (9));
+  
   ApplicationContainer clientApps;
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
+      if (report_disaster && disasterNodes[(*node)->GetId ()] != 0)
+          ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
+      else
+          ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
       clientApps.Add (ronClient.Install (*node));
     }
+
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
 
@@ -240,20 +315,31 @@ main (int argc, char *argv[])
       for (ApplicationContainer::Iterator itr = clientApps.Begin ();
            itr != clientApps.End (); itr++)
         {
-          (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckRecvd, outputStream));
+          if (trace_acks)
+            (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, outputStream));
+          if (trace_forwards)
+            (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, outputStream));
+          if (trace_sends)
+            (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, outputStream));
         }
     }
+
+  NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
+  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   // Fail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
        iface != ifacesToKill.End (); iface++)
     {
-      iface->first->SetDown (iface->second);
-      iface->first->SetForwarding (iface->second, false);
+      FailIpv4 (iface->first, iface->second);
     }
 
-  NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+  // Fail the nodes that were chosen
+  for (NodeContainer::Iterator node = failNodes.Begin ();
+       node != failNodes.End (); node++)
+    {
+      FailNode (*node);
+    }
 
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
  

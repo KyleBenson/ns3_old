@@ -148,3 +148,32 @@ RonClientHelper::InstallPriv (Ptr<Node> node) const
 }
 
 } // namespace ns3
+
+/* working with packet headers
+int main (int argc, char *argv[])
+{
+  // instantiate a header.
+  RonHeader sourceHeader;
+  sourceHeader.SetData (2);
+
+  // instantiate a packet
+  Ptr<Packet> p = Create<Packet> ();
+
+  // and store my header into the packet.
+  p->AddHeader (sourceHeader);
+
+  // print the content of my packet on the standard output.
+  p->Print (std::cout);
+  std::cout << std::endl;
+
+  // you can now remove the header from the packet:
+  RonHeader destinationHeader;
+  p->RemoveHeader (destinationHeader);
+
+  // and check that the destination and source
+  // headers contain the same values.
+  NS_ASSERT (sourceHeader.GetData () == destinationHeader.GetData ());
+
+  return 0;
+}
+*/
