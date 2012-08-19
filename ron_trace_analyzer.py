@@ -4,10 +4,7 @@ RON_TRACE_ANALYZER_DESCRIPTION = '''A helper script for analyzing NS3 Resilient 
 # (c) University of California Irvine 2012
 # @author: Kyle Benson
 
-import argparse
-import numpy
-import os.path
-import os
+import argparse, numpy, os.path, os, decimal, math, heapq
 
 ##################################################################################
 #################      ARGUMENTS       ###########################################
@@ -51,7 +48,6 @@ def ParseArgs():
     parser.add_argument('--prepend_title', nargs='+',
                         help='(*1/N) Prepend the given arguments to the title of the respective graphs.')
 
-    #TODO: what about when we want to specify the x-axis for groups?
 
     # Graph types to build
     parser.add_argument('--time', action='store_true',
@@ -63,7 +59,6 @@ def ParseArgs():
 
     parser.add_argument('--improvement', '-i', action='store_true',
                         help='graph percent improvement over not using an overlay for each file or group')
-    #TODO: add something to do with the number of forwards during the event?
 
 
     # Graph output modifiers
@@ -114,6 +109,13 @@ CURRENTLY NOT IMPLEMENTED*')
     return parser.parse_args()
 
 
+
+    #TODO: add something to do with the number of forwards during the event?
+    #TODO: what about when we want to specify the x-axis for groups?
+#TODO: how to find out the total number of overlay nodes and not just ones that participated???
+
+
+
 ############################################################################################################
 ############################        Trace Objects        ###################################################
 ############################################################################################################
@@ -126,16 +128,16 @@ class TraceNode:
     '''
     def __init__(self,id):
         self.id = id
-        self.ackRecvd = False
-        self.directAck = False
-        self.ackTime = 0
+        self.acks = 0
+        self.directAcks = 0
+        self.firstAckTime = 0
         self.sends = 0
         self.forwards = 0
 
     # TODO: implement getting more than one ACK????
 
     def __repr__(self):
-        return "Node " + self.id + ((" received " + ("direct" if self.directAck else "indirect") + " ACK at " + self.ackTime) if self.ackRecvd else "") + " sent %d and forwarded %d packets" % (self.sends, self.forwards)
+        return "Node " + self.id + ((" received first" + ("direct" if self.directAcks else "indirect") + " ACK at " + self.ackTime) if self.acks else "") + " sent %d and forwarded %d packets" % (self.sends, self.forwards)
 
     def getTotalSends(self):
         return self.sends + self.forwards
@@ -155,81 +157,93 @@ class TraceRun:
 
     def __init__(self,filename):
         self.nodes = {}
+        self.name = "Run" if not filename else os.path.split(filename)[1]
         self.nAcks = None
         self.nDirectAcks = None
-        self.name = "Run" if not filename else os.path.split(filename)[1]
-        self.forwardTimes = None
-        self.ackTimes = None
+        self.forwardTimes = {}
+        self.ackTimes = {}
+        self.sendTimes = {}
+
+        sigDigits = int(round(-math.log(TraceRun.TIME_RESOLUTION,10)))
 
         with open(filename) as f:
-            sendTimes = []
-            ackTimes = []
-            forwardTimes = []
 
             for line in f.readlines():
                 parsed = line.split()
                 nodeId = parsed[TraceRun.NODE_ID_INDEX]
                 node = self.nodes.get(nodeId)
 
+                if len(parsed) > TraceRun.TIME_INDEX:
+                    time = round(float(parsed[TraceRun.TIME_INDEX]), sigDigits)
+
                 if not node:
                     node = self.nodes[nodeId] = TraceNode(nodeId)
 
                 if 'ACK' in line:
-                    node.ackTime = parsed[TraceRun.TIME_INDEX]
-                    node.ackRecvd = True
-                    ackTimes.append(float(parsed[TraceRun.TIME_INDEX]))
+                    node.acks += 1
+                    self.ackTimes[time] = self.ackTimes.get(time,0) + 1
+
+                    if not node.firstAckTime:
+                        node.firstAckTime = time
 
                     if 'direct' == parsed[TraceRun.DIRECT_ACK_INDEX]:
-                        node.directAck = True
+                        node.directAcks += 1
 
                 if 'forwarded' == parsed[TraceRun.ACTION_INDEX]:
-                    node.forward += 1
-                    forwardTimes.append(float(parsed[TraceRun.TIME_INDEX]))
+                    node.forwards += 1
+                    self.forwardTimes[time] = self.forwardTimes.get(time,0) + 1
 
                 if 'sent' == parsed[TraceRun.ACTION_INDEX]:
                     node.sends += 1
-                    sendTimes.append(float(parsed[TraceRun.TIME_INDEX]))
-                
-        # Finally, properly store the times as counters
-        print sendTimes
-        # durp can't just append the times they belong in some specific index...
-        self.sendTimes = [0]*int(sendTimes[-1] / TraceRun.TIME_RESOLUTION + 1)
-        print "BlAG",self.sendTimes
-        for i in sendTimes:
-            self.sendTimes[int(i/TraceRun.TIME_RESOLUTION)] += 1
-        print "BlAG",self.sendTimes
-
-            
-        if self.forwardTimes:
-            self.forwardTimes = [0]*int(forwardTimes[-1] / TraceRun.TIME_RESOLUTION + 1)
-            for i in forwardTimes:
-                self.forwardTimes[int(i/TraceRun.TIME_RESOLUTION)] += 1
-
-        if self.ackTimes:
-            self.ackTimes = [0]*int(ackTimes[-1] / TraceRun.TIME_RESOLUTION + 1)
-            for i in ackTimes:
-                self.ackTimes[int(i/TraceRun.TIME_RESOLUTION)] += 1
+                    self.sendTimes[time] = self.sendTimes.get(time,0) + 1
 
     def getNNodes(self):
         return len(self.nodes)
 
     def getNAcks(self):
         if not self.nAcks:
-            self.nAcks = sum([1 for i in self.nodes.values() if i.ackRecvd])
+            self.nAcks = sum([i.acks for i in self.nodes.values()])
         return self.nAcks
+
+    def getNSends(self):
+        if not self.nSends:
+            self.nSends = sum([i.sends for i in self.nodes.values()])
+        return self.nSends
 
     def getNDirectAcks(self):
         if not self.nDirectAcks:
-            self.nDirectAcks = sum([1 for i in self.nodes.values() if i.directAck])
+            self.nDirectAcks = sum([i.directAcks for i in self.nodes.values()])
         return self.nDirectAcks
 
     def getSendTimes(self):
+        '''
+        Returns a two-tuple of lists where the first list is the time values and the second
+        is the number of occurences in that time slice.
+        '''
+        if isinstance(self.sendTimes, dict):
+            items = sorted(self.sendTimes.items())
+            self.sendTimes = ([i for (i,j) in items], [j for (i,j) in items])
         return self.sendTimes
 
     def getAckTimes(self):
+        '''
+        Returns a two-tuple of lists where the first list is the time values and the second
+        is the number of occurences in that time slice.
+        '''
+        if isinstance(self.ackTimes, dict):
+            items = sorted(self.ackTimes.items())
+            self.ackTimes = ([i for (i,j) in items], [j for (i,j) in items])
         return self.ackTimes
+        #return (self.ackTimes.keys(), self.ackTimes.values())
 
     def getForwardTimes(self):
+        '''
+        Returns a two-tuple of lists where the first list is the time values and the second
+        is the number of occurences in that time slice.
+        '''
+        if isinstance(self.forwardTimes, dict):
+            items = sorted(self.forwardTimes.items())
+            self.forwardTimes = ([i for (i,j) in items], [j for (i,j) in items])
         return self.forwardTimes
 
 class TraceGroup:
@@ -247,31 +261,97 @@ class TraceGroup:
         self.nAcks = None
         self.nNodes = None
         self.nDirectAcks = None
+        self.sendTimes = None
+        self.ackTimes = None
+        self.directAckTimes = None
 
         if folder:
-            for f in listdir(folder):
-                self.traces.append(TraceRun(f))
+            for f in os.listdir(folder):
+                self.traces.append(TraceRun(os.path.join(folder,f)))
+        else:
+            print folder, "is not a directory!"
 
     def getNNodes(self):
+        '''
+        Get average number of nodes for all TraceRuns in this group.
+        '''
         if not self.nNodes:
             self.nNodes = sum([t.getNNodes() for t in self.traces])/float(len(self.traces))
         return self.nNodes
         
     def getNAcks(self):
+        '''
+        Get average number of acks for all TraceRuns in this group.
+        '''
         if not self.nAcks:
             self.nAcks = sum([t.getNAcks() for t in self.traces])/float(len(self.traces))
         return self.nAcks
 
     def getNDirectAcks(self):
+        '''
+        Get average number of direct acks for all TraceRuns in this group.
+        '''
         if not self.nDirectAcks:
             self.nDirectAcks = sum([t.getNDirectAcks() for t in self.traces])/float(len(self.traces))
         return self.nDirectAcks
 
+    def averageTimes(self, runs):
+        '''
+        Takes as input a list of TraceRun.getXTimes() outputs.  Merges the lists together so that the counts
+        having the same time value are added, averages all of the counts, and then returns this new 2-tuple
+        that matches the format of the TraceRun.getXTimes() funcions.
+        '''
+        newTimes = []
+        newCounts = []
+        nRuns = len(runs)
+        nextIndex = nRuns*[0]
+        pointsLeft = [len(run[0]) for run in runs]
+
+        # Continually add together all counts that correspond to the same timestamp, building up the newTimes
+        # and newCounts until all of the runs have been fully accounted for.
+        while any(pointsLeft):
+            nextTime = min([run[0][nextIndex[irun]] if pointsLeft[irun] else sys.maxint for (irun,run) in enumerate(runs)])
+            newTimes.append(nextTime)
+            timeAdded = False
+
+            for (irun,run) in enumerate(runs):
+                if pointsLeft[irun] and run[0][nextIndex[irun]] == nextTime:
+                    if timeAdded:
+                        newCounts[-1] += run[1][nextIndex[irun]]
+                    else:
+                        newCounts.append(run[1][nextIndex[irun]])
+                        timeAdded = True
+
+                    pointsLeft[irun] -= 1
+                    nextIndex[irun] += 1
+
+        # Average the elements
+        nRuns = float(nRuns)
+        return (newTimes, [count/nRuns for count in newCounts])
+
     def getSendTimes(self):
+        '''
+        Get average send times for all TraceRuns in this group. This will likely create a more smoothed curve.
+        '''
         if not self.sendTimes:
-            self.sendTimes = [i/float(len(self.traces)) for i in sum([numpy.array(t.getSendTimes) for t in self.traces])]
+            self.sendTimes = self.averageTimes([t.getSendTimes() for t in self.traces])
         return self.sendTimes
 
+    def getAckTimes(self):
+        '''
+        Get average ack times for all TraceRuns in this group. This will likely create a more smoothed curve.
+        '''
+        if not self.ackTimes:
+            self.ackTimes = self.averageTimes([t.getAckTimes() for t in self.traces])
+        return self.ackTimes
+
+    def getForwardTimes(self):
+        '''
+        Get average forward times for all TraceRuns in this group. This will likely create a more smoothed curve.
+        '''
+        if not self.forwardTimes:
+            self.forwardTimes = self.averageTimes([t.getForwardTimes() for t in self.traces])
+        return self.forwardTimes
 
 ################################# MAIN ####################################
 
@@ -286,7 +366,7 @@ if __name__ == '__main__':
 
     # First, deal with the globally affecting args
     if args.resolution:
-        TraceRun.TIME_RESOLUTION = args.TIME_RESOLUTION
+        TraceRun.TIME_RESOLUTION = args.resolution
 
     # Build actual traces
     traceGroups = []
@@ -359,43 +439,48 @@ if __name__ == '__main__':
 
     import matplotlib.pyplot as plt
     import matplotlib.axes as ax
-    from math import ceil,sqrt
 
     # Build titles for plots
     
 
     if args.time:
         for g in traceGroups:
-            print g.getSendTimes()
-            plt.plot(g.getSendTimes(), label=g.name)
+            plt.plot(*g.getAckTimes(), label=g.name)
         plt.title("ACKs over time")
-        plt.xlabel("Time (%ds)"% TraceRun.TIME_RESOLUTION)
+        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
         #ax.Axes.autoscale_view() #need instance
+
+        if not args.no_windows:
+            plt.show()
 
         '''if not args.no_save:
             savefig(os.path.join(args.output_directory, )'''
 
     if args.congestion:
-        plt.title("ACKs over time")
-        plt.xlabel("Time (%ds)"% resolution)
+        for g in traceGroups:
+            plt.plot(*g.getSendTimes(), label=g.name)
+        plt.title("Connection attempts over time")
+        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
 
-        if not args.no_save:
-            savefig(something)
+        if not args.no_windows:
+            plt.show()
 
+    #TODO: this
     if args.improvement:
+        for g in traceGroups:
+            plt.plot(*g.getSendTimes(), label=g.name)
         plt.title("ACKs over time")
-        plt.xlabel("Time (%ds)"% resolution)
+        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
 
-        if not args.no_save:
-            savefig(something)
+        if not args.no_windows:
+            plt.show()
 
-    plt.show()
 
 
         #subplot(nrows,ncols,next_axes)
