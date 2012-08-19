@@ -39,7 +39,7 @@ def ParseArgs():
                         help='(*1/N) Prepend the given arguments to the group labels given in the legend.')
 
     # Titling
-    parser.add_argument('--titles', nargs='+',
+    parser.add_argument('--title', nargs='+',
                         help='manually enter title(s) for the graph(s)')
 
     parser.add_argument('--append_title', nargs='+',
@@ -222,7 +222,7 @@ class TraceRun:
         '''
         if isinstance(self.sendTimes, dict):
             items = sorted(self.sendTimes.items())
-            self.sendTimes = ([i for (i,j) in items], [j for (i,j) in items])
+            self.sendTimes = ([i for i,j in items], [j for i,j in items])
         return self.sendTimes
 
     def getAckTimes(self):
@@ -232,7 +232,7 @@ class TraceRun:
         '''
         if isinstance(self.ackTimes, dict):
             items = sorted(self.ackTimes.items())
-            self.ackTimes = ([i for (i,j) in items], [j for (i,j) in items])
+            self.ackTimes = ([i for i,j in items], [j for i,j in items])
         return self.ackTimes
         #return (self.ackTimes.keys(), self.ackTimes.values())
 
@@ -243,7 +243,7 @@ class TraceRun:
         '''
         if isinstance(self.forwardTimes, dict):
             items = sorted(self.forwardTimes.items())
-            self.forwardTimes = ([i for (i,j) in items], [j for (i,j) in items])
+            self.forwardTimes = ([i for i,j in items], [j for i,j in items])
         return self.forwardTimes
 
 class TraceGroup:
@@ -310,11 +310,11 @@ class TraceGroup:
         # Continually add together all counts that correspond to the same timestamp, building up the newTimes
         # and newCounts until all of the runs have been fully accounted for.
         while any(pointsLeft):
-            nextTime = min([run[0][nextIndex[irun]] if pointsLeft[irun] else sys.maxint for (irun,run) in enumerate(runs)])
+            nextTime = min([run[0][nextIndex[irun]] if pointsLeft[irun] else sys.maxint for irun,run in enumerate(runs)])
             newTimes.append(nextTime)
             timeAdded = False
 
-            for (irun,run) in enumerate(runs):
+            for irun,run in enumerate(runs):
                 if pointsLeft[irun] and run[0][nextIndex[irun]] == nextTime:
                     if timeAdded:
                         newCounts[-1] += run[1][nextIndex[irun]]
@@ -440,13 +440,23 @@ if __name__ == '__main__':
     import matplotlib.pyplot as plt
     import matplotlib.axes as ax
 
-    # Build titles for plots
-    
+    nextTitleIdx = 0
 
     if args.time:
         for g in traceGroups:
             plt.plot(*g.getAckTimes(), label=g.name)
-        plt.title("ACKs over time")
+        try:
+            plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
+                                 if args.prepend_title else ''),
+                                (args.title[nextTitleIdx if len(args.title) > 1 else 0]
+                                 if args.title else "ACKs over time"),
+                                (args.append_title[nextTitleIdx if len(args.append_title) > 1 else 0]
+                                 if args.append_title else ''))))
+        except IndexError:
+            print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
+                "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
+            exit(2)
+        nextTitleIdx += 1
         plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
@@ -461,7 +471,17 @@ if __name__ == '__main__':
     if args.congestion:
         for g in traceGroups:
             plt.plot(*g.getSendTimes(), label=g.name)
-        plt.title("Connection attempts over time")
+        try:
+            plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
+                                 if args.prepend_title else ''),
+                                (args.title[nextTitleIdx if len(args.title) > 1 else 0]
+                                 if args.title else "Connection attempts over time"),
+                                (args.append_title[nextTitleIdx if len(args.append_title) > 1 else 0]
+                                 if args.append_title else ''))))
+        except IndexError:
+            print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
+                "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
+            exit(2)
         plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
@@ -473,6 +493,17 @@ if __name__ == '__main__':
     if args.improvement:
         for g in traceGroups:
             plt.plot(*g.getSendTimes(), label=g.name)
+        try:
+            plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
+                                 if args.prepend_title else ''),
+                                (args.title[nextTitleIdx if len(args.title) > 1 else 0]
+                                 if args.title else "% improvement from overlay usage"),
+                                (args.append_title[nextTitleIdx if len(args.append_title) > 1 else 0]
+                                 if args.append_title else ''))))
+        except IndexError:
+            print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
+                "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
+            exit(2)
         plt.title("ACKs over time")
         plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
