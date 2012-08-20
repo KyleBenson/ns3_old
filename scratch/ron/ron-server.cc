@@ -118,20 +118,22 @@ RonServer::HandleRead (Ptr<Socket> socket)
     {
       if (InetSocketAddress::IsMatchingType (from))
         {
-          NS_LOG_INFO ("Received " << packet->GetSize () << " bytes from " <<
-                       InetSocketAddress::ConvertFrom (from).GetIpv4 ());
-
           RonHeader head;
           packet->RemoveHeader (head);
+          NS_LOG_INFO (head);
+
           head.ReversePath ();
-          head.IncrHops ();
 
           packet->AddHeader (head);
 
           packet->RemoveAllPacketTags ();
           packet->RemoveAllByteTags ();
 
-          NS_LOG_LOGIC ("Sending ACK");
+          NS_LOG_INFO ("ACKing " << (head.IsForward () ? "indirect" : "direct") << " packet from " <<
+                       InetSocketAddress::ConvertFrom (from).GetIpv4 () <<" on behalf of "
+                       //head.GetOrigin () <<" on behalf of "
+                       << (head.IsForward () ? head.GetFinalDest () : "itself"));
+          
           socket->SendTo (packet, 0, from);
         }
     }

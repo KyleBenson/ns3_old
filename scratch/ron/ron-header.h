@@ -16,12 +16,14 @@ namespace ns3 {
 class RonHeader : public Header 
 {
 public:
-  RonHeader ();
+  explicit RonHeader ();
   //RonHeader (Ipv4Address destination);
   explicit RonHeader (Ipv4Address destination, Ipv4Address intermediate = Ipv4Address((uint32_t)0));
   virtual ~RonHeader ();
+  RonHeader (const RonHeader& original);
+  RonHeader& operator=(const RonHeader& original);
 
-  Ipv4Address GetFinalDest (void) const; 
+  Ipv4Address GetFinalDest (void) const;
   Ipv4Address GetNextDest (void) const;
   Ipv4Address GetOrigin (void) const;
   uint32_t GetSeq (void) const;

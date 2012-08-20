@@ -30,6 +30,7 @@
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
 #include "ns3/ron-header.h"
+#include "ns3/random-variable.h"
 
 #include "ron-client.h"
 
@@ -37,6 +38,9 @@ namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("RonClientApplication");
 NS_OBJECT_ENSURE_REGISTERED (RonClient);
+
+ 
+static UniformVariable random;  //for picking overlay nodes
 
 TypeId
 RonClient::GetTypeId (void)
@@ -162,7 +166,7 @@ RonClient::StartApplication (void)
   // Use the address of the first non-loopback device on the node for our address
   if (m_address.Get () == 0)
     {
-      m_address = GetNode ()->GetObject<Ipv4> ()->GetAddress (0,0).GetLocal ();
+      m_address = GetNode ()->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
     }
 
   m_socket->SetRecvCallback (MakeCallback (&RonClient::HandleRead, this));
@@ -297,14 +301,14 @@ RonClient::GetDataSize (void) const
 }
 
 void 
-RonClient::ScheduleTransmit (Time dt)
+RonClient::ScheduleTransmit (Time dt, bool viaOverlay /*= false*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_sendEvents.push_front (Simulator::Schedule (dt, &RonClient::Send, this));
+  m_sendEvents.push_front (Simulator::Schedule (dt, &RonClient::Send, this, viaOverlay));
 }
 
 void 
-RonClient::Send (void)
+RonClient::Send (bool viaOverlay)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
@@ -335,24 +339,37 @@ RonClient::Send (void)
       p = Create<Packet> (m_size);
     }
 
-  // Create a RON header and add it to packet
-  RonHeader head (m_servAddress);
+  // add RON header to packet
+  RonHeader head;
   head.SetSeq (m_sent);
   head.SetOrigin (m_address);
+
+  // If forwarding thru overlay, just pick a peer at random from those available
+  if (viaOverlay)
+    {
+      Ipv4Address intermediary = m_peers[random.GetInteger (0, m_peers.size () - 1)];
+      //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
+      head = RonHeader (m_servAddress, intermediary);
+      NS_LOG_INFO ("Indirect Packet from " << m_address);
+    }
+  else
+    head = RonHeader (m_servAddress);
+
   p->AddHeader (head);
 
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p, GetNode ()->GetId ());
-  m_socket->SendTo (p, 0, InetSocketAddress(m_servAddress, m_port));
+  m_socket->SendTo (p, 0, InetSocketAddress(head.GetNextDest (), m_port));
   ScheduleTimeout (m_sent++);
 
-  NS_LOG_INFO ("Sent " << m_size << " bytes to " << m_servAddress);
+  //NS_LOG_INFO ("Sent " << m_size << " bytes to " << m_servAddress);
 
-  if (m_sent < m_count) 
+  // Currently we only attempt direct contact once
+  /*if (m_sent < m_count) 
     {
       ScheduleTransmit (m_interval);
-    }
+      }*/
 }
 
 void 
@@ -368,7 +385,6 @@ RonClient::HandleRead (Ptr<Socket> socket)
       if (InetSocketAddress::IsMatchingType (from))
         {
           Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
-          NS_LOG_INFO ("Received " << packet->GetSize () << " bytes from " << source);
 
           RonHeader head;
           packet->PeekHeader (head);
@@ -407,11 +423,12 @@ RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
     head.SetOrigin (source);
 
   head.IncrHops ();
-  Ipv4Address destination (head.GetNextDest ());
+  Ipv4Address destination = head.GetNextDest ();
   packet->AddHeader (head);
 
   m_forwardTrace (packet, GetNode ()-> GetId ());
-  m_socket->SendTo (packet, 0, destination);
+  m_socket->SendTo (packet, 0, InetSocketAddress(destination, m_port));
+  NS_LOG_INFO ("forwarded");
 }
 
 void
@@ -462,14 +479,15 @@ RonClient::CheckTimeout (uint32_t seq)
 {
   std::set<uint32_t>::iterator itr = m_outstandingSeqs.find (seq);
 
-  // If it's still here, we should try a different path to the server
+  // If it's timed out, we should try a different path to the server
   if (itr != m_outstandingSeqs.end ())
     {
       NS_LOG_INFO ("Packet with seq# " << seq << " timed out.");
       m_outstandingSeqs.erase (itr);
       
-      //TODO: send along next link...
-      /* keep a list of the overlay nodes and a counter to loop thru them, starting at 0 of course */
+      if (m_sent < m_count)
+        //m_sendEvents.push_front (Simulator::Schedule (Seconds (0), &RonClient::Send, this, true));
+        Send (true);
     }
 }
 

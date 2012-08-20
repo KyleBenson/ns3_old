@@ -156,8 +156,8 @@ private:
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
-  void Send (void);
-  void ScheduleTransmit (Time dt);
+  void Send (bool viaOverlay);
+  void ScheduleTransmit (Time dt, bool viaOverlay = false);
   void CancelSends (void);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);

@@ -25,6 +25,9 @@
 #include <sstream>
 #include <set>
 
+// Max number of devices a node can have to be in the overlay (to eliminate backbone routers)
+#define MAX_OVERLAY_DEVICES 4
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("RocketfuelExample");
@@ -51,7 +54,8 @@ PacketForwarded (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t 
   p->PeekHeader (head);
   
   std::stringstream s;
-  s << "Node " << nodeId << " forwarded packet (hop=" << head.GetHop () << ") at " << Simulator::Now ().GetSeconds ();
+  s << "Node " << nodeId << " forwarded packet (hop=" << (int)head.GetHop () << ") at " << Simulator::Now ().GetSeconds ()
+    << " from " << head.GetOrigin () << " to " << head.GetNextDest () << " and eventually " << head.GetFinalDest ();
 
   NS_LOG_INFO (s.str ());
   *stream->GetStream () << s.str() << std::endl;
@@ -113,6 +117,7 @@ main (int argc, char *argv[])
   std::string trace_file = "";
   double failure_probability = 0.1;
   double timeout = 1.0;
+  int contact_attempts = 1;
 
   CommandLine cmd;
   cmd.AddValue ("file", "File to read Rocketfuel topology from", rocketfuel_file);
@@ -128,6 +133,8 @@ main (int argc, char *argv[])
   cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have only one link)", install_stubs);
   cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
   cmd.AddValue ("timeout", "Seconds to wait for server reply before attempting contact through the overlay.", timeout);
+  cmd.AddValue ("contact_attempts", "Number of times a reporting node will attempt to contact the server "
+                "(it will use the overlay after the first attempt).  Default is 1 (no overlay).", contact_attempts);
 
   cmd.Parse (argc,argv);
 
@@ -140,7 +147,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_INFO);
-      LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
+      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
 
   else if (verbose == 2)
@@ -149,7 +156,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
 
   else if (verbose == 3)
@@ -159,7 +166,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonClientServerHelper", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonHeader", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
+      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
     }
 
   if (! boost::filesystem::exists(rocketfuel_file)) {
@@ -219,7 +226,7 @@ main (int argc, char *argv[])
     std::string from_location = iter->GetAttribute ("From Location");
     std::string to_location = iter->GetAttribute ("To Location");
 
-    NS_LOG_INFO ("Link from " << from_location << " to " << to_location);
+    //NS_LOG_INFO ("Link from " << from_location << " to " << to_location);
 
     // Set latency for this link if we loaded that information
     if (latencies.size())
@@ -278,10 +285,10 @@ main (int argc, char *argv[])
 }
 
   // Now we need to choose the server and the clients
-  Ptr<Node> serverNode = routers.Get (0);
   std::vector<Ipv4Address> overlayAddresses;
   NodeContainer overlayNodes;
   NodeContainer failNodes;
+  NodeContainer serverNodeCandidates;
 
   for (NodeContainer::Iterator node = routers.Begin ();
        node != routers.End (); node++)
@@ -294,28 +301,29 @@ main (int argc, char *argv[])
         {
           // We may only install the overlay application on clients attached to stub networks,
           // so we just choose the stub network routers here (note that all nodes have a loopback device)
-          if (!install_stubs or (*node)->GetNDevices () <= 2) 
+          if (!install_stubs or (*node)->GetNDevices () <= MAX_OVERLAY_DEVICES) 
             {
               overlayNodes.Add (*node);
-              overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (0,0).GetLocal ());
+              overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ());
+              //NS_LOG_INFO (overlayAddresses.back () << " is an overlay node.");
             }
           //TODO: failed nodes may still be in the overlay, but we aren't looking at techniques for choosing overlay nodes yet
           
-          // We'll choose the router with the most connections to attach the server to so that we
-          // minimize the chance that it is cut off from the rest of the network.
-          // We also assume that the server is outside of the disaster region (could be several).
-          else if ((*node)->GetNDevices () > serverNode->GetNDevices ()
-                   and disasterNodes.count ((*node)->GetId ()) != 0)
-            serverNode = *node;
+          // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
+          else if (disasterNodes.count ((*node)->GetId ()) != 0)
+            serverNodeCandidates.Add (*node);
         }
     }
 
-  // add another node to the router picked as the server node to be the actual server
+  // add another node to the router we pick from the server candidates to be the actual server (so we only deal with one IP address)
   pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
-  Ptr<Node> serverProvider = serverNode;
-  serverNode = CreateObject<Node> ();
+  Ptr<Node> serverNode = CreateObject<Node> ();
   stack.Install (serverNode);
-  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,serverProvider);
+  NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
+  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
+                                                                   (serverNodeCandidates.GetN () ? 
+                                                                    serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
+                                                                    routers.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
   Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
   NS_LOG_INFO ("Done network setup!");
@@ -348,7 +356,7 @@ main (int argc, char *argv[])
       if (report_disaster && disasterNodes.count ((*node)->GetId ()) == 0)
         ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
       else
-        ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
+        ronClient.SetAttribute ("MaxPackets", UintegerValue (contact_attempts));
 
       ApplicationContainer newApp = ronClient.Install (*node);
       clientApps.Add (newApp);
