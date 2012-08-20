@@ -12,6 +12,12 @@
 #include "ns3/ipv4-address-generator.h"
 #include "ns3/ron-header.h"
 
+/* REMOVE THESE INCLUDES WHEN MOVED OUT OF SCRATCH DIRECTORY!!!!!!!!!!! */
+#include "ron-header.h"
+#include "ron-helper.h"
+#include "ron-client.h"
+#include "ron-server.h"
+
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
 //#include "boost/system"
@@ -22,14 +28,6 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("RocketfuelExample");
-
-std::map<std::string,std::string>
-ReadLatencies (std::string fileName)
-{
-  std::map<std::string,std::string> latencies;
-
-  return latencies;
-}
 
 // Traced source callbacks
 static void
@@ -158,6 +156,7 @@ main (int argc, char *argv[])
      {
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_FUNCTION);
+      LogComponentEnable ("RonClientServerHelper", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonHeader", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
@@ -177,7 +176,7 @@ main (int argc, char *argv[])
           NS_LOG_ERROR("File does not exist: " + latency_file);
           exit(-1);
         }
-      latencies = ReadLatencies (latency_file);
+      latencies = RocketfuelTopologyReader::ReadLatencies (latency_file);
     }
 
   // Open trace file if requested
@@ -217,16 +216,27 @@ main (int argc, char *argv[])
 
   for (TopologyReader::ConstLinksIterator iter = topo_reader.LinksBegin();
        iter != topo_reader.LinksEnd(); iter++) {
+    std::string from_location = iter->GetAttribute ("From Location");
+    std::string to_location = iter->GetAttribute ("To Location");
+
     // Set latency for this link if we loaded that information
     if (latencies.size())
       {
-        std::string latency;
-        if (iter->GetAttributeFailSafe ("Latency", latency))
+        std::map<std::string, std::string>::iterator latency = latencies.find (from_location + " -> " + to_location);
+        //if (iter->GetAttributeFailSafe ("Latency", latency))
+        
+        if (latency != latencies.end())
           {
-            pointToPoint.SetChannelAttribute ("Delay", StringValue (latency + "ms"));
+            pointToPoint.SetChannelAttribute ("Delay", StringValue (latency->second + "ms"));
           }
         else
-            pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+          {
+            latency = latencies.find (to_location + " -> " + from_location);
+            if (latency != latencies.end())
+              pointToPoint.SetChannelAttribute ("Delay", StringValue (latency->second + "ms"));
+            else
+              pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+          }
       }
 
     Ptr<Node> from_node = iter->GetFromNode();
@@ -246,11 +256,11 @@ main (int argc, char *argv[])
     address.NewNetwork();
 
     // If the node is in the disaster region add them to the list
-    if (iter->GetAttribute ("From Location") == disaster_location)
+    if (from_location == disaster_location)
       {
         disasterNodes.insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
       }
-    if (iter->GetAttribute ("To Location") == disaster_location)
+    if (to_location == disaster_location)
       {
         disasterNodes.insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
       }
@@ -301,7 +311,7 @@ main (int argc, char *argv[])
   NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,serverProvider);
   Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
-  NS_LOG_LOGIC ("Done network setup!");
+  NS_LOG_INFO ("Done network setup!");
 
   //Application
   RonServerHelper ronServer (9);
@@ -320,21 +330,25 @@ main (int argc, char *argv[])
   ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
   ronClient.SetAttribute ("Timeout", TimeValue (Seconds (timeout)));
   
+  NS_LOG_INFO ("Installing applications...");
+
   // Install client app and set number of server contacts they make based on whether all nodes
   // should report the disaster or only the ones in the disaster region.
   ApplicationContainer clientApps;
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
-      if (report_disaster && disasterNodes[(*node)->GetId ()] == 0)
+      /*if (report_disaster && disasterNodes[(*node)->GetId ()] == 0)
           ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
       else
-          ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
+      ronClient.SetAttribute ("MaxPackets", UintegerValue (1));*/
       clientApps.Add (ronClient.Install (*node));
     }
 
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (30.0));
+
+  NS_LOG_INFO ("Done Installing applications...");
 
   if (tracing)
     {
@@ -353,7 +367,7 @@ main (int argc, char *argv[])
   NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
   Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-  NS_LOG_LOGIC ("Done populating routing tables!");
+  NS_LOG_INFO ("Done populating routing tables!");
 
   // Fail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
@@ -374,7 +388,7 @@ main (int argc, char *argv[])
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
   NS_LOG_INFO ("Starting simulation...");
- 
+
   Simulator::Stop (Seconds (60.0));
   Simulator::Run ();
   Simulator::Destroy ();

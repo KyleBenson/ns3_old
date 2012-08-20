@@ -23,6 +23,7 @@
 
 #include "ns3/nstime.h"
 #include "topology-reader.h"
+#include <map>
 
 namespace ns3 {
 
@@ -59,6 +60,9 @@ public:
    * \return the container of the nodes created (or empty container if there was an error)
    */
   virtual NodeContainer Read (void);
+
+  static std::map<std::string, std::string> ReadLatencies (std::string filename);
+
 
 private:
   RocketfuelTopologyReader (const RocketfuelTopologyReader&);

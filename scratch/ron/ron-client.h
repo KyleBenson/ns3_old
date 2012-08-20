@@ -137,6 +137,13 @@ public:
    */
   void AddPeer (Ipv4Address addr);
 
+  /**
+   * Use the specified peer list for this client.  Useful for sharing them among several clients to save memory.
+   *
+   * \param peers Pointer to the vector of Ipv4Addresses to use as the peer list.
+   */
+  void SetPeerList(std::vector<Ipv4Address> * peers);
+
 protected:
   virtual void DoDispose (void);
 
@@ -173,7 +180,8 @@ private:
   uint16_t m_port;
   std::list<EventId> m_sendEvents;
   std::set<uint32_t> m_outstandingSeqs;
-  std::vector<Ipv4Address> m_peers;
+  std::vector<Ipv4Address> * m_peers;
+  int m_nextPeer;
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet>, uint32_t> m_sendTrace;

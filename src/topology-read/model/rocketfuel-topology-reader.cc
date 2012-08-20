@@ -71,9 +71,10 @@ RocketfuelTopologyReader::~RocketfuelTopologyReader ()
   MAYSPACE END
 
 #define ROCKETFUEL_WEIGHTS_LINE \
-  START "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
+  START "([A-Za-z,+.]+)([0-9]+)" SPACE "([A-Za-z,+.]+)([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
+  //START "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([A-Za-z,+.]+)" SPACE "([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
   // C++ regex library can't seem to support capturing adjacent groups so I had to modify rocketfuel traces for above pattern
-  // START "([A-Za-z,+.]+)([0-9]+)" SPACE "([A-Za-z,+.]+)([0-9]+)" SPACE "([0-9.]+)" MAYSPACE END
+// Actually, it looks like the problem is them using destructive modifications to the line by inserting null characters to terminate c-strings
 
 int linksNumber = 0;
 int nodesNumber = 0;
@@ -85,6 +86,97 @@ std::map<std::string, TopologyReader::Link *> linkMap;
 std::map<std::string, std::string> nodeAddresses;
 // whether the file contains latencies or weights
 bool isLatencies;
+
+std::map<std::string, std::string> 
+RocketfuelTopologyReader::ReadLatencies (std::string filename)
+{
+  std::map<std::string, std::string> weights;
+
+  std::ifstream weightFile;
+  weightFile.open (filename.c_str ());
+
+  std::istringstream lineBuffer;
+  std::string line;
+  int lineNumber = 0;
+  char errbuf[512];
+  char *buf;
+
+  if (!weightFile.is_open ())
+    {
+      NS_LOG_WARN ("Couldn't open the file " << filename);
+      return weights;
+    }
+
+  while (!weightFile.eof ())
+    {
+      int ret;
+      char *argv[REGMATCH_MAX];
+
+      lineNumber++;
+      line.clear ();
+      lineBuffer.clear ();
+
+      getline (weightFile, line);
+      if (weightFile.eof ())
+        break;
+      buf = (char *)line.c_str ();
+
+      regmatch_t regmatch[REGMATCH_MAX];
+      regex_t regex;
+
+      ret = regcomp (&regex, ROCKETFUEL_WEIGHTS_LINE, REG_EXTENDED | REG_NEWLINE);
+      if (ret != 0)
+        {
+          regerror (ret, &regex, errbuf, sizeof (errbuf));
+          regfree (&regex);
+          break;
+        }
+
+      ret = regexec (&regex, buf, REGMATCH_MAX, regmatch, 0);
+      if (ret == REG_NOMATCH)
+        {
+          NS_LOG_WARN ("match failed (maps file): %s" << buf);
+          regfree (&regex);
+          break;
+        }
+      
+      line = buf;
+      
+      /* regmatch[0] is the entire strings that matched */
+      for (int i = 1; i < REGMATCH_MAX; i++)
+        {
+          if (regmatch[i].rm_so == -1)
+            {
+              argv[i - 1] = NULL;
+            }
+          else
+            {
+              line[regmatch[i].rm_eo] = '\0';
+              argv[i - 1] = &line[regmatch[i].rm_so];
+            }
+        }
+
+      std::string loc1 = argv[0];
+      std::string loc2 = argv[2];
+      std::string weight = argv[4];
+      
+      std::replace(loc1.begin(), loc1.end(), '+', ' ');
+      std::replace(loc2.begin(), loc2.end(), '+', ' ');
+
+      std::string key = loc1 + " -> " + loc2;
+      
+      if (weights.find(key) == weights.end())
+        {
+          NS_LOG_INFO (key << ": " << weight << "ms added");
+          weights[key] = weight;
+        }
+      
+      regfree (&regex);
+    }
+
+  weightFile.close ();
+  return weights;
+}
 
 NodeContainer
 RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])

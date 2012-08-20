@@ -22,8 +22,11 @@
 #include "ns3/ron-client.h"
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
+#include "ns3/log.h"
 
 #include <iterator>
+
+NS_LOG_COMPONENT_DEFINE ("RonClientServerHelper");
 
 namespace ns3 {
 
@@ -69,8 +72,11 @@ RonServerHelper::Install (NodeContainer c) const
 Ptr<Application>
 RonServerHelper::InstallPriv (Ptr<Node> node) const
 {
+  NS_LOG_FUNCTION_NOARGS ();
+
   Ptr<Application> app = m_factory.Create<RonServer> ();
   node->AddApplication (app);
+  app->SetNode (node);
 
   return app;
 }
@@ -142,8 +148,12 @@ RonClientHelper::Install (NodeContainer c) const
 Ptr<Application>
 RonClientHelper::InstallPriv (Ptr<Node> node) const
 {
+  NS_LOG_FUNCTION_NOARGS ();
+
   Ptr<Application> app = m_factory.Create<RonClient> ();
+
   node->AddApplication (app);
+  app->SetNode (node);
 
   return app;
 }

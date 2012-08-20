@@ -6,11 +6,11 @@ def build(bld):
     obj = bld.create_ns3_program('orbis-example', ['core', 'point-to-point', 'topology-read', 'network', 'applications', 'internet', 'visualizer'])
     obj.source = 'orbis-example.cc'
 
-    obj = bld.create_ns3_program('rocketfuel-example', ['core', 'point-to-point', 'topology-read', 'network', 'applications', 'internet', 'visualizer'])
-    obj.source = 'rocketfuel-example.cc'
-    obj.lib = ['boost_system', 'boost_filesystem']
-    obj.includes += (' /usr/include')
-
+#    obj = bld.create_ns3_program('rocketfuel-example', ['core', 'point-to-point', 'topology-read', 'network', 'applications', 'internet', 'visualizer'])
+#    obj.source = 'rocketfuel-example.cc'
+#    obj.lib = ['boost_system', 'boost_filesystem']
+#    obj.includes += (' /usr/include')
+#
     obj = bld.create_ns3_program('venas-example', ['core', 'point-to-point','topology-read','internet'])
     obj.source = 'venas-example.cc'
 

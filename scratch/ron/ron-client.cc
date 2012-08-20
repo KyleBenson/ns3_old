@@ -29,7 +29,7 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
-#include "ron-header.h"
+#include "ns3/ron-header.h"
 
 #include "ron-client.h"
 
@@ -85,10 +85,15 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+
   m_sent = 0;
   m_socket = 0;
   m_data = 0;
   m_dataSize = 0;
+  m_nextPeer = 0;
+
+  m_address = Ipv4Address((uint32_t)0);
+  m_peers = new std::vector<Ipv4Address>();
 }
 
 RonClient::~RonClient()
@@ -97,6 +102,7 @@ RonClient::~RonClient()
   m_socket = 0;
 
   delete [] m_data;
+  delete m_peers;
   m_data = 0;
   m_dataSize = 0;
 }
@@ -154,15 +160,11 @@ RonClient::StartApplication (void)
     }
 
   // Use the address of the first non-loopback device on the node for our address
-  if (m_address == 0)
+  if (m_address.Get () == 0)
     {
-      NS_LOG_INFO ("Getting node");
       Ptr<Node> node = GetNode ();
-      NS_LOG_INFO ("Got node...");
       Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-      NS_LOG_INFO ("So far so good...");
       m_address = ipv4->GetAddress (0,0).GetLocal ();
-      NS_LOG_INFO ("Address = " << m_address);
     }
 
   m_socket->SetRecvCallback (MakeCallback (&RonClient::HandleRead, this));
@@ -441,7 +443,14 @@ void
 RonClient::AddPeer (Ipv4Address addr)
 {
   if (addr != m_address)
-    m_peers.push_back (addr);
+    m_peers->push_back (addr);
+}
+
+void
+RonClient::SetPeerList (std::vector<Ipv4Address> * peers)
+{
+  delete m_peers;
+  m_peers = peers;
 }
 
 void
