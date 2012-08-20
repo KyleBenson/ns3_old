@@ -26,7 +26,8 @@ def ParseArgs():
 
     parser.add_argument('--dirs', '-d', type=str, nargs='+',
                         help='''directories from which to read trace data files\
-    (directories should group together runs from different parameters being studied)''')
+    (directories should group together runs from different parameters being studied). \
+    Hidden files (those starting with '.') and subdirectories are ignored (use them to store parameters/observations/graphs).''')
 
     # Labeling
     parser.add_argument('--label', '-l', nargs='+',
@@ -68,8 +69,7 @@ def ParseArgs():
 CURRENTLY NOT IMPLEMENTED*')
 
     parser.add_argument('--separate', action='store_true',
-                        help='don\'t average together the runs within a directory: put them each in a separate group. \
-CURRENTLY NOT IMPLEMENTED*')
+                        help='don\'t average together the runs within a directory: put them each in a separate group.')
 
     parser.add_argument('--resolution', type=float,
                         help='Time resolution (in seconds) for time-based graphs.')
@@ -267,7 +267,8 @@ class TraceGroup:
 
         if folder:
             for f in os.listdir(folder):
-                self.traces.append(TraceRun(os.path.join(folder,f)))
+                if not f.startswith('.'):
+                    self.traces.append(TraceRun(os.path.join(folder,f)))
         else:
             print folder, "is not a directory!"
 
@@ -376,7 +377,11 @@ if __name__ == '__main__':
 
     elif args.dirs:
         for d in args.dirs:
-            traceGroups.append(TraceGroup(d))
+            group = TraceGroup(d)
+            if args.separate:
+                traceGroups.extend(group.traces)
+            else:
+                traceGroups.append(group)
     
     # Fix label for the groups
     if args.label:   
@@ -438,7 +443,15 @@ if __name__ == '__main__':
 
 
     import matplotlib.pyplot as plt
-    import matplotlib.axes as ax
+    #import matplotlib.axes as ax
+
+    def adjustXAxis(plot):
+        '''
+        Adjust the x-axis so that the left side is more visible.
+        '''
+        xmin, xmax = plot.xlim()
+        adjusted = xmin - 0.05 * (xmax - xmin)
+        plot.xlim(xmin=adjusted)
 
     nextTitleIdx = 0
 
@@ -457,9 +470,10 @@ if __name__ == '__main__':
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
         nextTitleIdx += 1
-        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
+        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
+        adjustXAxis(plt)
         #ax.Axes.autoscale_view() #need instance
 
         if not args.no_windows:
@@ -482,9 +496,10 @@ if __name__ == '__main__':
             print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
-        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
+        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
+        adjustXAxis(plt)
 
         if not args.no_windows:
             plt.show()
@@ -505,9 +520,10 @@ if __name__ == '__main__':
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
         plt.title("ACKs over time")
-        plt.xlabel("Time (%ss)"% str(TraceRun.TIME_RESOLUTION))
+        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Count")
         plt.legend()
+        adjustXAxis(plt)
 
         if not args.no_windows:
             plt.show()

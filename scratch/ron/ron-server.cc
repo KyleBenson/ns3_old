@@ -120,6 +120,13 @@ RonServer::HandleRead (Ptr<Socket> socket)
         {
           RonHeader head;
           packet->RemoveHeader (head);
+
+          // If this is the first hop on the route, we need to set the source
+          // since NS3 doesn't give us a convenient way to access which interface
+          // the original packet was sent out on.
+          if (head.GetHop () == 0 and not head.IsForward ())
+            head.SetOrigin (InetSocketAddress::ConvertFrom (from).GetIpv4 ());
+
           NS_LOG_INFO (head);
 
           head.ReversePath ();
@@ -130,9 +137,8 @@ RonServer::HandleRead (Ptr<Socket> socket)
           packet->RemoveAllByteTags ();
 
           NS_LOG_INFO ("ACKing " << (head.IsForward () ? "indirect" : "direct") << " packet from " <<
-                       InetSocketAddress::ConvertFrom (from).GetIpv4 () <<" on behalf of "
-                       //head.GetOrigin () <<" on behalf of "
-                       << (head.IsForward () ? head.GetFinalDest () : "itself"));
+                       InetSocketAddress::ConvertFrom (from).GetIpv4 () <<
+                       " on behalf of " << head.GetFinalDest ());
           
           socket->SendTo (packet, 0, from);
         }

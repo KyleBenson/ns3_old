@@ -312,7 +312,7 @@ RonClient::Send (bool viaOverlay)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_LOG_LOGIC ("Sending direct packet.");
+  NS_LOG_LOGIC ("Sending " << (viaOverlay ? "indirect" : "direct") << " packet.");
 
   Ptr<Packet> p;
   if (m_dataSize)
@@ -350,7 +350,6 @@ RonClient::Send (bool viaOverlay)
       Ipv4Address intermediary = m_peers[random.GetInteger (0, m_peers.size () - 1)];
       //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
       head = RonHeader (m_servAddress, intermediary);
-      NS_LOG_INFO ("Indirect Packet from " << m_address);
     }
   else
     head = RonHeader (m_servAddress);
@@ -389,13 +388,13 @@ RonClient::HandleRead (Ptr<Socket> socket)
           RonHeader head;
           packet->PeekHeader (head);
 
-          // If the packet is from the server, process the ACK
-          if (head.GetOrigin () == m_servAddress)
+          // If the packet is for us, process the ACK
+          if (head.GetFinalDest () == head.GetNextDest ())
             {
               ProcessAck (packet, source);
             }
 
-          // Else it's from an overlay node, so forward it
+          // Else forward it
           else
             {
               ForwardPacket (packet, source);
@@ -428,7 +427,6 @@ RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
 
   m_forwardTrace (packet, GetNode ()-> GetId ());
   m_socket->SendTo (packet, 0, InetSocketAddress(destination, m_port));
-  NS_LOG_INFO ("forwarded");
 }
 
 void
@@ -482,12 +480,11 @@ RonClient::CheckTimeout (uint32_t seq)
   // If it's timed out, we should try a different path to the server
   if (itr != m_outstandingSeqs.end ())
     {
-      NS_LOG_INFO ("Packet with seq# " << seq << " timed out.");
+      NS_LOG_LOGIC ("Packet with seq# " << seq << " timed out.");
       m_outstandingSeqs.erase (itr);
       
       if (m_sent < m_count)
-        //m_sendEvents.push_front (Simulator::Schedule (Seconds (0), &RonClient::Send, this, true));
-        Send (true);
+        m_sendEvents.push_front (Simulator::Schedule (Seconds (0), &RonClient::Send, this, true));
     }
 }
 
