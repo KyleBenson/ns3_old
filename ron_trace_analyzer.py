@@ -4,7 +4,7 @@ RON_TRACE_ANALYZER_DESCRIPTION = '''A helper script for analyzing NS3 Resilient 
 # (c) University of California Irvine 2012
 # @author: Kyle Benson
 
-import argparse, numpy, os.path, os, decimal, math, heapq
+import argparse, numpy, os.path, os, decimal, math, heapq, sys
 
 ##################################################################################
 #################      ARGUMENTS       ###########################################
@@ -97,14 +97,8 @@ CURRENTLY NOT IMPLEMENTED*')
                         help='Prepend arg to all output graph files saved on this run.')
 
     # Text data
-    parser.add_argument('--total_clients', '-t', action='store_true',
-                        help='print how many total clients were in simulation')
-
-    parser.add_argument('--conn_clients', '-c', action='store_true',
-                        help='print how many clients successfully connected to the server')
-
-    parser.add_argument('--direct_clients', '-o', action='store_true',
-                        help='print how many clients reached the server directly (didn\'t use the overlay)')
+    parser.add_argument('--summary', '-s', action='store_true',
+                        help='Print statistics summary about each file/group.  Includes total nodes, # ACKS, # direct ACKs')
 
     return parser.parse_args()
 
@@ -257,7 +251,7 @@ class TraceGroup:
 
     def __init__(self,folder=None):
         self.traces = []
-        self.name = "Group" if not folder else os.path.split(folder)[1]
+        self.name = "Group" if not folder else [part.replace('_',' ') for part in reversed(folder.split(os.path.sep)) if part][0]
         self.nAcks = None
         self.nNodes = None
         self.nDirectAcks = None
@@ -421,20 +415,15 @@ if __name__ == '__main__':
                 g.name += args.append_label[0]
 
     # Print any requested textual data
-    if args.total_clients:
-        print "Total number of clients:"
+    if args.summary:
+        print "==================== Summary ===================="
+        print '%s\t'*5 % ('Group name\t', 'Total Nodes', '# ACKs\t', '# Direct', '% Improvement from overlay')
         for g in traceGroups:
-            print g.name, "had", g.getNNodes(), "total nodes\n"
-
-    if args.conn_clients:
-        print "Number of clients that reached the server:"
-        for g in traceGroups:
-            print g.name, "had", g.getNAcks(), "nodes reach the server\n"
-    
-    if args.direct_clients:
-        print "Number of clients that reached the server directly (without using the overlay):"
-        for g in traceGroups:
-            print g.name, "had", g.getNDirectAcks(), "nodes reach the server directly\n"
+            nAcks = g.getNAcks()
+            nDirectAcks = g.getNDirectAcks()
+            improvement = (nAcks - nDirectAcks) / float(nDirectAcks) * 100
+            print "\t\t".join(["%s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks, improvement)
+        print '======================================================='
 
 
 #################################################################################################

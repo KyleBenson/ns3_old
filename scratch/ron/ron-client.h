@@ -158,7 +158,7 @@ private:
   void SetTimeout (Time t);
   void Send (bool viaOverlay);
   void ScheduleTransmit (Time dt, bool viaOverlay = false);
-  void CancelSends (void);
+  void CancelEvents (void);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
@@ -180,7 +180,7 @@ private:
   Ipv4Address m_address;
   Ptr<Socket> m_socket;
   uint16_t m_port;
-  std::list<EventId> m_sendEvents;
+  std::list<EventId> m_events;
   std::set<uint32_t> m_outstandingSeqs;
   std::vector<Ipv4Address> m_peers;
   int m_nextPeer;

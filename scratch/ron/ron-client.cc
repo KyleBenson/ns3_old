@@ -187,16 +187,16 @@ RonClient::StopApplication ()
       m_socket = 0;
     }
 
-  CancelSends ();
+  CancelEvents ();
 }
 
 void
-RonClient::CancelSends ()
+RonClient::CancelEvents ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  for (std::list<EventId>::iterator itr = m_sendEvents.begin ();
-       itr != m_sendEvents.end (); itr++)
+  for (std::list<EventId>::iterator itr = m_events.begin ();
+       itr != m_events.end (); itr++)
     Simulator::Cancel (*itr);
 }
 
@@ -304,7 +304,7 @@ void
 RonClient::ScheduleTransmit (Time dt, bool viaOverlay /*= false*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_sendEvents.push_front (Simulator::Schedule (dt, &RonClient::Send, this, viaOverlay));
+  m_events.push_front (Simulator::Schedule (dt, &RonClient::Send, this, viaOverlay));
 }
 
 void 
@@ -442,14 +442,14 @@ RonClient::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
   m_outstandingSeqs.erase (seq);
   //TODO: handle an ack from an old seq number
 
-  CancelSends ();
+  CancelEvents ();
   //TODO: store path? send more data?
 }
 
 void
 RonClient::ScheduleTimeout (uint32_t seq)
 {
-  Simulator::Schedule (m_timeout, &RonClient::CheckTimeout, this, seq);
+  m_events.push_front (Simulator::Schedule (m_timeout, &RonClient::CheckTimeout, this, seq));
   m_outstandingSeqs.insert (seq);
 }
 
@@ -484,7 +484,7 @@ RonClient::CheckTimeout (uint32_t seq)
       m_outstandingSeqs.erase (itr);
       
       if (m_sent < m_count)
-        m_sendEvents.push_front (Simulator::Schedule (Seconds (0), &RonClient::Send, this, true));
+        ScheduleTransmit (Seconds (0.0), true);
     }
 }
 
