@@ -142,7 +142,9 @@ public:
    *
    * \param peers Pointer to the vector of Ipv4Addresses to use as the peer list.
    */
-  void SetPeerList(std::vector<Ipv4Address> * peers);
+  void SetPeerList(std::vector<Ipv4Address> peers);
+
+  Ipv4Address GetAddress () const;
 
 protected:
   virtual void DoDispose (void);
@@ -180,7 +182,7 @@ private:
   uint16_t m_port;
   std::list<EventId> m_sendEvents;
   std::set<uint32_t> m_outstandingSeqs;
-  std::vector<Ipv4Address> * m_peers;
+  std::vector<Ipv4Address> m_peers;
   int m_nextPeer;
 
   /// Callbacks for tracing

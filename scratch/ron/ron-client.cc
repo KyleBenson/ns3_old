@@ -93,7 +93,7 @@ RonClient::RonClient ()
   m_nextPeer = 0;
 
   m_address = Ipv4Address((uint32_t)0);
-  m_peers = new std::vector<Ipv4Address>();
+  m_peers = std::vector<Ipv4Address>();
 }
 
 RonClient::~RonClient()
@@ -102,7 +102,7 @@ RonClient::~RonClient()
   m_socket = 0;
 
   delete [] m_data;
-  delete m_peers;
+
   m_data = 0;
   m_dataSize = 0;
 }
@@ -162,14 +162,13 @@ RonClient::StartApplication (void)
   // Use the address of the first non-loopback device on the node for our address
   if (m_address.Get () == 0)
     {
-      Ptr<Node> node = GetNode ();
-      Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-      m_address = ipv4->GetAddress (0,0).GetLocal ();
+      m_address = GetNode ()->GetObject<Ipv4> ()->GetAddress (0,0).GetLocal ();
     }
 
   m_socket->SetRecvCallback (MakeCallback (&RonClient::HandleRead, this));
 
-  ScheduleTransmit (Seconds (0.));
+  if (m_sent < m_count)
+    ScheduleTransmit (Seconds (0.));
 }
 
 void 
@@ -443,14 +442,19 @@ void
 RonClient::AddPeer (Ipv4Address addr)
 {
   if (addr != m_address)
-    m_peers->push_back (addr);
+    m_peers.push_back (addr);
 }
 
 void
-RonClient::SetPeerList (std::vector<Ipv4Address> * peers)
+RonClient::SetPeerList (std::vector<Ipv4Address> peers)
 {
-  delete m_peers;
   m_peers = peers;
+}
+
+Ipv4Address
+RonClient::GetAddress () const
+{
+  return m_address;
 }
 
 void

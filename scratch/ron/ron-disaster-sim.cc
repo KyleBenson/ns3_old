@@ -219,6 +219,8 @@ main (int argc, char *argv[])
     std::string from_location = iter->GetAttribute ("From Location");
     std::string to_location = iter->GetAttribute ("To Location");
 
+    NS_LOG_INFO ("Link from " << from_location << " to " << to_location);
+
     // Set latency for this link if we loaded that information
     if (latencies.size())
       {
@@ -277,30 +279,35 @@ main (int argc, char *argv[])
 
   // Now we need to choose the server and the clients
   Ptr<Node> serverNode = routers.Get (0);
+  std::vector<Ipv4Address> overlayAddresses;
   NodeContainer overlayNodes;
   NodeContainer failNodes;
 
   for (NodeContainer::Iterator node = routers.Begin ();
        node != routers.End (); node++)
     {
-      // We may only install the overlay application on clients attached to stub networks,
-      // so we just choose the stub network routers here (note that all nodes have a loopback device)
-      if (!install_stubs or (*node)->GetNDevices () <= 2) 
-        {
-          // Fail nodes within the disaster region with some probability
-          if (random.GetValue () < failure_probability and disasterNodes[(*node)->GetId ()] != 0)
-            failNodes.Add (*node);
-          else
-            overlayNodes.Add (*node);
-          //TODO: failed nodes may still be in the overlay, but we aren't looking at techniques for choosing overlay nodes yet
-        }
+      // Fail nodes within the disaster region with some probability
+      if (random.GetValue () < failure_probability and disasterNodes.count ((*node)->GetId ()) != 0)
+        failNodes.Add (*node);
 
-      // We'll choose the router with the most connections to attach the server to so that we
-      // minimize the chance that it is cut off from the rest of the network.
-      // We also assume that the server is outside of the disaster region (could be several).
-      if ((*node)->GetNDevices () > serverNode->GetNDevices ()
-          and disasterNodes[(*node)->GetId ()] != 0)
-        serverNode = *node;
+      else
+        {
+          // We may only install the overlay application on clients attached to stub networks,
+          // so we just choose the stub network routers here (note that all nodes have a loopback device)
+          if (!install_stubs or (*node)->GetNDevices () <= 2) 
+            {
+              overlayNodes.Add (*node);
+              overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (0,0).GetLocal ());
+            }
+          //TODO: failed nodes may still be in the overlay, but we aren't looking at techniques for choosing overlay nodes yet
+          
+          // We'll choose the router with the most connections to attach the server to so that we
+          // minimize the chance that it is cut off from the rest of the network.
+          // We also assume that the server is outside of the disaster region (could be several).
+          else if ((*node)->GetNDevices () > serverNode->GetNDevices ()
+                   and disasterNodes.count ((*node)->GetId ()) != 0)
+            serverNode = *node;
+        }
     }
 
   // add another node to the router picked as the server node to be the actual server
@@ -338,11 +345,14 @@ main (int argc, char *argv[])
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
-      /*if (report_disaster && disasterNodes[(*node)->GetId ()] == 0)
-          ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
+      if (report_disaster && disasterNodes.count ((*node)->GetId ()) == 0)
+        ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
       else
-      ronClient.SetAttribute ("MaxPackets", UintegerValue (1));*/
-      clientApps.Add (ronClient.Install (*node));
+        ronClient.SetAttribute ("MaxPackets", UintegerValue (1));
+
+      ApplicationContainer newApp = ronClient.Install (*node);
+      clientApps.Add (newApp);
+      DynamicCast<RonClient> (newApp.Get (0))->SetPeerList (overlayAddresses);
     }
 
   clientApps.Start (Seconds (2.0));
@@ -374,7 +384,6 @@ main (int argc, char *argv[])
        iface != ifacesToKill.End (); iface++)
     {
       FailIpv4 (iface->first, iface->second);
-      NS_LOG_INFO ("FAIL");
     }
 
   // Fail the nodes that were chosen
@@ -382,13 +391,16 @@ main (int argc, char *argv[])
        node != failNodes.End (); node++)
     {
       FailNode (*node);
-      NS_LOG_INFO ("FAIL");
     }
 
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
-  NS_LOG_INFO ("Starting simulation...");
-
+  NS_LOG_UNCOND ("Starting simulation: " << std::endl
+                 << overlayNodes.GetN () << " total overlay nodes" << std::endl
+                 << disasterNodes.size () << " nodes in " << disaster_location << " total" << std::endl
+                 << failNodes.GetN () << " nodes failed" << std::endl
+                 << ifacesToKill.GetN () << " links failed");
+  
   Simulator::Stop (Seconds (60.0));
   Simulator::Run ();
   Simulator::Destroy ();
