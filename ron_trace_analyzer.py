@@ -51,10 +51,10 @@ def ParseArgs():
 
 
     # Graph types to build
-    parser.add_argument('--time', action='store_true',
+    parser.add_argument('--time', '-t', action='store_true',
                         help='show graph of total ACKs received over time')
 
-    parser.add_argument('--congestion', action='store_true',
+    parser.add_argument('--congestion', '-c', action='store_true',
                         help='graph number of packets sent for each group'
                         + 'CURRENTLY NOT IMPLEMENTED*')
 
@@ -157,6 +157,7 @@ class TraceRun:
         self.forwardTimes = {}
         self.ackTimes = {}
         self.sendTimes = {}
+        self.nNodes = None
 
         sigDigits = int(round(-math.log(TraceRun.TIME_RESOLUTION,10)))
 
@@ -192,11 +193,15 @@ class TraceRun:
                     self.sendTimes[time] = self.sendTimes.get(time,0) + 1
 
     def getNNodes(self):
-        return len(self.nodes)
+        '''Number of nodes that attempted contact with the server.'''
+        if not self.nNodes:
+            self.nNodes = len([1 for n in self.nodes.values() if n.sends])
+        return self.nNodes
 
     def getNAcks(self):
+        '''Number of nodes that received at least 1 ACK from the server.'''
         if not self.nAcks:
-            self.nAcks = sum([i.acks for i in self.nodes.values()])
+            self.nAcks = sum([1 for i in self.nodes.values() if i.acks])
         return self.nAcks
 
     def getNSends(self):
@@ -205,8 +210,9 @@ class TraceRun:
         return self.nSends
 
     def getNDirectAcks(self):
+        '''Number of nodes that received at least 1 direct ACK from the server (didn't utilize the overlay).'''
         if not self.nDirectAcks:
-            self.nDirectAcks = sum([i.directAcks for i in self.nodes.values()])
+            self.nDirectAcks = sum([1 for i in self.nodes.values() if i.directAcks])
         return self.nDirectAcks
 
     def getSendTimes(self):
@@ -348,6 +354,17 @@ class TraceGroup:
             self.forwardTimes = self.averageTimes([t.getForwardTimes() for t in self.traces])
         return self.forwardTimes
 
+############################## Utility Functions ##########################
+
+def percentImprovement(nAcks, nDirectAcks):
+    return (nAcks - nDirectAcks) / float(nDirectAcks) * 100
+
+def normalizedTimes(nNodes, timeCounts):
+    '''Takes a node count and a TraceRun or TraceGroup getXTimes() function output (2-tuple) as input and 
+    returns the normalized form of the outputs (divides each data point by the node count).'''
+    
+    return (timeCounts[0], [c/float(nNodes) for c in timeCounts[1]])
+
 ################################# MAIN ####################################
 
 
@@ -416,14 +433,14 @@ if __name__ == '__main__':
 
     # Print any requested textual data
     if args.summary:
-        print "==================== Summary ===================="
-        print '%s\t'*5 % ('Group name\t', 'Total Nodes', '# ACKs\t', '# Direct', '% Improvement from overlay')
+        print "\n================================================= Summary =================================================\n"
+        print '%s\t'*5 % ('Group name\t\t', 'Active Nodes', '# ACKs\t', '# Direct ACKs', '% Improvement from overlay'), '\n'
         for g in traceGroups:
             nAcks = g.getNAcks()
             nDirectAcks = g.getNDirectAcks()
-            improvement = (nAcks - nDirectAcks) / float(nDirectAcks) * 100
-            print "\t\t".join(["%s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks, improvement)
-        print '======================================================='
+            improvement = percentImprovement(nAcks, nDirectAcks)
+            print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks, improvement)
+        print '\n==========================================================================================================='
 
 
 #################################################################################################
@@ -446,7 +463,7 @@ if __name__ == '__main__':
 
     if args.time:
         for g in traceGroups:
-            plt.plot(*g.getAckTimes(), label=g.name)
+            plt.plot(*normalizedTimes(g.getNNodes(), g.getAckTimes()), label=g.name)
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
@@ -460,7 +477,7 @@ if __name__ == '__main__':
             exit(2)
         nextTitleIdx += 1
         plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
-        plt.ylabel("Count")
+        plt.ylabel("Normalized Count")
         plt.legend()
         adjustXAxis(plt)
         #ax.Axes.autoscale_view() #need instance
@@ -473,7 +490,7 @@ if __name__ == '__main__':
 
     if args.congestion:
         for g in traceGroups:
-            plt.plot(*g.getSendTimes(), label=g.name)
+            plt.plot(*normalizedTimes(g.getNNodes(), g.getSendTimes()), label=g.name)
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
@@ -486,17 +503,17 @@ if __name__ == '__main__':
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
         plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
-        plt.ylabel("Count")
+        plt.ylabel("Normalized Count")
         plt.legend()
         adjustXAxis(plt)
 
         if not args.no_windows:
             plt.show()
 
-    #TODO: this
     if args.improvement:
-        for g in traceGroups:
-            plt.plot(*g.getSendTimes(), label=g.name)
+        colors = 'rgbycmkw'
+        for i,g in enumerate(traceGroups):
+            plt.bar(i, percentImprovement(g.getNAcks(), g.getNDirectAcks()), label=g.name, color=colors[i % len(colors)])
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
@@ -508,11 +525,9 @@ if __name__ == '__main__':
             print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
-        plt.title("ACKs over time")
-        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
-        plt.ylabel("Count")
+        plt.xlabel("Groups")
+        plt.ylabel("% Improvement")
         plt.legend()
-        adjustXAxis(plt)
 
         if not args.no_windows:
             plt.show()
