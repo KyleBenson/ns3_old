@@ -24,7 +24,8 @@
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
-#include "ns3/ron-header.h"
+
+#include "ron-header.h"
 
 #include <list>
 #include <set>

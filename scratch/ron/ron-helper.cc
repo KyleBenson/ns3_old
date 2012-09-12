@@ -18,8 +18,9 @@
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 #include "ron-helper.h"
-#include "ns3/ron-server.h"
-#include "ns3/ron-client.h"
+#include "ron-server.h"
+#include "ron-client.h"
+
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
 #include "ns3/log.h"

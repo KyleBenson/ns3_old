@@ -29,7 +29,6 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
-#include "ns3/ron-header.h"
 #include "ns3/random-variable.h"
 
 #include "ron-client.h"
