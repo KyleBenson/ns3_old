@@ -22,6 +22,7 @@
 #include "ns3/mobility-module.h"
 #include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
+#include "ns3/energy-module.h"
 
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
@@ -32,6 +33,26 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("MDC_SIMULATION");
 
+struct EnergyTraceConstData
+{
+  Ptr<OutputStreamWrapper> outputStream;
+  uint32_t nodeId;
+};
+
+/// Trace function for remaining energy at node.
+void
+RemainingEnergySink (EnergyTraceConstData * constData, double oldValue, double remainingEnergy)
+//RemainingEnergySink (Ptr<OutputStreamWrapper> constData, double oldValue, double remainingEnergy)
+{
+  //  NS_LOG_UNCOND ("Node " << constData.nodeId << " current remaining energy = " << remainingEnergy
+  std::stringstream s;
+  s << "Node " << constData->nodeId << " current remaining energy = " << remainingEnergy
+    << "J at time " << Simulator::Now ().GetSeconds ();
+
+  NS_LOG_INFO (s.str ());
+  *(constData->outputStream)->GetStream () << s.str() << std::endl;
+}
+
 int 
 main (int argc, char *argv[])
 {
@@ -39,12 +60,14 @@ main (int argc, char *argv[])
   uint32_t nSensors = 10;
   uint32_t nMdcs = 1;
   uint32_t boundaryLength = 100;
+  std::string traceFile = "";
 
   CommandLine cmd;
   cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
   cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
   cmd.AddValue ("verbose", "Enable verbose logging", verbose);
   cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", boundaryLength);
+  cmd.AddValue ("trace_file", "File to write traces to", traceFile);
 
   cmd.Parse (argc,argv);
 
@@ -52,6 +75,7 @@ main (int argc, char *argv[])
     {
       LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
     }
 
   if (verbose == 2)
@@ -60,6 +84,15 @@ main (int argc, char *argv[])
       LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_LOGIC);
     }
 
+  // Open trace file if requested
+  bool tracing = false;
+  Ptr<OutputStreamWrapper> outputStream;
+  if (traceFile != "")
+    {
+      AsciiTraceHelper asciiTraceHelper;
+      outputStream = asciiTraceHelper.CreateFileStream (traceFile);
+      tracing = true;
+    }
 
   //////////////////////////////////////////////////////////////////////
   ////////////////////////   Create / setup nodes   ////////////////////
@@ -129,8 +162,39 @@ main (int argc, char *argv[])
   //mobility.SetMobilityModel ("ns3::??
   //mobility.Install (mdcs);
 
+
   //////////////////////////////////////////////////////////////////////
-  ////////////////////    Setup network    /////////////////////////////
+  ////////////////////      Energy Model      //////////////////////////
+  //////////////////////////////////////////////////////////////////////
+
+
+  BasicEnergySourceHelper basicSourceHelper;
+  basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (0.1));
+  EnergySourceContainer energySources = basicSourceHelper.Install (sensors);
+
+  WifiRadioEnergyModelHelper radioEnergyHelper;
+  radioEnergyHelper.Set ("TxCurrentA", DoubleValue (0.0174));
+  DeviceEnergyModelContainer deviceEnergyModels = radioEnergyHelper.Install (sensorDevices, energySources);
+
+  if (tracing)
+    {
+      for (EnergySourceContainer::Iterator itr = energySources.Begin ();
+           itr != energySources.End (); itr++)
+        {
+          EnergyTraceConstData * constData = new EnergyTraceConstData();
+          constData->outputStream = outputStream;
+          constData->nodeId = (*itr)->GetNode ()->GetId ();
+
+          Ptr<BasicEnergySource> energySource = DynamicCast<BasicEnergySource> (*itr);
+          NS_ASSERT (energySource != NULL);
+
+          energySource->TraceConnectWithoutContext ("RemainingEnergy", MakeBoundCallback (&RemainingEnergySink, constData));
+        }
+    }
+  
+
+  //////////////////////////////////////////////////////////////////////
+  ////////////////////    Network    ///////////////////////////////////
   //////////////////////////////////////////////////////////////////////
 
 
@@ -164,9 +228,9 @@ main (int argc, char *argv[])
   serverApps.Stop (Seconds (10.0));
 
   UdpEchoClientHelper echoClient (sinkInterface.GetAddress (0, 0), 9);
-  std::cout << sinkInterface.GetAddress (0,0);
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (1));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+
+  echoClient.SetAttribute ("MaxPackets", UintegerValue (3));
+  echoClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
   echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
   ApplicationContainer clientApps = 
