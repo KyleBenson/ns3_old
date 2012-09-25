@@ -38,9 +38,9 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("MDC_SIMULATION");
+NS_LOG_COMPONENT_DEFINE ("MdcSimulation");
 
-struct EnergyTraceConstData
+struct TraceConstData
 {
   Ptr<OutputStreamWrapper> outputStream;
   uint32_t nodeId;
@@ -48,13 +48,24 @@ struct EnergyTraceConstData
 
 /// Trace function for remaining energy at node.
 void
-RemainingEnergySink (EnergyTraceConstData * constData, double oldValue, double remainingEnergy)
+RemainingEnergySink (TraceConstData * constData, double oldValue, double remainingEnergy)
 //RemainingEnergySink (Ptr<OutputStreamWrapper> constData, double oldValue, double remainingEnergy)
 {
   //  NS_LOG_UNCOND ("Node " << constData.nodeId << " current remaining energy = " << remainingEnergy
   std::stringstream s;
   s << "Node " << constData->nodeId << " current remaining energy = " << remainingEnergy
     << "J at time " << Simulator::Now ().GetSeconds ();
+
+  NS_LOG_INFO (s.str ());
+  *(constData->outputStream)->GetStream () << s.str() << std::endl;
+}
+
+/// Trace function for the sink
+void
+SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const Address & from)
+{
+  std::stringstream s;
+  s << "Sink received packet from " << from << " at time " << Simulator::Now ().GetSeconds ();
 
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -80,15 +91,17 @@ main (int argc, char *argv[])
 
   if (verbose == 1)
     {
-      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcClientApplication", LOG_LEVEL_INFO);
     }
 
   if (verbose == 2)
     {
-      LogComponentEnable ("UdpEchoClientApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("UdpEchoServerApplication", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("OnOffApplication", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);
     }
 
   // Open trace file if requested
@@ -199,7 +212,7 @@ main (int argc, char *argv[])
       for (EnergySourceContainer::Iterator itr = energySources.Begin ();
            itr != energySources.End (); itr++)
         {
-          EnergyTraceConstData * constData = new EnergyTraceConstData();
+          TraceConstData * constData = new TraceConstData();
           constData->outputStream = outputStream;
           constData->nodeId = (*itr)->GetNode ()->GetId ();
 
@@ -239,20 +252,32 @@ main (int argc, char *argv[])
   //////////////////////////////////////////////////////////////////////
 
 
-  MdcServerHelper mdcServer (9);
 
-  ApplicationContainer serverApps = mdcServer.Install (sink);
-  serverApps.Start (Seconds (1.0));
-  serverApps.Stop (Seconds (10.0));
+  TraceConstData * constData = new TraceConstData();
+  constData->outputStream = outputStream;
+  constData->nodeId = sink.Get (0)->GetId ();
+  
+  Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), 9));
+  
+  PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", sinkLocalAddress);
+  //MdcServerHelper sinkHelper (9);
+  ApplicationContainer sinkApps = sinkHelper.Install (sink);
+  sinkApps.Start (Seconds (1.0));
+  sinkApps.Stop (Seconds (10.0));
+  
+  if (tracing)
+    sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
 
-  MdcClientHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
-
-  mdcClient.SetAttribute ("MaxPackets", UintegerValue (3));
+  /*MdcClientHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
+  mdcClient.SetAttribute ("MaxPackets", UintegerValue (2));
   mdcClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
-  mdcClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  mdcClient.SetAttribute ("PacketSize", UintegerValue (1024));*/
+  
+  Address sinkDestAddress (InetSocketAddress (sinkInterface.GetAddress (0, 0), 9));
+  OnOffHelper mdcClient ("ns3::UdpSocketFactory", sinkDestAddress);
 
   ApplicationContainer clientApps = 
-    mdcClient.Install (sensors.Get (0));
+    mdcClient.Install (sensors);
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
 
