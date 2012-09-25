@@ -24,6 +24,13 @@
 #include "ns3/internet-module.h"
 #include "ns3/energy-module.h"
 
+#include "mdc-header.h"
+#include "mdc-helper.h"
+#include "mdc-client.h"
+#include "mdc-server.h"
+
+#include "ns3/li-ion-energy-source-helper.h"
+
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
  * data being collected by a mobile data collector (MDC).
@@ -168,10 +175,21 @@ main (int argc, char *argv[])
   //////////////////////////////////////////////////////////////////////
 
 
-  BasicEnergySourceHelper basicSourceHelper;
-  basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (0.1));
-  EnergySourceContainer energySources = basicSourceHelper.Install (sensors);
+  //BasicEnergySourceHelper basicSourceHelper;
+  //basicSourceHelper.Set ("BasicEnergySourceInitialEnergyJ", DoubleValue (initEnergy));
+  //EnergySourceContainer energySources = basicSourceHelper.Install (sensors);
+  
+  LiIonEnergySourceHelper energySourceHelper;
+  //energySourceHelper.Set ("LiIonEnergySourceInitialEnergyJ", DoubleValue (initEnergy));
+  //energySourceHelper.Set ("TypCurrent", DoubleValue ());
+  EnergySourceContainer energySources = energySourceHelper.Install (sensors);
 
+  // if not using a helper (such as for the SimpleDeviceEnergyModel that can be used to mimic a processor/sensor), you must do 
+  // Ptr<DeviceEnergyModel> energyModel = CreateObject<SimpleDeviceEnergyModel> ();
+  // energyModel->SetCurrentA (WHATEVER);
+  // energyModel->SetEnergySource (energySource);
+  // and energySource->AppendDeviceEnergyModel (energyModel);
+  
   WifiRadioEnergyModelHelper radioEnergyHelper;
   radioEnergyHelper.Set ("TxCurrentA", DoubleValue (0.0174));
   DeviceEnergyModelContainer deviceEnergyModels = radioEnergyHelper.Install (sensorDevices, energySources);
@@ -185,7 +203,7 @@ main (int argc, char *argv[])
           constData->outputStream = outputStream;
           constData->nodeId = (*itr)->GetNode ()->GetId ();
 
-          Ptr<BasicEnergySource> energySource = DynamicCast<BasicEnergySource> (*itr);
+          Ptr<LiIonEnergySource> energySource = DynamicCast<LiIonEnergySource> (*itr);
           NS_ASSERT (energySource != NULL);
 
           energySource->TraceConnectWithoutContext ("RemainingEnergy", MakeBoundCallback (&RemainingEnergySink, constData));
@@ -221,20 +239,20 @@ main (int argc, char *argv[])
   //////////////////////////////////////////////////////////////////////
 
 
-  UdpEchoServerHelper echoServer (9);
+  MdcServerHelper mdcServer (9);
 
-  ApplicationContainer serverApps = echoServer.Install (sink);
+  ApplicationContainer serverApps = mdcServer.Install (sink);
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (Seconds (10.0));
 
-  UdpEchoClientHelper echoClient (sinkInterface.GetAddress (0, 0), 9);
+  MdcClientHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
 
-  echoClient.SetAttribute ("MaxPackets", UintegerValue (3));
-  echoClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
-  echoClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  mdcClient.SetAttribute ("MaxPackets", UintegerValue (3));
+  mdcClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
+  mdcClient.SetAttribute ("PacketSize", UintegerValue (1024));
 
   ApplicationContainer clientApps = 
-    echoClient.Install (sensors.Get (0));
+    mdcClient.Install (sensors.Get (0));
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
 
