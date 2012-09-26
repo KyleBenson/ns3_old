@@ -95,7 +95,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcServerApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcClientApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
     }
 
   if (verbose == 2)
@@ -268,7 +268,7 @@ main (int argc, char *argv[])
   if (tracing)
     sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
 
-  /*MdcClientHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
+  /*MdcEventSensorHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
   mdcClient.SetAttribute ("MaxPackets", UintegerValue (2));
   mdcClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
   mdcClient.SetAttribute ("PacketSize", UintegerValue (1024));*/
