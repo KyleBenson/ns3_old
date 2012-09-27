@@ -200,17 +200,6 @@ public:
    */
   ApplicationContainer Install (NodeContainer c) const;
 
-  /**
-   * \param peersBegin A forward iterator for the beginning of the Ipv4Addresses of the peers to be added.
-   * \param peersBegin The end iterator over Ipv4Addresses of the peers to be added.
-   * \param apps The application container holding RON clients that should have the peers added.
-   *
-   * Add RON peer addresses to all of the RON clients in the specified application container
-   */
-
-  template<class ForwardIter>
-  void AddPeers (ForwardIter peersBegin, ForwardIter peersEnd, ApplicationContainer apps);
-
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node) const;
   ObjectFactory m_factory;

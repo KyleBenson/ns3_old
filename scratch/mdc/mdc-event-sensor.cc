@@ -29,8 +29,9 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
+#include "ns3/vector.h"
 
-#include "mdc-client.h"
+#include "mdc-event-sensor.h"
 
 namespace ns3 {
 
@@ -44,11 +45,11 @@ MdcEventSensor::GetTypeId (void)
     .SetParent<Application> ()
     .AddConstructor<MdcEventSensor> ()
     .AddAttribute ("Port", "Port on which we send packets to sink nodes or MDCs.",
-                   UintegerValue (9),
+                   UintegerValue (9999),
                    MakeUintegerAccessor (&MdcEventSensor::m_port),
                    MakeUintegerChecker<uint16_t> ())
     .AddAttribute ("RemoteAddress", 
-                   "The destination Ipv4Address of the outbound packets",
+                   "The destination Ipv4Address of the sink",
                    Ipv4AddressValue (),
                    MakeIpv4AddressAccessor (&MdcEventSensor::m_servAddress),
                    MakeIpv4AddressChecker ())
@@ -56,32 +57,25 @@ MdcEventSensor::GetTypeId (void)
                    TimeValue (Seconds (3)),
                    MakeTimeAccessor (&MdcEventSensor::m_timeout),
                    MakeTimeChecker ())
-    .AddAttribute ("Interval", 
-                   "The time to wait between packets",
-                   TimeValue (Seconds (1.0)),
-                   MakeTimeAccessor (&MdcEventSensor::m_interval),
-                   MakeTimeChecker ())
-    .AddAttribute ("PacketSize", "Size of echo data in outbound packets",
-                   UintegerValue (100),
+    .AddAttribute ("MaxRetries", 
+                   "The maximum number of times the application will attempt to resend a failed packet",
+                   UintegerValue (3),
+                   MakeUintegerAccessor (&MdcEventSensor::m_retries),
+                   MakeUintegerChecker<uint8_t> ())
+    .AddAttribute ("PacketSize", "Size of sensed data in outbound packets",
+                   UintegerValue (10000),
                    MakeUintegerAccessor (&MdcEventSensor::SetDataSize,
                                          &MdcEventSensor::GetDataSize),
                    MakeUintegerChecker<uint32_t> ())
-    .AddAttribute ("MaxPackets", 
-                   "The maximum number of packets the application will send",
-                   UintegerValue (100),
-                   MakeUintegerAccessor (&MdcEventSensor::m_count),
-                   MakeUintegerChecker<uint32_t> ())
     .AddTraceSource ("Send", "A new packet is created and is sent to the sink or an MDC",
                      MakeTraceSourceAccessor (&MdcEventSensor::m_sendTrace))
-    .AddTraceSource ("Ack", "An ACK packet originating from the server is received",
-                     MakeTraceSourceAccessor (&MdcEventSensor::m_ackTrace))
-    .AddTraceSource ("Forward", "A packet originating from an overlay node is received and forwarded to the server",
-                     MakeTraceSourceAccessor (&MdcEventSensor::m_forwardTrace))
+    .AddTraceSource ("Rcv", "A packet is received",
+                     MakeTraceSourceAccessor (&MdcEventSensor::m_rcvTrace))
   ;
   return tid;
 }
 
-MdcEventSensor::MdcClient ()
+MdcEventSensor::MdcEventSensor ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
@@ -89,13 +83,11 @@ MdcEventSensor::MdcClient ()
   m_socket = 0;
   m_data = 0;
   m_dataSize = 0;
-  m_nextPeer = 0;
 
   m_address = Ipv4Address((uint32_t)0);
-  m_peers = std::vector<Ipv4Address>();
 }
 
-MdcEventSensor::~MdcClient()
+MdcEventSensor::~MdcEventSensor()
 {
   NS_LOG_FUNCTION_NOARGS ();
   m_socket = 0;
@@ -107,10 +99,12 @@ MdcEventSensor::~MdcClient()
 }
 
 void 
-MdcEventSensor::SetRemote (Ipv4Address ip, uint16_t port)
+MdcEventSensor::SetSink (Ipv4Address ip, uint16_t port /* = 0*/)
 {
   m_servAddress = ip;
-  //m_port = port; //should already be set
+
+  if (port)
+    m_port = port; //may already be set
 }
 
 void
@@ -144,16 +138,21 @@ MdcEventSensor::StartApplication (void)
       NS_LOG_LOGIC ("Socket bound");
     }
 
-  // Use the address of the first non-loopback device on the node for our address
+  // Use the first address of the first non-loopback device on the node for our address
   if (m_address.Get () == 0)
     {
-      m_address = GetNode ()->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
+      Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+      Ipv4Address loopback = Ipv4Address::GetLoopback ();
+      
+      for (uint32_t i = 0; i < ipv4->GetNInterfaces (); i++)
+        {
+          Ipv4Address addr = ipv4->GetAddress (i,0).GetLocal ();
+          if (addr != loopback)
+            m_address = addr;
+        }
     }
 
   m_socket->SetRecvCallback (MakeCallback (&MdcEventSensor::HandleRead, this));
-
-  if (m_sent < m_count)
-    ScheduleTransmit (Seconds (0.));
 }
 
 void 
@@ -281,11 +280,17 @@ MdcEventSensor::GetDataSize (void) const
   return m_size;
 }
 
+void
+MdcEventSensor::AddEvent (Time t, bool noData /* = false*/)
+{
+  ScheduleTransmit (t, noData);
+}
+
 void 
 MdcEventSensor::ScheduleTransmit (Time dt, bool noData /*= false*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, viaOverlay));
+  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, noData));
 }
 
 void 
@@ -324,11 +329,10 @@ MdcEventSensor::Send (bool noData)
   MdcHeader head;
   //head.SetSeq (m_sent);
   head.SetOrigin (m_address);
-  head.SetDest (m_servAddress);
+  head.SetDest (m_servAddress); //TODO: handle addressing MDC!
 
-  Ptr<Node> node = GetNode ();
-  mobility stuff
-  head.SetPosition (xPos, mPos);
+  Vector2D pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+  head.SetPosition (pos.x, pos.y);
 
   // If only notifying of an event and not sending the full data,
   // don't add fill and set the data size to be 0.
@@ -346,7 +350,7 @@ MdcEventSensor::Send (bool noData)
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p, GetNode ()->GetId ());
-  m_socket->SendTo (p, 0, InetSocketAddress(head.GetNextDest (), m_port));
+  m_socket->SendTo (p, 0, InetSocketAddress(head.GetDest (), m_port));
   //ScheduleTimeout (m_sent++);
 }
 
@@ -368,44 +372,18 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
           packet->PeekHeader (head);
 
           // If the packet is for us, process the ACK
-          if (head.GetFinalDest () == head.GetNextDest ())
+          if (head.GetDest () == m_address)
             {
               ProcessAck (packet, source);
             }
 
-          // Else forward it
+          // Else it was a broadcast from an MDC
           else
             {
-              ForwardPacket (packet, source);
+              return; //TODO: implement!
             }
         }
     }
-}
-
-void
-MdcEventSensor::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
-{
-  NS_LOG_LOGIC ("Forwarding packet");
-
-  packet->RemoveAllPacketTags ();
-  packet->RemoveAllByteTags ();
-
-  // Edit the packet's current RON header and get next hop
-  MdcHeader head;
-  packet->RemoveHeader (head);
-
-  // If this is the first hop on the route, we need to set the source
-  // since NS3 doesn't give us a convenient way to access which interface
-  // the original packet was sent out on.
-  if (head.GetHop () == 0)
-    head.SetOrigin (source);
-
-  head.IncrHops ();
-  Ipv4Address destination = head.GetNextDest ();
-  packet->AddHeader (head);
-
-  m_forwardTrace (packet, GetNode ()-> GetId ());
-  m_socket->SendTo (packet, 0, InetSocketAddress(destination, m_port));
 }
 
 void
@@ -415,14 +393,11 @@ MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
 
   MdcHeader head;
   packet->PeekHeader (head);
-  uint32_t seq = head.GetSeq ();
+  //uint32_t seq = head.GetSeq ();
   
-  m_ackTrace (packet, GetNode ()-> GetId ());
-  m_outstandingSeqs.erase (seq);
+  //m_ackTrace (packet, GetNode ()-> GetId ());
+  //m_outstandingSeqs.erase (seq);
   //TODO: handle an ack from an old seq number
-
-  CancelEvents ();
-  //TODO: store path? send more data?
 }
 
 void
@@ -430,19 +405,6 @@ MdcEventSensor::ScheduleTimeout (uint32_t seq)
 {
   m_events.push_front (Simulator::Schedule (m_timeout, &MdcEventSensor::CheckTimeout, this, seq));
   m_outstandingSeqs.insert (seq);
-}
-
-void
-MdcEventSensor::AddPeer (Ipv4Address addr)
-{
-  if (addr != m_address)
-    m_peers.push_back (addr);
-}
-
-void
-MdcEventSensor::SetPeerList (std::vector<Ipv4Address> peers)
-{
-  m_peers = peers;
 }
 
 Ipv4Address
@@ -462,7 +424,7 @@ MdcEventSensor::CheckTimeout (uint32_t seq)
       NS_LOG_LOGIC ("Packet with seq# " << seq << " timed out.");
       m_outstandingSeqs.erase (itr);
       
-      if (m_sent < m_count)
+      if (m_sent < m_retries) //TODO: this doesn't do as intended! must keep tries of attempts for this packet.
         ScheduleTransmit (Seconds (0.0), true);
     }
 }

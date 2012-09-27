@@ -26,10 +26,8 @@
 
 #include "mdc-header.h"
 #include "mdc-helper.h"
-#include "mdc-client.h"
-#include "mdc-server.h"
-
-#include "ns3/li-ion-energy-source-helper.h"
+#include "mdc-event-sensor.h"
+#include "mdc-collector.h"
 
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
@@ -67,6 +65,21 @@ SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const A
   std::stringstream s;
   s << "Sink received packet from " << from << " at time " << Simulator::Now ().GetSeconds ();
 
+  NS_LOG_INFO (s.str ());
+  *(constData->outputStream)->GetStream () << s.str() << std::endl;
+}
+
+/// Trace function for sensors sending a packet
+static void
+SensorDataSent (TraceConstData * constData, Ptr<const Packet> p)
+{
+  MdcHeader head;
+  p->PeekHeader (head);
+  int dataSize = head.GetData ();
+
+  std::stringstream s;
+  s << "Node " << constData->nodeId << " sent packet with " << dataSize << " bytes of data at " << Simulator::Now ().GetSeconds ();
+  
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
@@ -281,6 +294,20 @@ main (int argc, char *argv[])
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (Seconds (10.0));
 
+  if (tracing)
+    {
+      for (ApplicationContainer::Iterator itr = clientApps.Begin ();
+           itr != clientApps.End (); itr++)
+        {
+          delete constData;
+          constData = new TraceConstData();
+          constData->outputStream = outputStream;
+          constData->nodeId = (*itr)->GetNode ()->GetId ();
+
+          (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&SensorDataSent, constData));
+        }
+    }
+  
   Simulator::Stop (Seconds (10.0));
 
   /*pointToPoint.EnablePcapAll ("third");

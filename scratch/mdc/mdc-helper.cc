@@ -18,8 +18,8 @@
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
 #include "mdc-helper.h"
-#include "mdc-server.h"
-#include "mdc-client.h"
+#include "mdc-event-sensor.h"
+#include "mdc-collector.h"
 
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
@@ -31,7 +31,7 @@ NS_LOG_COMPONENT_DEFINE ("MdcEventSensorServerHelper");
 
 namespace ns3 {
 
-MdcCollectorHelper::MdcCollectorHelper (uint16_t port)
+  MdcCollectorHelper::MdcCollectorHelper (uint16_t port /* = 9999*/)
 {
   m_factory.SetTypeId (MdcCollector::GetTypeId ());
   SetAttribute ("Port", UintegerValue (port));
@@ -90,7 +90,7 @@ MdcCollectorHelper::InstallPriv (Ptr<Node> node) const
   //////********************************************//////////////
 
 
-MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, uint16_t port)
+MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, uint16_t port /* = 9999*/)
 {
   m_factory.SetTypeId (MdcEventSensor::GetTypeId ());
   SetAttribute ("RemoteAddress", Ipv4AddressValue (address));
@@ -159,21 +159,6 @@ MdcEventSensorHelper::InstallPriv (Ptr<Node> node) const
   app->SetNode (node);
 
   return app;
-}
-
-template<class ForwardIter>
-void
-MdcEventSensorHelper::AddPeers (ForwardIter peersBegin, ForwardIter peersEnd, ApplicationContainer apps)
-{
-  while (peersBegin != peersEnd)
-    {
-      for (ApplicationContainer::Iterator app = apps.Begin (); app != apps.End (); app++)
-        {
-          Ptr<MdcEventSensor> rca = DynamicCast<MdcEventSensor> (*app);
-          rca->AddPeer (*peersBegin);
-        }
-      peersBegin++;
-    }
 }
 
 } // namespace ns3

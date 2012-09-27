@@ -18,12 +18,21 @@ MdcHeader::MdcHeader ()
   m_xPos = 0;
   m_yPos = 0;
   m_dest = 0;
-  m_nIps = 0;
+}
+
+MdcHeader::MdcHeader (Ipv4Address dest)
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  m_data = 0;
+  m_xPos = 0;
+  m_yPos = 0;
+  m_dest = dest.Get ();
 }
 
 MdcHeader::MdcHeader (const MdcHeader& original)
 {
-  NS_LOG_FUNCTION (original.GetFinalDest ());
+  NS_LOG_FUNCTION (original.GetDest ());
 
   m_data = original.m_data;
   m_xPos = original.m_xPos;
@@ -114,13 +123,13 @@ MdcHeader::GetXPosition () const
 }
 
 uint32_t
-GetYPosition () const
+MdcHeader::GetYPosition () const
 {
   return m_yPos;
 }
 
 void
-SetPosition (uint32_t x, uint32_t y)
+MdcHeader::SetPosition (uint32_t x, uint32_t y)
 {
   m_xPos = x;
   m_yPos = y;

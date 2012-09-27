@@ -17,7 +17,7 @@ class MdcHeader : public Header
 {
 public:
   explicit MdcHeader ();
-  //MdcHeader (Ipv4Address destination);
+  MdcHeader (Ipv4Address dest);
   virtual ~MdcHeader ();
   MdcHeader (const MdcHeader& original);
   MdcHeader& operator=(const MdcHeader& original);

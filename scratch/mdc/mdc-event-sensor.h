@@ -43,11 +43,10 @@ class Packet;
 
 /**
  * \ingroup mdc
- * \brief A Resilient Overlay Network client
+ * \brief A Mobile Data Collector sensor client
  *
- * Attempts to send a packet to the server.  If failed, it will try to send it through
- * one of the overlay nodes.  It will try to forward packets from other overlay nodes
- * to the server.
+ * Reports data about sensed events, which may be simply notifying the sink about data availability
+ * and then sending it to a MDC for forwarding to the sink to save power.
  */
 class MdcEventSensor : public Application 
 {
@@ -60,7 +59,7 @@ public:
    * \param ip destination ipv4 address
    * \param port destination port
    */
-  void SetRemote (Ipv4Address ip, uint16_t port);
+  void SetSink (Ipv4Address ip, uint16_t port = 0);
 
   /**
    * Set the data size of the packet (the number of bytes that are sent as data
@@ -136,6 +135,13 @@ public:
    */
   Ipv4Address GetAddress () const;
 
+  /**
+   * Adds an event to occur at the specified time and whether the sensor should directly
+   * transmit to the sink or if it should notify the sink of availability and then transmit
+   * it to the MDC when available.
+   */
+  void AddEvent (Time t, bool noData = false);
+
 protected:
   virtual void DoDispose (void);
 
@@ -147,16 +153,13 @@ private:
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
   void Send (bool viaOverlay);
-  void ScheduleTransmit (Time dt, bool noData = false);
   void CancelEvents (void);
+  void ScheduleTransmit (Time dt, bool noData = false);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
   void CheckTimeout (uint32_t seq);
   void ScheduleTimeout (uint32_t seq);
-
-  uint32_t m_count;
-  Time m_timeout;
 
   uint32_t m_size; //used if dataSize == 0
   uint32_t m_dataSize;
@@ -167,6 +170,8 @@ private:
   Ptr<Socket> m_socket;
   uint16_t m_port;
 
+  Time m_timeout;
+  uint8_t m_retries;
   uint32_t m_sent; //# sent
   std::list<EventId> m_events;
   std::set<uint32_t> m_outstandingSeqs;
