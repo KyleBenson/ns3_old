@@ -30,6 +30,7 @@
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
 #include "ns3/vector.h"
+#include "ns3/mobility-module.h"
 
 #include "mdc-event-sensor.h"
 
@@ -197,6 +198,7 @@ MdcEventSensor::SetFill (std::string fill)
   memcpy (m_data, fill.c_str (), dataSize);
 
   //
+
   // Overwrite packet size attribute.
   //
   m_size = dataSize;
@@ -281,7 +283,7 @@ MdcEventSensor::GetDataSize (void) const
 }
 
 void
-MdcEventSensor::AddEvent (Time t, bool noData /* = false*/)
+MdcEventSensor::ScheduleEventDetection (Time t, bool noData /* = false*/)
 {
   ScheduleTransmit (t, noData);
 }
@@ -300,48 +302,47 @@ MdcEventSensor::Send (bool noData)
 
   NS_LOG_LOGIC ("Sending " << (noData ? "data notify" : "full data") << " packet.");
 
-  Ptr<Packet> p;
-  if (m_dataSize)
-    {
-      //
-      // If m_dataSize is non-zero, we have a data buffer of the same size that we
-      // are expected to copy and send.  This state of affairs is created if one of
-      // the Fill functions is called.  In this case, m_size must have been set
-      // to agree with m_dataSize
-      //
-      NS_ASSERT_MSG (m_dataSize == m_size, "MdcEventSensor::Send(): m_size and m_dataSize inconsistent");
-      NS_ASSERT_MSG (m_data, "MdcEventSensor::Send(): m_dataSize but no m_data");
-      p = Create<Packet> (m_data, m_dataSize);
-    }
-  else
-    {
-      //
-      // If m_dataSize is zero, the client has indicated that she doesn't care 
-      // about the data itself either by specifying the data size by setting
-      // the corresponding atribute or by not calling a SetFill function.  In 
-      // this case, we don't worry about it either.  But we do allow m_size
-      // to have a value different from the (zero) m_dataSize.
-      //
-      p = Create<Packet> (m_size);
-    }
-
-  // add MDC header to packet
   MdcHeader head;
   //head.SetSeq (m_sent);
   head.SetOrigin (m_address);
   head.SetDest (m_servAddress); //TODO: handle addressing MDC!
 
-  Vector2D pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
 
-  // If only notifying of an event and not sending the full data,
-  // don't add fill and set the data size to be 0.
+  Ptr<Packet> p;
   if (noData)
     {
+      p = Create<Packet> (0);
       head.SetData (0);
     }
   else
     {
+      // If only notifying of an event and not sending the full data,
+      // don't add fill and set the data size to be 0.
+      if (m_dataSize)
+        {
+          //
+          // If m_dataSize is non-zero, we have a data buffer of the same size that we
+          // are expected to copy and send.  This state of affairs is created if one of
+          // the Fill functions is called.  In this case, m_size must have been set
+          // to agree with m_dataSize
+          //
+          NS_ASSERT_MSG (m_dataSize == m_size, "MdcEventSensor::Send(): m_size and m_dataSize inconsistent");
+          NS_ASSERT_MSG (m_data, "MdcEventSensor::Send(): m_dataSize but no m_data");
+          p = Create<Packet> (m_data, m_dataSize);
+        }
+      else
+        {
+          //
+          // If m_dataSize is zero, the client has indicated that she doesn't care 
+          // about the data itself either by specifying the data size by setting
+          // the corresponding atribute or by not calling a SetFill function.  In 
+          // this case, we don't worry about it either.  But we do allow m_size
+          // to have a value different from the (zero) m_dataSize.
+          //
+          p = Create<Packet> (m_size);
+        }
       head.SetData (p->GetSize ());
     }
 
@@ -349,7 +350,7 @@ MdcEventSensor::Send (bool noData)
 
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
-  m_sendTrace (p, GetNode ()->GetId ());
+  m_sendTrace (p);
   m_socket->SendTo (p, 0, InetSocketAddress(head.GetDest (), m_port));
   //ScheduleTimeout (m_sent++);
 }

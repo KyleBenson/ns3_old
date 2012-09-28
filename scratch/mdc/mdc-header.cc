@@ -93,7 +93,7 @@ MdcHeader::GetOrigin (void) const
 }
 
 void
-MdcHeader::SetDestination (Ipv4Address dest)
+MdcHeader::SetDest (Ipv4Address dest)
 {
   m_dest = dest.Get ();
 }

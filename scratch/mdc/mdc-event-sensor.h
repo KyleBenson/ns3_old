@@ -136,11 +136,11 @@ public:
   Ipv4Address GetAddress () const;
 
   /**
-   * Adds an event to occur at the specified time and whether the sensor should directly
+   * Schedules an event to occur at the specified time and whether the sensor should directly
    * transmit to the sink or if it should notify the sink of availability and then transmit
    * it to the MDC when available.
    */
-  void AddEvent (Time t, bool noData = false);
+  void ScheduleEventDetection (Time t, bool noData = false);
 
 protected:
   virtual void DoDispose (void);
@@ -152,7 +152,7 @@ private:
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
-  void Send (bool viaOverlay);
+  void Send (bool noData);
   void CancelEvents (void);
   void ScheduleTransmit (Time dt, bool noData = false);
 
@@ -177,8 +177,8 @@ private:
   std::set<uint32_t> m_outstandingSeqs;
 
   /// Callbacks for tracing
-  TracedCallback<Ptr<const Packet>, uint32_t> m_sendTrace;
-  TracedCallback<Ptr<const Packet>, uint32_t > m_rcvTrace;
+  TracedCallback<Ptr<const Packet> > m_sendTrace;
+  TracedCallback<Ptr<const Packet> > m_rcvTrace;
 };
 
 } // namespace ns3

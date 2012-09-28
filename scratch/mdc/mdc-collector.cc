@@ -30,7 +30,9 @@
 #include "ns3/uinteger.h"
 #include "ns3/ipv4.h"
 #include "ns3/vector.h"
-#include "ns3/mobility-model.h"
+#include "ns3/mobility-module.h"
+
+#include "mdc-header.h"
 
 #include "mdc-collector.h"
 
@@ -198,14 +200,14 @@ MdcCollector::Send ()
   MdcHeader head(Ipv4Address::GetBroadcast ());
   head.SetOrigin (m_address);
   
-  Vector2D pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
 
   p->AddHeader (head);
 
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
-  m_sendTrace (p, GetNode ()->GetId ());
+  m_requestTrace (p, GetNode ()->GetId ());
   m_sensorSocket->SendTo (p, 0, InetSocketAddress(head.GetDest (), m_port));
 }
 
@@ -224,7 +226,7 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
 
       if (InetSocketAddress::IsMatchingType (from))
         {
-          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+          //Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
 
           MdcHeader head;
           packet->PeekHeader (head);
@@ -232,7 +234,7 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
           // If the packet is for the sink, forward it
           if (head.GetDest () == m_sinkAddress)
             {
-              ForwardPacket (packet, source);
+              ForwardPacket (packet);
             }
 
           // Else its for us

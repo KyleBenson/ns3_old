@@ -22,7 +22,7 @@ public:
   MdcHeader (const MdcHeader& original);
   MdcHeader& operator=(const MdcHeader& original);
 
-  void SetDestination (Ipv4Address dest);
+  void SetDest (Ipv4Address dest);
   void SetOrigin (Ipv4Address origin);
   Ipv4Address GetDest (void) const;
   Ipv4Address GetOrigin (void) const;

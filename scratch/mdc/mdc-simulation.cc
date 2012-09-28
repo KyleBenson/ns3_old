@@ -107,7 +107,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcServerApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
     }
 
@@ -270,7 +270,7 @@ main (int argc, char *argv[])
   constData->outputStream = outputStream;
   constData->nodeId = sink.Get (0)->GetId ();
   
-  Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), 9));
+  Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), 9999));
   
   PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", sinkLocalAddress);
   //MdcServerHelper sinkHelper (9);
@@ -281,31 +281,31 @@ main (int argc, char *argv[])
   if (tracing)
     sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
 
-  /*MdcEventSensorHelper mdcClient (sinkInterface.GetAddress (0, 0), 9);
-  mdcClient.SetAttribute ("MaxPackets", UintegerValue (2));
-  mdcClient.SetAttribute ("Interval", TimeValue (Seconds (2.)));
-  mdcClient.SetAttribute ("PacketSize", UintegerValue (1024));*/
+  MdcEventSensorHelper sensorAppHelper (sinkInterface.GetAddress (0, 0));
+  sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
   
-  Address sinkDestAddress (InetSocketAddress (sinkInterface.GetAddress (0, 0), 9));
-  OnOffHelper mdcClient ("ns3::UdpSocketFactory", sinkDestAddress);
+    //Address sinkDestAddress (InetSocketAddress (sinkInterface.GetAddress (0, 0), 9));
+    //  OnOffHelper sensorAppHelper ("ns3::UdpSocketFactory", sinkDestAddress);
 
-  ApplicationContainer clientApps = 
-    mdcClient.Install (sensors);
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (Seconds (10.0));
+  ApplicationContainer sensorApps = sensorAppHelper.Install (sensors);
+  sensorApps.Start (Seconds (2.0));
+  sensorApps.Stop (Seconds (10.0));
 
-  if (tracing)
+  double t = 0.0;
+  for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
+       itr != sensorApps.End (); itr++, t+=0.001)
     {
-      for (ApplicationContainer::Iterator itr = clientApps.Begin ();
-           itr != clientApps.End (); itr++)
+      if (tracing)
         {
           delete constData;
           constData = new TraceConstData();
           constData->outputStream = outputStream;
           constData->nodeId = (*itr)->GetNode ()->GetId ();
-
+          
           (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&SensorDataSent, constData));
         }
+     
+      DynamicCast<MdcEventSensor> (*itr)->ScheduleEventDetection (Seconds (3.0+t));
     }
   
   Simulator::Stop (Seconds (10.0));

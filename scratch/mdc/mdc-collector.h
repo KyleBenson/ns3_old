@@ -25,8 +25,6 @@
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
 
-#include "mdc-header.h"
-
 #include <list>
 #include <set>
 #include <vector>
@@ -54,7 +52,7 @@ class MdcCollector : public Application
 public:
   static TypeId GetTypeId (void);
   MdcCollector ();
-  virtual ~MdcCollector ();
+  //virtual ~MdcCollector ();
 
   /**
    * \param ip destination ipv4 address
@@ -91,7 +89,7 @@ private:
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet>, uint32_t> m_requestTrace;
-  TracedCallback<Ptr<const Packet>, uint32_t > m_forwardTrace;
+  TracedCallback<Ptr<const Packet>, uint32_t> m_forwardTrace;
 };
 
 } // namespace ns3
