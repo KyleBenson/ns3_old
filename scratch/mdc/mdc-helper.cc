@@ -27,7 +27,7 @@
 
 #include <iterator>
 
-NS_LOG_COMPONENT_DEFINE ("MdcEventSensorServerHelper");
+NS_LOG_COMPONENT_DEFINE ("MdcHelper");
 
 namespace ns3 {
 
@@ -90,9 +90,16 @@ MdcCollectorHelper::InstallPriv (Ptr<Node> node) const
   //////********************************************//////////////
 
 
-MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, uint16_t port /* = 9999*/)
+MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, int nEvents /* = 0*/, uint16_t port /* = 9999*/)
 {
   m_factory.SetTypeId (MdcEventSensor::GetTypeId ());
+  m_nEvents = nEvents;
+  m_sendFullData = true;
+
+  m_eventTimeRandomVariable = new UniformVariable (2.0, 10.0);
+  m_radiusRandomVariable = new ConstantVariable (5.0);
+  m_posAllocator = CreateObject<RandomRectanglePositionAllocator> ();
+
   SetAttribute ("RemoteAddress", Ipv4AddressValue (address));
   SetAttribute ("Port", UintegerValue (port));
 }
@@ -124,20 +131,20 @@ MdcEventSensorHelper::SetFill (Ptr<Application> app, uint8_t *fill, uint32_t fil
 }
 
 ApplicationContainer
-MdcEventSensorHelper::Install (Ptr<Node> node) const
+MdcEventSensorHelper::Install (Ptr<Node> node)
 {
   return ApplicationContainer (InstallPriv (node));
 }
 
 ApplicationContainer
-MdcEventSensorHelper::Install (std::string nodeName) const
+MdcEventSensorHelper::Install (std::string nodeName)
 {
   Ptr<Node> node = Names::Find<Node> (nodeName);
   return ApplicationContainer (InstallPriv (node));
 }
 
 ApplicationContainer
-MdcEventSensorHelper::Install (NodeContainer c) const
+MdcEventSensorHelper::Install (NodeContainer c)
 {
   ApplicationContainer apps;
   for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
@@ -149,7 +156,7 @@ MdcEventSensorHelper::Install (NodeContainer c) const
 }
 
 Ptr<Application>
-MdcEventSensorHelper::InstallPriv (Ptr<Node> node) const
+MdcEventSensorHelper::InstallPriv (Ptr<Node> node)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
@@ -158,7 +165,61 @@ MdcEventSensorHelper::InstallPriv (Ptr<Node> node) const
   node->AddApplication (app);
   app->SetNode (node);
 
+  ScheduleEvents (app);
+
   return app;
+}
+
+void
+MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
+{
+  if (!m_events.size ())
+    {
+      for (int i = 0; i < m_nEvents; i++)
+        {
+          Vector pos = m_posAllocator->GetNext ();
+          double radius = m_radiusRandomVariable->GetValue ();
+          Time time = Seconds (m_eventTimeRandomVariable->GetValue ());
+          
+          NS_LOG_LOGIC ("Event scheduled for " << time << " seconds at " << pos << " with radius " << radius);
+
+          m_events.push_back (SensedEvent (pos, radius, time));
+        }
+    }
+  
+  for (std::list<SensedEvent>::iterator itr = m_events.begin ();
+       itr != m_events.end (); itr++)
+    DynamicCast<MdcEventSensor>(app)->ScheduleEventDetection (itr->GetTime (), *itr, !m_sendFullData);
+}
+
+void
+MdcEventSensorHelper::SetSendFullData (bool b)
+{
+  m_sendFullData = b;
+}
+
+void
+MdcEventSensorHelper::SetEventPositionAllocator (Ptr<PositionAllocator> alloc)
+{
+ m_posAllocator = alloc;
+}
+
+void
+MdcEventSensorHelper::SetRadiusRandomVariable (RandomVariable * r)
+{
+  if (m_radiusRandomVariable)
+    delete m_radiusRandomVariable;
+
+  m_radiusRandomVariable = r;
+}
+
+void
+MdcEventSensorHelper::SetEventTimeRandomVariable (RandomVariable * r)
+{
+  if (m_eventTimeRandomVariable)
+    delete m_eventTimeRandomVariable;
+
+  m_eventTimeRandomVariable = r;
 }
 
 } // namespace ns3

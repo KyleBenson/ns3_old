@@ -25,6 +25,11 @@
 #include "ns3/node-container.h"
 #include "ns3/object-factory.h"
 #include "ns3/ipv4-address.h"
+#include "ns3/position-allocator.h"
+
+#include "sensed-event.h"
+
+#include <list>
 
 namespace ns3 {
 
@@ -107,7 +112,7 @@ public:
    * \param ip The IP address of the remote sink
    * \param serverPort The port number of the sink
    */
-  MdcEventSensorHelper (Ipv4Address ip, uint16_t port = 9999);
+  MdcEventSensorHelper (Ipv4Address ip, int nEvents = 0, uint16_t port = 9999);
 
   /**
    * Record an attribute to be set in each Application after it is is created.
@@ -177,7 +182,7 @@ public:
    * \returns An ApplicationContainer that holds a Ptr<Application> to the 
    *          application created
    */
-  ApplicationContainer Install (Ptr<Node> node) const;
+  ApplicationContainer Install (Ptr<Node> node);
 
   /**
    * Create a RON client application on the specified node.  The Node
@@ -189,7 +194,7 @@ public:
    * \returns An ApplicationContainer that holds a Ptr<Application> to the 
    *          application created
    */
-  ApplicationContainer Install (std::string nodeName) const;
+  ApplicationContainer Install (std::string nodeName);
 
   /**
    * \param c the nodes
@@ -198,11 +203,26 @@ public:
    *
    * \returns the applications created, one application per input node.
    */
-  ApplicationContainer Install (NodeContainer c) const;
+  ApplicationContainer Install (NodeContainer c);
+
+  void SetEventPositionAllocator (Ptr<PositionAllocator> alloc);
+
+  void SetRadiusRandomVariable (RandomVariable * r);
+
+  void SetEventTimeRandomVariable (RandomVariable * r);
+
+  void SetSendFullData (bool b);
 
 private:
-  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  Ptr<Application> InstallPriv (Ptr<Node> node);
+  void ScheduleEvents (Ptr<Application> app);
   ObjectFactory m_factory;
+  std::list<SensedEvent> m_events;
+  int m_nEvents;
+  bool m_sendFullData;
+  Ptr<PositionAllocator> m_posAllocator;
+  RandomVariable * m_radiusRandomVariable;
+  RandomVariable * m_eventTimeRandomVariable;
 };
 
 } // namespace ns3

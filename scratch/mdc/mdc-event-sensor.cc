@@ -63,6 +63,11 @@ MdcEventSensor::GetTypeId (void)
                    UintegerValue (3),
                    MakeUintegerAccessor (&MdcEventSensor::m_retries),
                    MakeUintegerChecker<uint8_t> ())
+    .AddAttribute ("RandomEventDetectionDelay",
+                   "The random variable from which a random delay for the time between an event occurring and a sensor detecting it is taken",
+                   RandomVariableValue (UniformVariable ()),
+                   MakeRandomVariableAccessor (&MdcEventSensor::m_randomEventDetectionDelay),
+                   MakeRandomVariableChecker ())
     .AddAttribute ("PacketSize", "Size of sensed data in outbound packets",
                    UintegerValue (10000),
                    MakeUintegerAccessor (&MdcEventSensor::SetDataSize,
@@ -84,6 +89,8 @@ MdcEventSensor::MdcEventSensor ()
   m_socket = 0;
   m_data = 0;
   m_dataSize = 0;
+
+  m_randomEventDetectionDelay = UniformVariable ();
 
   m_address = Ipv4Address((uint32_t)0);
 }
@@ -283,9 +290,18 @@ MdcEventSensor::GetDataSize (void) const
 }
 
 void
-MdcEventSensor::ScheduleEventDetection (Time t, bool noData /* = false*/)
+MdcEventSensor::ScheduleEventDetection (Time t, SensedEvent event, bool noData /* = false*/)
 {
-  ScheduleTransmit (t, noData);
+  m_events.push_front (Simulator::Schedule (t, &MdcEventSensor::CheckEventDetection, this, event, noData));
+}
+
+void
+MdcEventSensor::CheckEventDetection (SensedEvent event, bool noData /* = false*/)
+{
+  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+
+  if (event.WithinEventRegion (pos))
+    ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), noData);
 }
 
 void 

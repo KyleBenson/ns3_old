@@ -90,12 +90,18 @@ main (int argc, char *argv[])
   int verbose = 0;
   uint32_t nSensors = 10;
   uint32_t nMdcs = 1;
+  uint32_t nEvents = 1;
+  double eventRadius = 5.0;
+  bool sendFullData = true;
   uint32_t boundaryLength = 100;
   std::string traceFile = "";
 
   CommandLine cmd;
   cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
   cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
+  cmd.AddValue ("events", "Number of events to occur", nEvents);
+  cmd.AddValue ("event_radius", "Radius of affect of the events", eventRadius);
+  cmd.AddValue ("send_full_data", "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs", sendFullData);
   cmd.AddValue ("verbose", "Enable verbose logging", verbose);
   cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", boundaryLength);
   cmd.AddValue ("trace_file", "File to write traces to", traceFile);
@@ -109,12 +115,14 @@ main (int argc, char *argv[])
       LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcHelper", LOG_LEVEL_INFO);
     }
 
   if (verbose == 2)
     {
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
     }
 
   // Open trace file if requested
@@ -177,10 +185,10 @@ main (int argc, char *argv[])
   Ptr<UniformRandomVariable> randomPosition = CreateObject<UniformRandomVariable> ();
   randomPosition->SetAttribute ("Max", DoubleValue (boundaryLength));
 
-  Ptr<RandomRectanglePositionAllocator> pos = CreateObject<RandomRectanglePositionAllocator> ();
-  pos->SetX (randomPosition);
-  pos->SetY (randomPosition);
-  mobility.SetPositionAllocator (pos);
+  Ptr<RandomRectanglePositionAllocator> randomPositionAllocator = CreateObject<RandomRectanglePositionAllocator> ();
+  randomPositionAllocator->SetX (randomPosition);
+  randomPositionAllocator->SetY (randomPosition);
+  mobility.SetPositionAllocator (randomPositionAllocator);
 
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (sensors);
@@ -281,8 +289,12 @@ main (int argc, char *argv[])
   if (tracing)
     sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
 
-  MdcEventSensorHelper sensorAppHelper (sinkInterface.GetAddress (0, 0));
+  MdcEventSensorHelper sensorAppHelper (sinkInterface.GetAddress (0, 0), nEvents);
   sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
+  sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
+  sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (2.0, 10.0));
+  sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
+  sensorAppHelper.SetSendFullData (sendFullData);    
   
     //Address sinkDestAddress (InetSocketAddress (sinkInterface.GetAddress (0, 0), 9));
     //  OnOffHelper sensorAppHelper ("ns3::UdpSocketFactory", sinkDestAddress);
@@ -291,9 +303,8 @@ main (int argc, char *argv[])
   sensorApps.Start (Seconds (2.0));
   sensorApps.Stop (Seconds (10.0));
 
-  double t = 0.0;
   for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
-       itr != sensorApps.End (); itr++, t+=0.001)
+       itr != sensorApps.End (); itr++)
     {
       if (tracing)
         {
@@ -305,7 +316,7 @@ main (int argc, char *argv[])
           (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&SensorDataSent, constData));
         }
      
-      DynamicCast<MdcEventSensor> (*itr)->ScheduleEventDetection (Seconds (3.0+t));
+      //DynamicCast<MdcEventSensor> (*itr)->ScheduleEventDetection (Seconds (3.0));
     }
   
   Simulator::Stop (Seconds (10.0));

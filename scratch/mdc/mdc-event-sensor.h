@@ -24,7 +24,9 @@
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
+#include "ns3/random-variable.h"
 
+#include "sensed-event.h"
 #include "mdc-header.h"
 
 #include <list>
@@ -140,7 +142,7 @@ public:
    * transmit to the sink or if it should notify the sink of availability and then transmit
    * it to the MDC when available.
    */
-  void ScheduleEventDetection (Time t, bool noData = false);
+  void ScheduleEventDetection (Time t, SensedEvent event, bool noData = false);
 
 protected:
   virtual void DoDispose (void);
@@ -155,6 +157,7 @@ private:
   void Send (bool noData);
   void CancelEvents (void);
   void ScheduleTransmit (Time dt, bool noData = false);
+  void CheckEventDetection (SensedEvent event, bool noData = false);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
@@ -164,6 +167,8 @@ private:
   uint32_t m_size; //used if dataSize == 0
   uint32_t m_dataSize;
   uint8_t *m_data;
+
+  RandomVariable m_randomEventDetectionDelay;
 
   Ipv4Address m_servAddress;
   Ipv4Address m_address;
