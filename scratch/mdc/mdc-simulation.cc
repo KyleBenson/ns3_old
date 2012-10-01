@@ -47,7 +47,6 @@ struct TraceConstData
 /// Trace function for remaining energy at node.
 void
 RemainingEnergySink (TraceConstData * constData, double oldValue, double remainingEnergy)
-//RemainingEnergySink (Ptr<OutputStreamWrapper> constData, double oldValue, double remainingEnergy)
 {
   //  NS_LOG_UNCOND ("Node " << constData.nodeId << " current remaining energy = " << remainingEnergy
   std::stringstream s;
@@ -63,7 +62,7 @@ void
 SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const Address & from)
 {
   std::stringstream s;
-  s << "Sink received packet from " << from << " at time " << Simulator::Now ().GetSeconds ();
+  s << "Sink received packet from " << InetSocketAddress::ConvertFrom(from).GetIpv4 () << " at time " << Simulator::Now ().GetSeconds ();
 
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -75,7 +74,7 @@ SensorDataSent (TraceConstData * constData, Ptr<const Packet> p)
 {
   MdcHeader head;
   p->PeekHeader (head);
-  int dataSize = head.GetData ();
+  int dataSize = p->GetSize ();
 
   std::stringstream s;
   s << "Node " << constData->nodeId << " sent packet with " << dataSize << " bytes of data at " << Simulator::Now ().GetSeconds ();
@@ -92,6 +91,7 @@ main (int argc, char *argv[])
   uint32_t nMdcs = 1;
   uint32_t nEvents = 1;
   double eventRadius = 5.0;
+  double mdcSpeed = 3.0;
   bool sendFullData = true;
   uint32_t boundaryLength = 100;
   std::string traceFile = "";
@@ -101,6 +101,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
   cmd.AddValue ("events", "Number of events to occur", nEvents);
   cmd.AddValue ("event_radius", "Radius of affect of the events", eventRadius);
+  cmd.AddValue ("mdc_speed", "Speed (in m/s) of the MDCs", mdcSpeed);
   cmd.AddValue ("send_full_data", "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs", sendFullData);
   cmd.AddValue ("verbose", "Enable verbose logging", verbose);
   cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", boundaryLength);
@@ -111,6 +112,7 @@ main (int argc, char *argv[])
   if (verbose == 1)
     {
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
       LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
@@ -144,8 +146,10 @@ main (int argc, char *argv[])
   sensors.Create (nSensors);
   NodeContainer sink;
   sink.Create (1);
-  /*NodeContainer mdcs;
-    mdcs.Create (nMdcs);*/
+  NodeContainer mdcs;
+  mdcs.Create (nMdcs);
+
+  NS_LOG_INFO ("num MDCS = " << nMdcs);
 
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   NqosWifiMacHelper mac = NqosWifiMacHelper::Default ();
@@ -172,8 +176,8 @@ main (int argc, char *argv[])
   NetDeviceContainer sinkDevice;
   sinkDevice = wifi.Install (phy, mac, sink);
 
-  /*NetDeviceContainer mdcDevices;
-    mdcDevices = wifi.Install (phy, mac, mdcs);*/
+  NetDeviceContainer mdcDevices;
+  mdcDevices = wifi.Install (phy, mac, mdcs);
 
 
   //////////////////////////////////////////////////////////////////////
@@ -193,16 +197,30 @@ main (int argc, char *argv[])
   mobility.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
   mobility.Install (sensors);
 
-  // Place sink and MDCs in center of region
-  Ptr<ListPositionAllocator> posAllocator = CreateObject<ListPositionAllocator> ();
-  posAllocator->Add (Vector3D (boundaryLength/2.0, boundaryLength/2.0, 0.0));
-  mobility.SetPositionAllocator (posAllocator);
+  // Place sink in center of region
+  Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
+  Vector center = Vector3D (boundaryLength/2.0, boundaryLength/2.0, 0.0);
+  centerPositionAllocator->Add (center);
+  mobility.SetPositionAllocator (centerPositionAllocator);
   mobility.Install (sink);
 
-  //TODO: mobility for MDCs
-  //mobility.SetMobilityModel ("ns3::??
-  //mobility.Install (mdcs);
+  // Place MDCs in center of region
+  Ptr<ConstantRandomVariable> constRandomSpeed = CreateObject<ConstantRandomVariable> ();
+  constRandomSpeed->SetAttribute ("Constant", DoubleValue (mdcSpeed));
+  Ptr<ConstantRandomVariable> constRandomPause = CreateObject<ConstantRandomVariable> (); //default = 0
 
+  mobility.SetPositionAllocator (randomPositionAllocator);
+  mobility.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
+                             "Pause", PointerValue (constRandomPause),
+                             "Speed", PointerValue (constRandomSpeed),
+                             "PositionAllocator", PointerValue (randomPositionAllocator));
+  mobility.Install (mdcs);
+  
+  for (NodeContainer::Iterator itr = mdcs.Begin ();
+       itr != mdcs.End (); itr++)
+    {
+      (*itr)->GetObject<MobilityModel> ()->SetPosition (center);
+    }
 
   //////////////////////////////////////////////////////////////////////
   ////////////////////      Energy Model      //////////////////////////
@@ -253,7 +271,7 @@ main (int argc, char *argv[])
   InternetStackHelper stack;
   stack.Install (sensors);
   stack.Install (sink);
-  //stack.Install (mdcs);
+  stack.Install (mdcs);
 
   Ipv4AddressHelper address;
 
@@ -262,10 +280,8 @@ main (int argc, char *argv[])
   sinkInterface = address.Assign (sinkDevice);
   Ipv4InterfaceContainer sensorInterfaces;
   sensorInterfaces = address.Assign (sensorDevices);
-
-  /*address.SetBase ("10.1.3.0", "255.255.255.0");
   Ipv4InterfaceContainer mdcInterfaces;
-  mdcInterfaces = address.Assign (mdcDevices);*/
+  mdcInterfaces = address.Assign (mdcDevices);
 
 
   //////////////////////////////////////////////////////////////////////
@@ -308,7 +324,6 @@ main (int argc, char *argv[])
     {
       if (tracing)
         {
-          delete constData;
           constData = new TraceConstData();
           constData->outputStream = outputStream;
           constData->nodeId = (*itr)->GetNode ()->GetId ();
