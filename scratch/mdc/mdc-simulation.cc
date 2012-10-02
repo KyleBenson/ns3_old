@@ -29,6 +29,9 @@
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
 
+#define simStartTime Seconds(1.0)
+#define simEndTime Seconds(10.0)
+
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
  * data being collected by a mobile data collector (MDC).
@@ -114,7 +117,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
       LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
-      LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
+      //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcHelper", LOG_LEVEL_INFO);
@@ -149,36 +152,38 @@ main (int argc, char *argv[])
   NodeContainer mdcs;
   mdcs.Create (nMdcs);
 
-  NS_LOG_INFO ("num MDCS = " << nMdcs);
-
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default ();
   NqosWifiMacHelper mac = NqosWifiMacHelper::Default ();
   YansWifiPhyHelper phy = YansWifiPhyHelper::Default ();
   phy.SetChannel (channel.Create ());
 
   WifiHelper wifi = WifiHelper::Default ();
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+  wifi.SetRemoteStationManager ("ns3::AarfcdWifiManager");
 
   //TODO: tweak rates, thresholds, power levels
 
-  /* mac defaults to ad-hoc mode
-     Ssid ssid = Ssid ("ns-3-ssid");
+  NetDeviceContainer sensorDevices;
+  sensorDevices = wifi.Install (phy, mac, sensors);
+  NetDeviceContainer sinkSensorDevice;
+  sinkSensorDevice = wifi.Install (phy, mac, sink);
+  NetDeviceContainer mdcSensorDevices;
+  mdcSensorDevices = wifi.Install (phy, mac, mdcs);
+
+  // Setup MDCs and associated sink interface
+  Ssid ssid = Ssid ("ns-3-ssid");
   mac.SetType ("ns3::StaWifiMac",
                "Ssid", SsidValue (ssid),
                "ActiveProbing", BooleanValue (false));
+  
+  NetDeviceContainer mdcSinkDevices;
+  mdcSinkDevices = wifi.Install (phy, mac, mdcs);
 
   mac.SetType ("ns3::ApWifiMac",
-               "Ssid", SsidValue (ssid));*/
+               "Ssid", SsidValue (ssid));
 
-  NetDeviceContainer sensorDevices;
-  sensorDevices = wifi.Install (phy, mac, sensors);
-
-  NetDeviceContainer sinkDevice;
-  sinkDevice = wifi.Install (phy, mac, sink);
-
-  NetDeviceContainer mdcDevices;
-  mdcDevices = wifi.Install (phy, mac, mdcs);
-
+  NetDeviceContainer sinkMdcDevice;
+  sinkMdcDevice = wifi.Install (phy, mac, sink);
 
   //////////////////////////////////////////////////////////////////////
   ///////////////////////   Assign positions   /////////////////////////
@@ -274,50 +279,69 @@ main (int argc, char *argv[])
   stack.Install (mdcs);
 
   Ipv4AddressHelper address;
-
   address.SetBase ("10.1.1.0", "255.255.255.0");
-  Ipv4InterfaceContainer sinkInterface;
-  sinkInterface = address.Assign (sinkDevice);
+
+  Ipv4InterfaceContainer sinkSensorInterface;
+  sinkSensorInterface = address.Assign (sinkSensorDevice);
   Ipv4InterfaceContainer sensorInterfaces;
   sensorInterfaces = address.Assign (sensorDevices);
-  Ipv4InterfaceContainer mdcInterfaces;
-  mdcInterfaces = address.Assign (mdcDevices);
+  Ipv4InterfaceContainer mdcSensorInterfaces;
+  mdcSensorInterfaces = address.Assign (mdcSensorDevices);
 
+  // The long-range wifi between sink and MDCs uses TCP on a different network
+  address.NewNetwork ();
+  Ipv4InterfaceContainer sinkMdcInterface;
+  sinkMdcInterface = address.Assign (sinkMdcDevice);
+  Ipv4InterfaceContainer mdcSinkInterfaces;
+  mdcSinkInterfaces = address.Assign (mdcSinkDevices);
 
   //////////////////////////////////////////////////////////////////////
   /////////////////////////  Install Applications   ////////////////////
   //////////////////////////////////////////////////////////////////////
 
 
-
   TraceConstData * constData = new TraceConstData();
   constData->outputStream = outputStream;
   constData->nodeId = sink.Get (0)->GetId ();
   
-  Address sinkLocalAddress (InetSocketAddress (Ipv4Address::GetAny (), 9999));
-  
-  PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", sinkLocalAddress);
+  Address sinkDestAddress (InetSocketAddress (sinkMdcInterface.GetAddress (0, 0), 9999));
+
+  // SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
+  PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
   //MdcServerHelper sinkHelper (9);
-  ApplicationContainer sinkApps = sinkHelper.Install (sink);
-  sinkApps.Start (Seconds (1.0));
-  sinkApps.Stop (Seconds (10.0));
+  ApplicationContainer sinkSensorApps = sinkHelper.Install (sink);
+  sinkSensorApps.Start (simStartTime);
+  sinkSensorApps.Stop (simEndTime);
+
+  sinkHelper = PacketSinkHelper ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
+  //MdcServerHelper sinkHelper (9);
+  ApplicationContainer sinkMdcApps = sinkHelper.Install (sink);
+  sinkMdcApps.Start (simStartTime);
+  sinkMdcApps.Stop (simEndTime);
   
   if (tracing)
-    sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
+    {
+      sinkSensorApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
+      sinkMdcApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
+    }
 
-  MdcEventSensorHelper sensorAppHelper (sinkInterface.GetAddress (0, 0), nEvents);
+  // MOBILE DATA COLLECTORS
+  OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
+  ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
+  mdcApps.Start (simStartTime);
+  mdcApps.Stop (simEndTime);
+
+  // SENSORS
+  MdcEventSensorHelper sensorAppHelper (sinkSensorInterface.GetAddress (0, 0), nEvents);
   sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
   sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (2.0, 10.0));
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
   sensorAppHelper.SetSendFullData (sendFullData);    
   
-    //Address sinkDestAddress (InetSocketAddress (sinkInterface.GetAddress (0, 0), 9));
-    //  OnOffHelper sensorAppHelper ("ns3::UdpSocketFactory", sinkDestAddress);
-
   ApplicationContainer sensorApps = sensorAppHelper.Install (sensors);
-  sensorApps.Start (Seconds (2.0));
-  sensorApps.Stop (Seconds (10.0));
+  sensorApps.Start (simStartTime);
+  sensorApps.Stop (simEndTime);
 
   for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
        itr != sensorApps.End (); itr++)
@@ -334,7 +358,7 @@ main (int argc, char *argv[])
       //DynamicCast<MdcEventSensor> (*itr)->ScheduleEventDetection (Seconds (3.0));
     }
   
-  Simulator::Stop (Seconds (10.0));
+  Simulator::Stop (simEndTime);
 
   /*pointToPoint.EnablePcapAll ("third");
   phy.EnablePcap ("third", apDevices.Get (0));
