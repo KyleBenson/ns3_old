@@ -23,6 +23,7 @@
 #include "ns3/csma-module.h"
 #include "ns3/internet-module.h"
 #include "ns3/energy-module.h"
+#include "ns3/aodv-module.h"
 
 #include "mdc-header.h"
 #include "mdc-helper.h"
@@ -272,8 +273,11 @@ main (int argc, char *argv[])
   ////////////////////    Network    ///////////////////////////////////
   //////////////////////////////////////////////////////////////////////
 
-
+  
+  //  AodvHelper aodv;
+  //aodv.Set ("EnableHello", BooleanValue (false));
   InternetStackHelper stack;
+  //stack.SetRoutingHelper (aodv);
   stack.Install (sensors);
   stack.Install (sink);
   stack.Install (mdcs);

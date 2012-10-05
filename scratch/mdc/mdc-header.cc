@@ -117,6 +117,12 @@ MdcHeader::SetData (uint32_t size)
 }
 
 uint32_t
+GetSeq () const
+{
+  return m_seq;
+}
+
+uint32_t
 MdcHeader::GetXPosition () const
 {
   return m_xPos;
@@ -140,7 +146,8 @@ MdcHeader::Print (std::ostream &os) const
 {
   // This method is invoked by the packet printing
   // routines to print the content of the header.
-  os << "Packet from " << Ipv4Address (m_origin) << " to " << Ipv4Address (m_dest);
+  os << "Packet from " << Ipv4Address (m_origin) << " to " << Ipv4Address (m_dest)
+     << " with seq# " << m_seq;
   if (m_data)
     {
       os << " containing " << m_data << " bytes of sensed data.";
@@ -163,6 +170,7 @@ MdcHeader::Serialize (Buffer::Iterator start) const
   start.WriteU32 (m_yPos);
   start.WriteU32 (m_dest);
   start.WriteU32 (m_origin);
+  start.WriteU32 (m_seq);
 }
 
 uint32_t
@@ -175,6 +183,7 @@ MdcHeader::Deserialize (Buffer::Iterator start)
   m_yPos = start.ReadU32 ();
   m_dest = start.ReadU32 ();
   m_origin = start.ReadU32 ();
+  m_seq = start.ReadU32 ();
 
   // we return the number of bytes effectively read.
   return MDC_HEADER_SIZE;

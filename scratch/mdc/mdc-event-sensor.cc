@@ -58,6 +58,11 @@ MdcEventSensor::GetTypeId (void)
                    TimeValue (Seconds (3)),
                    MakeTimeAccessor (&MdcEventSensor::m_timeout),
                    MakeTimeChecker ())
+    .AddAttribute ("SendFullData", 
+                   "Whether or not to send the full data during event detection.  If false, sends notification only and will send the full data to an MDC.",
+                   BooleanValue (true),
+                   MakeBooleanAccessor (&MdcEventSensor::m_nOutstandingReadings),
+                   MakeBooleanChecker ())
     .AddAttribute ("MaxRetries", 
                    "The maximum number of times the application will attempt to resend a failed packet",
                    UintegerValue (3),
@@ -89,6 +94,7 @@ MdcEventSensor::MdcEventSensor ()
   m_socket = 0;
   m_data = 0;
   m_dataSize = 0;
+  m_nOutstandingReadings = 0;
 
   m_randomEventDetectionDelay = UniformVariable ();
 
@@ -290,44 +296,54 @@ MdcEventSensor::GetDataSize (void) const
 }
 
 void
-MdcEventSensor::ScheduleEventDetection (Time t, SensedEvent event, bool noData /* = false*/)
+MdcEventSensor::ScheduleEventDetection (Time t, SensedEvent event)
 {
-  m_events.push_front (Simulator::Schedule (t, &MdcEventSensor::CheckEventDetection, this, event, noData));
+  m_events.push_front (Simulator::Schedule (t, &MdcEventSensor::CheckEventDetection, this, event));
 }
 
 void
-MdcEventSensor::CheckEventDetection (SensedEvent event, bool noData /* = false*/)
+MdcEventSensor::CheckEventDetection (SensedEvent event)
 {
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
 
   if (event.WithinEventRegion (pos))
-    ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), noData);
+    {
+      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()));
+      m_nOutstandingReadings++;
+    }
 }
 
 void 
-MdcEventSensor::ScheduleTransmit (Time dt, bool noData /*= false*/)
+MdcEventSensor::ScheduleTransmit (Time dt)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, noData));
+  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_servAddress, m_port)));
 }
 
 void 
-MdcEventSensor::Send (bool noData)
+MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_LOG_LOGIC ("Sending " << (noData ? "data notify" : "full data") << " packet.");
+  NS_LOG_LOGIC ("Sending " << (sendFullData ? "full data" : "data notify") << " packet.");
+
+  // if a sequence number is specified, use it.  Otherwise, use the next one.
+  if (!seq)
+    {
+      seq = m_sent;
+      m_sent++;
+    }
 
   MdcHeader head;
-  //head.SetSeq (m_sent);
+  head.SetSeq (seq);
   head.SetOrigin (m_address);
-  head.SetDest (m_servAddress); //TODO: handle addressing MDC!
+  head.SetDest (Ipv4Address::ConvertFrom (dest));
 
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
 
   Ptr<Packet> p;
-  if (noData)
+  if (!m_sendFullData and head.GetDest () == m_servAddress)
     {
       p = Create<Packet> (0);
       head.SetData (0);
@@ -360,6 +376,9 @@ MdcEventSensor::Send (bool noData)
           p = Create<Packet> (m_size);
         }
       head.SetData (p->GetSize ());
+  
+      // only schedule timeouts for full data
+      ScheduleTimeout (seq);
     }
 
   p->AddHeader (head);
@@ -367,8 +386,7 @@ MdcEventSensor::Send (bool noData)
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p);
-  m_socket->SendTo (p, 0, InetSocketAddress(head.GetDest (), m_port));
-  //ScheduleTimeout (m_sent++);
+  m_socket->SendTo (p, 0, dest);
 }
 
 void 
@@ -397,7 +415,14 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
           // Else it was a broadcast from an MDC
           else
             {
-              return; //TODO: implement!
+              if (m_nOutstandingReadings > 0)
+                {
+                  for (int i = m_nOutstandingReadings; i > 0; i--;)
+                    {
+                      Send (from);
+                      m_nOutstandingReadings--;
+                    }
+                }
             }
         }
     }
@@ -410,10 +435,10 @@ MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
 
   MdcHeader head;
   packet->PeekHeader (head);
-  //uint32_t seq = head.GetSeq ();
+  uint32_t seq = head.GetSeq ();
   
   //m_ackTrace (packet, GetNode ()-> GetId ());
-  //m_outstandingSeqs.erase (seq);
+  m_outstandingSeqs.erase (seq);
   //TODO: handle an ack from an old seq number
 }
 
@@ -421,7 +446,10 @@ void
 MdcEventSensor::ScheduleTimeout (uint32_t seq)
 {
   m_events.push_front (Simulator::Schedule (m_timeout, &MdcEventSensor::CheckTimeout, this, seq));
-  m_outstandingSeqs.insert (seq);
+  if (std::map::iterator found = m_outstandingSeqs.find (seq) != m_outstandingSeqs.end ())
+    m_outstandingSeqs[seq]--;
+  else
+    m_outstandingSeqs[seq] = m_retries;
 }
 
 Ipv4Address
@@ -433,16 +461,19 @@ MdcEventSensor::GetAddress () const
 void
 MdcEventSensor::CheckTimeout (uint32_t seq)
 {
-  std::set<uint32_t>::iterator itr = m_outstandingSeqs.find (seq);
+  std::map::iterator triesLeft = m_outstandingSeqs.find (seq);
 
-  // If it's timed out, we should try a different path to the server
-  if (itr != m_outstandingSeqs.end ())
+  // If this seq # hasn't been ACKed
+  if (triesLeft != m_outstandingSeqs.end ())
     {
-      NS_LOG_LOGIC ("Packet with seq# " << seq << " timed out.");
-      m_outstandingSeqs.erase (itr);
-      
-      if (m_sent < m_retries) //TODO: this doesn't do as intended! must keep tries of attempts for this packet.
-        ScheduleTransmit (Seconds (0.0), true);
+      if ((*triesLeft) > 0)
+        {
+          Send (from, seq);
+        }
+      else //give up sending it
+        {
+          m_outstandingSeqs.erase (triesLeft);
+        }
     }
 }
 

@@ -30,7 +30,7 @@
 #include "mdc-header.h"
 
 #include <list>
-#include <set>
+#include <map>
 #include <vector>
 
 namespace ns3 {
@@ -142,7 +142,7 @@ public:
    * transmit to the sink or if it should notify the sink of availability and then transmit
    * it to the MDC when available.
    */
-  void ScheduleEventDetection (Time t, SensedEvent event, bool noData = false);
+  void ScheduleEventDetection (Time t, SensedEvent event);
 
 protected:
   virtual void DoDispose (void);
@@ -154,10 +154,10 @@ private:
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
-  void Send (bool noData);
+  void Send (Ipv4Address dest, uint32_t seq = 0);
   void CancelEvents (void);
-  void ScheduleTransmit (Time dt, bool noData = false);
-  void CheckEventDetection (SensedEvent event, bool noData = false);
+  void ScheduleTransmit (Time dt);
+  void CheckEventDetection (SensedEvent event);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
@@ -169,6 +169,8 @@ private:
   uint8_t *m_data;
 
   RandomVariable m_randomEventDetectionDelay;
+  bool m_sendFullData;
+  uint32_t m_nOutstandingReadings;
 
   Ipv4Address m_servAddress;
   Ipv4Address m_address;
@@ -177,7 +179,7 @@ private:
 
   Time m_timeout;
   uint8_t m_retries;
-  uint32_t m_sent; //# sent
+  uint32_t m_sent; //# sent, also used for sequence number
   std::list<EventId> m_events;
   std::set<uint32_t> m_outstandingSeqs;
 

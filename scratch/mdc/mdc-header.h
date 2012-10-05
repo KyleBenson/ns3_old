@@ -29,6 +29,7 @@ public:
 
   uint32_t GetData (void) const;
   void SetData (uint32_t size);
+  uint32_t GetSeq () const;
   uint32_t GetXPosition () const;
   uint32_t GetYPosition () const;
   void SetPosition (uint32_t x, uint32_t y);
@@ -46,9 +47,10 @@ private:
   uint32_t m_yPos;
   uint32_t m_dest;
   uint32_t m_origin;
+  uint32_t m_seq;
 };
 
-#define MDC_HEADER_SIZE 18
+#define MDC_HEADER_SIZE 22
 
 } //namespace ns3
 
