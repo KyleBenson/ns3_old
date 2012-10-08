@@ -31,7 +31,7 @@
 #include "mdc-collector.h"
 
 #define simStartTime Seconds(1.0)
-#define simEndTime Seconds(10.0)
+#define simEndTime Seconds(100.0)
 
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
@@ -128,6 +128,8 @@ main (int argc, char *argv[])
     {
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
     }
 
@@ -330,7 +332,9 @@ main (int argc, char *argv[])
     }
 
   // MOBILE DATA COLLECTORS
-  OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
+  //OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
+  MdcCollectorHelper mdcAppHelper;
+  mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkSensorInterface.GetAddress (0, 0))));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
   mdcApps.Start (simStartTime);
   mdcApps.Stop (simEndTime);
@@ -338,10 +342,10 @@ main (int argc, char *argv[])
   // SENSORS
   MdcEventSensorHelper sensorAppHelper (sinkSensorInterface.GetAddress (0, 0), nEvents);
   sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
+  sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (sendFullData));
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
   sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (2.0, 10.0));
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
-  sensorAppHelper.SetSendFullData (sendFullData);    
   
   ApplicationContainer sensorApps = sensorAppHelper.Install (sensors);
   sensorApps.Start (simStartTime);

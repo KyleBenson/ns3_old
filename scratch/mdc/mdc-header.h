@@ -30,6 +30,7 @@ public:
   uint32_t GetData (void) const;
   void SetData (uint32_t size);
   uint32_t GetSeq () const;
+  void SetSeq (uint32_t newSeq);
   uint32_t GetXPosition () const;
   uint32_t GetYPosition () const;
   void SetPosition (uint32_t x, uint32_t y);

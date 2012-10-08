@@ -211,15 +211,12 @@ public:
 
   void SetEventTimeRandomVariable (RandomVariable * r);
 
-  void SetSendFullData (bool b);
-
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node);
   void ScheduleEvents (Ptr<Application> app);
   ObjectFactory m_factory;
   std::list<SensedEvent> m_events;
   int m_nEvents;
-  bool m_sendFullData;
   Ptr<PositionAllocator> m_posAllocator;
   RandomVariable * m_radiusRandomVariable;
   RandomVariable * m_eventTimeRandomVariable;

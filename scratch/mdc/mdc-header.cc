@@ -117,9 +117,15 @@ MdcHeader::SetData (uint32_t size)
 }
 
 uint32_t
-GetSeq () const
+MdcHeader::GetSeq () const
 {
   return m_seq;
+}
+
+void
+MdcHeader::SetSeq (uint32_t newSeq)
+{
+  m_seq = newSeq;
 }
 
 uint32_t

@@ -115,17 +115,15 @@ MdcCollector::StartApplication (void)
       InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), m_port);
       m_sensorSocket->Bind (local);
 
-      NS_LOG_LOGIC ("Socket bound");
+      NS_ASSERT (m_sensorSocket->SetAllowBroadcast (true));
     }
 
   if (m_sinkSocket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
       m_sinkSocket = Socket::CreateSocket (GetNode (), tid);
-      InetSocketAddress local = InetSocketAddress (GetAddress (), m_port);
+      InetSocketAddress local = InetSocketAddress (m_sinkAddress, m_port);
       m_sinkSocket->Bind (local);
-
-      NS_LOG_LOGIC ("Socket bound");
     }
 
   // Use the first address of the first non-loopback device on the node for our address
@@ -138,8 +136,13 @@ MdcCollector::StartApplication (void)
         {
           Ipv4Address addr = ipv4->GetAddress (i,0).GetLocal ();
           if (addr != loopback)
-            m_address = addr;
+            {
+              m_address = addr;
+              break;
+            }
         }
+      
+      NS_LOG_LOGIC ("MDC address set to " << GetAddress ());
     }
 
   m_sensorSocket->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
@@ -197,7 +200,15 @@ MdcCollector::Send ()
   Ptr<Packet> p = Create<Packet> ();
 
   // add header to packet
-  MdcHeader head(Ipv4Address::GetBroadcast ());
+  Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
+  NS_ASSERT (ipv4);
+  //int32_t ifaceIdx = ipv4->GetInterfaceForDevice (m_sensorSocket->GetBoundNetDevice ());
+  int32_t ifaceIdx = ipv4->GetInterfaceForAddress (GetAddress ());
+  NS_LOG_LOGIC ("Iface index = " << ifaceIdx);
+  NS_ASSERT (ifaceIdx);
+  Ipv4InterfaceAddress address = ipv4->GetAddress(ifaceIdx,0);
+
+  MdcHeader head(address.GetBroadcast ());
   head.SetOrigin (m_address);
   
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
@@ -209,6 +220,8 @@ MdcCollector::Send ()
   // so that tags added to the packet can be sent as well
   m_requestTrace (p, GetNode ()->GetId ());
   m_sensorSocket->SendTo (p, 0, InetSocketAddress(head.GetDest (), m_port));
+
+  m_events.push_front (Simulator::Schedule (m_interval, &MdcCollector::Send, this));
 }
 
 void 

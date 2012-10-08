@@ -31,6 +31,7 @@
 #include "ns3/ipv4.h"
 #include "ns3/vector.h"
 #include "ns3/mobility-module.h"
+#include "ns3/boolean.h"
 
 #include "mdc-event-sensor.h"
 
@@ -317,7 +318,7 @@ void
 MdcEventSensor::ScheduleTransmit (Time dt)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_servAddress, m_port)));
+  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_servAddress, m_port), 0));
 }
 
 void 
@@ -325,7 +326,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_LOG_LOGIC ("Sending " << (sendFullData ? "full data" : "data notify") << " packet.");
+  NS_LOG_LOGIC ("Sending " << (m_sendFullData ? "full data" : "data notify") << " packet.");
 
   // if a sequence number is specified, use it.  Otherwise, use the next one.
   if (!seq)
@@ -337,7 +338,8 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   MdcHeader head;
   head.SetSeq (seq);
   head.SetOrigin (m_address);
-  head.SetDest (Ipv4Address::ConvertFrom (dest));
+  //head.SetDest (Ipv4Address::ConvertFrom (dest));
+  head.SetDest (InetSocketAddress::ConvertFrom (dest).GetIpv4 ());
 
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
@@ -378,7 +380,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
       head.SetData (p->GetSize ());
   
       // only schedule timeouts for full data
-      ScheduleTimeout (seq);
+      ScheduleTimeout (seq, dest);
     }
 
   p->AddHeader (head);
@@ -417,7 +419,7 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
             {
               if (m_nOutstandingReadings > 0)
                 {
-                  for (int i = m_nOutstandingReadings; i > 0; i--;)
+                  for (int i = m_nOutstandingReadings; i > 0; i--)
                     {
                       Send (from);
                       m_nOutstandingReadings--;
@@ -443,10 +445,12 @@ MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
 }
 
 void
-MdcEventSensor::ScheduleTimeout (uint32_t seq)
+MdcEventSensor::ScheduleTimeout (uint32_t seq, Address dest)
 {
-  m_events.push_front (Simulator::Schedule (m_timeout, &MdcEventSensor::CheckTimeout, this, seq));
-  if (std::map::iterator found = m_outstandingSeqs.find (seq) != m_outstandingSeqs.end ())
+  m_events.push_front (Simulator::Schedule (m_timeout, &MdcEventSensor::CheckTimeout, this, seq, dest));
+
+  // Decrement the number of retries remaining if found
+  if (m_outstandingSeqs.find (seq) != m_outstandingSeqs.end ())
     m_outstandingSeqs[seq]--;
   else
     m_outstandingSeqs[seq] = m_retries;
@@ -459,16 +463,16 @@ MdcEventSensor::GetAddress () const
 }
 
 void
-MdcEventSensor::CheckTimeout (uint32_t seq)
+MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
 {
-  std::map::iterator triesLeft = m_outstandingSeqs.find (seq);
+  std::map<uint32_t, uint8_t>::iterator triesLeft = m_outstandingSeqs.find (seq);
 
   // If this seq # hasn't been ACKed
   if (triesLeft != m_outstandingSeqs.end ())
     {
-      if ((*triesLeft) > 0)
+      if (triesLeft->second > 0)
         {
-          Send (from, seq);
+          Send (dest, seq);
         }
       else //give up sending it
         {

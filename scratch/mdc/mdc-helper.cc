@@ -26,6 +26,7 @@
 #include "ns3/log.h"
 
 #include <iterator>
+#include <set>
 
 NS_LOG_COMPONENT_DEFINE ("MdcHelper");
 
@@ -94,7 +95,6 @@ MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, int nEvents /* 
 {
   m_factory.SetTypeId (MdcEventSensor::GetTypeId ());
   m_nEvents = nEvents;
-  m_sendFullData = true;
 
   m_eventTimeRandomVariable = new UniformVariable (2.0, 10.0);
   m_radiusRandomVariable = new ConstantVariable (5.0);
@@ -189,13 +189,7 @@ MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
   
   for (std::list<SensedEvent>::iterator itr = m_events.begin ();
        itr != m_events.end (); itr++)
-    DynamicCast<MdcEventSensor>(app)->ScheduleEventDetection (itr->GetTime (), *itr, !m_sendFullData);
-}
-
-void
-MdcEventSensorHelper::SetSendFullData (bool b)
-{
-  m_sendFullData = b;
+    DynamicCast<MdcEventSensor>(app)->ScheduleEventDetection (itr->GetTime (), *itr);
 }
 
 void

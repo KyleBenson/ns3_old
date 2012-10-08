@@ -31,7 +31,6 @@
 
 #include <list>
 #include <map>
-#include <vector>
 
 namespace ns3 {
 
@@ -154,15 +153,15 @@ private:
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
-  void Send (Ipv4Address dest, uint32_t seq = 0);
+  void Send (Address dest, uint32_t seq = 0);
   void CancelEvents (void);
   void ScheduleTransmit (Time dt);
   void CheckEventDetection (SensedEvent event);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
-  void CheckTimeout (uint32_t seq);
-  void ScheduleTimeout (uint32_t seq);
+  void CheckTimeout (uint32_t seq, Address dest);
+  void ScheduleTimeout (uint32_t seq, Address dest);
 
   uint32_t m_size; //used if dataSize == 0
   uint32_t m_dataSize;
@@ -181,7 +180,7 @@ private:
   uint8_t m_retries;
   uint32_t m_sent; //# sent, also used for sequence number
   std::list<EventId> m_events;
-  std::set<uint32_t> m_outstandingSeqs;
+  std::map<uint32_t, uint8_t> m_outstandingSeqs;
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet> > m_sendTrace;
