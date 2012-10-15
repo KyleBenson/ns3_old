@@ -144,7 +144,7 @@ main (int argc, char *argv[])
 
   cmd.Parse (argc,argv);
 
-  // Need to allow users to input _s instead of spaces so the parser won't truncate locations...
+  // Need to allow users to input '_'s instead of spaces so the parser won't truncate locations...
   std::replace(disaster_location.begin(), disaster_location.end(), '_', ' ');
 
   if (verbose == 1)
@@ -153,6 +153,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_INFO);
+      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
 
@@ -162,6 +163,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
 
@@ -172,6 +174,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonClientServerHelper", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonHeader", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
+      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_FUNCTION);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
     }
 

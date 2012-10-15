@@ -95,6 +95,13 @@ void
 Ipv4NixVectorRouting::FlushGlobalNixRoutingCache ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+
+  if (m_followDownEdges)
+    {
+      NS_LOG_LOGIC ("Not flushing global nix routing cache as we want to follow down edges");
+      return;
+    }
+
   NodeList::Iterator listEnd = NodeList::End ();
   for (NodeList::Iterator i = NodeList::Begin (); i != listEnd; i++)
     {
