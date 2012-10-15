@@ -20,6 +20,11 @@ do
 		mkdir --parent $out_dir
 	    #echo $out_dir/run$i.out
 		./waf --run 'ron --file=rocketfuel/maps/'$AS'.cch --disaster='$disaster' --RngSeed='$rseed' --RngRun='$i' --fail_prob='$pfail' --latencies=rocketfuel/weights/'$AS'/latencies.intra --trace_file='$out_dir/run$i.out' --contact_attempts=20 --timeout=0.5 --verbose=1'
+		
+		#quit after first run if argument is 'test'
+		if [ "$1" == "test" ]
+		    then exit
+		fi
 	    done
 	done
     done

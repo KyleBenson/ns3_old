@@ -1,7 +1,8 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
-/** A simple example showing an mesh topology of point-to-point connected nodes
-    generated using Rocketfuel. **/
+/** A simulator of network failure scenarios during disasters.  Builds a mesh topology of
+    point-to-point connected nodes generated using Rocketfuel and fails random nodes/links
+    within the specified city region. **/
 
 #include "ns3/core-module.h"
 #include "ns3/point-to-point-module.h"
@@ -10,6 +11,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/topology-read-module.h"
 #include "ns3/ipv4-address-generator.h"
+#include "ns3/nix-vector-routing-module.h"
 
 //#include "ns3/ron-header.h"
 
@@ -27,7 +29,7 @@
 #include <set>
 
 // Max number of devices a node can have to be in the overlay (to eliminate backbone routers)
-#define MAX_OVERLAY_DEVICES 4
+#define MAX_OVERLAY_DEVICES 2
 
 using namespace ns3;
 
@@ -76,6 +78,7 @@ PacketSent (Ptr<OutputStreamWrapper> stream, Ptr<const Packet> p, uint32_t nodeI
   *stream->GetStream () << s.str() << std::endl;
 }
 
+// Fail links by turning off the net devices at each end
 static void
 FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
 {
@@ -85,6 +88,8 @@ FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
   ipv4->SetForwarding (iface, false);
 }
 
+// Fail nodes by turning off all its net devices and prevent applications from running
+// (must be called before starting simulator!)
 static void
 FailNode (Ptr<Node> node)
 {
@@ -197,6 +202,14 @@ main (int argc, char *argv[])
       tracing = true;
     }
 
+
+  //////////////////////////////////////////////////////////////////////
+  /////************************************************************/////
+  /////////////    READ TOPOLOGY / BUILD NETWORK     ///////////////////
+  /////************************************************************/////
+  //////////////////////////////////////////////////////////////////////
+
+
   RocketfuelTopologyReader topo_reader;
   topo_reader.SetFileName(rocketfuel_file);
   NodeContainer routers = topo_reader.Read();
@@ -207,7 +220,16 @@ main (int argc, char *argv[])
   PointToPointHelper pointToPoint;
   pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
   pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+
+  // NixHelper to install nix-vector routing
+  Ipv4NixVectorHelper nixRouting;
+  nixRouting.SetAttribute("FollowDownEdges", BooleanValue (true));
+  Ipv4StaticRoutingHelper staticRouting;
+  Ipv4ListRoutingHelper routingList;
+  routingList.Add (staticRouting, 0);
+  routingList.Add (nixRouting, 10);
   InternetStackHelper stack;
+  stack.SetRoutingHelper (routingList); // has effect on the next Install ()
   stack.Install (routers);
 
   //For each link in topology, add a connection between routers and assign IP
@@ -283,9 +305,18 @@ main (int argc, char *argv[])
         ifacesToKill.Add(new_interfaces.Get (0));
         ifacesToKill.Add(new_interfaces.Get (1));
       }
-}
+  }
 
-  // Now we need to choose the server and the clients
+
+
+  //////////////////////////////////////////////////////////////////////
+  /////************************************************************/////
+  ////////////////       CHOOSE SERVER & CLIENTS      //////////////////
+  /////************************************************************/////
+  //////////////////////////////////////////////////////////////////////
+
+
+
   std::vector<Ipv4Address> overlayAddresses;
   NodeContainer overlayNodes;
   NodeContainer failNodes;
@@ -328,6 +359,16 @@ main (int argc, char *argv[])
   Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
   NS_LOG_INFO ("Done network setup!");
+
+
+
+  //////////////////////////////////////////////////////////////////////
+  /////************************************************************/////
+  ////////////////        INSTALL APPLICATIONS        //////////////////
+  /////************************************************************/////
+  //////////////////////////////////////////////////////////////////////
+
+
 
   //Application
   RonServerHelper ronServer (9);
@@ -383,10 +424,22 @@ main (int argc, char *argv[])
         }
     }
 
-  NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
-  Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
+  //NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
+  //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
-  NS_LOG_INFO ("Done populating routing tables!");
+  //NS_LOG_INFO ("Done populating routing tables!");
+
+
+
+
+  //////////////////////////////////////////////////////////////////////
+  /////************************************************************/////
+  ////////////////        APPLY FAILURE MODEL         //////////////////
+  /////************************************************************/////
+  //////////////////////////////////////////////////////////////////////
+
+
+
 
   // Fail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
