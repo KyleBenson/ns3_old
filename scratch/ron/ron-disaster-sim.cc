@@ -468,7 +468,7 @@ main (int argc, char *argv[])
                  << overlayNodes.GetN () << " total overlay nodes" << std::endl
                  << disasterNodes.size () << " nodes in " << disaster_location << " total" << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
-                 << ifacesToKill.GetN () << " links failed");
+                 << ifacesToKill.GetN () / 2 << " links failed");
   
   Simulator::Stop (Seconds (60.0));
   Simulator::Run ();
