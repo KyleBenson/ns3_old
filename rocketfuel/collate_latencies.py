@@ -1,6 +1,6 @@
 #! /usr/bin/python
 
-collate_latencies_description = '''
+collate_latencies_description = '''\
 Recursively gathers together all latencies.intra files in the directory
 specified as arg1 in order to build a single file that has every single
 latency estimate in one file.'''
@@ -13,7 +13,7 @@ if __name__ == "__main__":
     
     if len(sys.argv) < 2:
         print collate_latencies_description
-        exit
+        exit()
 
     latency_map = {}
 
@@ -25,18 +25,12 @@ if __name__ == "__main__":
             for line in f.readlines():
                 (from_city, to_city, latency) = line.split()
 
-                print from_city, to_city, latency
-
                 key = (from_city.rstrip(string.digits),
                        to_city.rstrip(string.digits)) #.replace('+', ' ')
-
-                print key
 
                 if key not in latency_map:
                     latency_map[key] = latency
 
-    print latency_map
     with open(os.path.join(sys.argv[1], "all_" + target_filename), 'w') as f:
         for k,v in latency_map.items():
-            print k,v
             f.write('%s %s %s\n' % (k[0], k[1], v))
