@@ -28,9 +28,6 @@
 #include <sstream>
 #include <set>
 
-// Max number of devices a node can have to be in the overlay (to eliminate backbone routers)
-#define MAX_OVERLAY_DEVICES 2
-
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("RocketfuelExample");
@@ -115,8 +112,10 @@ main (int argc, char *argv[])
   bool trace_acks = true;
   bool trace_forwards = true;
   bool trace_sends = true;
-  bool install_stubs = true;
+  // Max number of devices a node can have to be in the overlay (to eliminate backbone routers)
+  uint8_t install_stubs = 3; //all nodes have at least an interface device!!!
   bool report_disaster = true;
+  bool use_local_overlays = false;
   std::string rocketfuel_file = "rocketfuel/maps/3356.cch";
   std::string latency_file = "";
   std::string disaster_location = "Los Angeles, CA";
@@ -136,8 +135,9 @@ main (int argc, char *argv[])
   cmd.AddValue ("disaster", "Where the disaster (and subsequent failures) is to occur "
                 "(use underscores for spaces so the command line parser will actually work)", disaster_location);
   cmd.AddValue ("fail_prob", "Probability that a link in the disaster region will fail", failure_probability);
-  cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have only one link)", install_stubs);
+  cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have <= specified links)", install_stubs);
   cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
+  cmd.AddValue ("use_local_overlays", "Attempt contact through the local (within disaster region) overlay nodes.", use_local_overlays);
   cmd.AddValue ("timeout", "Seconds to wait for server reply before attempting contact through the overlay.", timeout);
   cmd.AddValue ("contact_attempts", "Number of times a reporting node will attempt to contact the server "
                 "(it will use the overlay after the first attempt).  Default is 1 (no overlay).", contact_attempts);
@@ -329,25 +329,29 @@ main (int argc, char *argv[])
        node != routers.End (); node++)
     {
       // Fail nodes within the disaster region with some probability
-      if (random.GetValue () < failure_probability and disasterNodes.count ((*node)->GetId ()) != 0)
-        failNodes.Add (*node);
-
-      else
+      if (random.GetValue () < failure_probability and
+          disasterNodes.count ((*node)->GetId ()) != 0)
         {
-          // We may only install the overlay application on clients attached to stub networks,
-          // so we just choose the stub network routers here (note that all nodes have a loopback device)
-          if (!install_stubs or (*node)->GetNDevices () <= MAX_OVERLAY_DEVICES) 
-            {
-              overlayNodes.Add (*node);
-              overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ());
-              //NS_LOG_INFO (overlayAddresses.back () << " is an overlay node.");
-            }
-          //TODO: failed nodes may still be in the overlay, but we aren't looking at techniques for choosing overlay nodes yet
-          
-          // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
-          else if (disasterNodes.count ((*node)->GetId ()) != 0)
-            serverNodeCandidates.Add (*node);
+          failNodes.Add (*node);
         }
+      
+      // We may only install the overlay application on clients attached to stub networks,
+      // so we just choose the stub network routers here (note that all nodes have a loopback device)
+      if (!install_stubs or (*node)->GetNDevices () <= install_stubs) 
+        {
+          overlayNodes.Add (*node);
+
+          // Only add address of overlay if we're contacting local peers and it is one,
+          // or if it's outside of the local region
+          if ((use_local_overlays and disasterNodes.count ((*node)->GetId ()) != 0) or
+              disasterNodes.count ((*node)->GetId ()) == 0)
+            overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ());
+          //NS_LOG_INFO (overlayAddresses.back () << " is an overlay node.");
+        }
+      
+      // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
+      else if (disasterNodes.count ((*node)->GetId ()) == 0)
+        serverNodeCandidates.Add (*node);
     }
 
   // add another node to the router we pick from the server candidates to be the actual server (so we only deal with one IP address)
@@ -405,7 +409,7 @@ main (int argc, char *argv[])
 
       ApplicationContainer newApp = ronClient.Install (*node);
       clientApps.Add (newApp);
-      DynamicCast<RonClient> (newApp.Get (0))->SetPeerList (overlayAddresses);
+      DynamicCast<RonClient> (newApp.Get (0))->SetPeerList (overlayAddresses); //TODO: make this part of the helper??
     }
 
   clientApps.Start (Seconds (2.0));
