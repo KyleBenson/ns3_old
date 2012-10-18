@@ -123,7 +123,7 @@ MdcCollector::StartApplication (void)
       TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
       m_sinkSocket = Socket::CreateSocket (GetNode (), tid);
       InetSocketAddress local = InetSocketAddress (m_sinkAddress, m_port);
-      m_sinkSocket->Bind (local);
+      NS_ASSERT (m_sinkSocket->Bind (local));
     }
 
   // Use the first address of the first non-loopback device on the node for our address
@@ -195,7 +195,7 @@ MdcCollector::Send ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_LOG_LOGIC ("Sending MDC data request packet.");
+  NS_LOG_INFO ("MDC (node " << GetNode ()->GetId () << ") sending data request packet.");
 
   Ptr<Packet> p = Create<Packet> ();
 
@@ -243,6 +243,8 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
 
           MdcHeader head;
           packet->PeekHeader (head);
+          
+          NS_LOG_INFO ("Packet destined for " << head.GetDest ());
 
           // If the packet is for the sink, forward it
           if (head.GetDest () == m_sinkAddress)
@@ -273,7 +275,12 @@ MdcCollector::ForwardPacket (Ptr<Packet> packet)
   Ipv4Address destination = head.GetDest ();
 
   m_forwardTrace (packet, GetNode ()-> GetId ());
-  m_sinkSocket->SendTo (packet, 0, InetSocketAddress(destination, m_port));
+
+  if (m_sinkSocket->Send (packet) < 1)
+  //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(destination, m_port)) < 1)
+    {
+      NS_LOG_UNCOND ("Error forwarding packet from " << head.GetOrigin () << " to " << destination);
+    }
 }
 
 Ipv4Address

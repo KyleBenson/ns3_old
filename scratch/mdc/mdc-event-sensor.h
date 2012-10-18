@@ -171,7 +171,7 @@ private:
   bool m_sendFullData;
   uint32_t m_nOutstandingReadings;
 
-  Ipv4Address m_servAddress;
+  Ipv4Address m_sinkAddress;
   Ipv4Address m_address;
   Ptr<Socket> m_socket;
   uint16_t m_port;

@@ -53,22 +53,22 @@ MdcEventSensor::GetTypeId (void)
     .AddAttribute ("RemoteAddress", 
                    "The destination Ipv4Address of the sink",
                    Ipv4AddressValue (),
-                   MakeIpv4AddressAccessor (&MdcEventSensor::m_servAddress),
+                   MakeIpv4AddressAccessor (&MdcEventSensor::m_sinkAddress),
                    MakeIpv4AddressChecker ())
     .AddAttribute ("Timeout", "Time to wait for a reply before trying to resend.",
                    TimeValue (Seconds (3)),
                    MakeTimeAccessor (&MdcEventSensor::m_timeout),
                    MakeTimeChecker ())
-    .AddAttribute ("SendFullData", 
-                   "Whether or not to send the full data during event detection.  If false, sends notification only and will send the full data to an MDC.",
-                   BooleanValue (true),
-                   MakeBooleanAccessor (&MdcEventSensor::m_nOutstandingReadings),
-                   MakeBooleanChecker ())
     .AddAttribute ("MaxRetries", 
                    "The maximum number of times the application will attempt to resend a failed packet",
                    UintegerValue (3),
                    MakeUintegerAccessor (&MdcEventSensor::m_retries),
                    MakeUintegerChecker<uint8_t> ())
+    .AddAttribute ("SendFullData", 
+                   "Whether or not to send the full data during event detection.  If false, sends notification only and will send the full data to an MDC.",
+                   BooleanValue (true),
+                   MakeBooleanAccessor (&MdcEventSensor::m_sendFullData),
+                   MakeBooleanChecker ())
     .AddAttribute ("RandomEventDetectionDelay",
                    "The random variable from which a random delay for the time between an event occurring and a sensor detecting it is taken",
                    RandomVariableValue (UniformVariable ()),
@@ -116,7 +116,7 @@ MdcEventSensor::~MdcEventSensor()
 void 
 MdcEventSensor::SetSink (Ipv4Address ip, uint16_t port /* = 0*/)
 {
-  m_servAddress = ip;
+  m_sinkAddress = ip;
 
   if (port)
     m_port = port; //may already be set
@@ -305,6 +305,8 @@ MdcEventSensor::ScheduleEventDetection (Time t, SensedEvent event)
 void
 MdcEventSensor::CheckEventDetection (SensedEvent event)
 {
+  NS_LOG_LOGIC ("Node " << GetNode ()->GetId () << " checking event detection.");
+
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
 
   if (event.WithinEventRegion (pos))
@@ -318,7 +320,7 @@ void
 MdcEventSensor::ScheduleTransmit (Time dt)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_servAddress, m_port), 0));
+  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_sinkAddress, m_port), 0));
 }
 
 void 
@@ -339,13 +341,13 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   head.SetSeq (seq);
   head.SetOrigin (m_address);
   //head.SetDest (Ipv4Address::ConvertFrom (dest));
-  head.SetDest (InetSocketAddress::ConvertFrom (dest).GetIpv4 ());
+  head.SetDest (m_sinkAddress); //InetSocketAddress::ConvertFrom (dest).GetIpv4 ());
 
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
 
   Ptr<Packet> p;
-  if (!m_sendFullData and head.GetDest () == m_servAddress)
+  if (!m_sendFullData and head.GetDest () == m_sinkAddress)
     {
       p = Create<Packet> (0);
       head.SetData (0);
@@ -399,7 +401,7 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
 
   while (packet = socket->RecvFrom (from))
     {
-      NS_LOG_LOGIC ("Reading packet from socket.");
+      NS_LOG_LOGIC ("Reading packet from socket. " << m_nOutstandingReadings << " outstanding readings.");
 
       if (InetSocketAddress::IsMatchingType (from))
         {
@@ -472,7 +474,8 @@ MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
     {
       if (triesLeft->second > 0)
         {
-          Send (dest, seq);
+            m_events.push_front (Simulator::Schedule (Seconds (m_randomEventDetectionDelay.GetValue ()),
+                                                      &MdcEventSensor::Send, this, dest, seq));
         }
       else //give up sending it
         {

@@ -30,8 +30,8 @@
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
 
-#define simStartTime Seconds(1.0)
-#define simEndTime Seconds(100.0)
+#define simStartTime 1.0
+#define simEndTime 10.0
 
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
@@ -57,7 +57,7 @@ RemainingEnergySink (TraceConstData * constData, double oldValue, double remaini
   s << "Node " << constData->nodeId << " current remaining energy = " << remainingEnergy
     << "J at time " << Simulator::Now ().GetSeconds ();
 
-  NS_LOG_INFO (s.str ());
+  //NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
 
@@ -66,7 +66,7 @@ void
 SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const Address & from)
 {
   std::stringstream s;
-  s << "Sink received packet from " << InetSocketAddress::ConvertFrom(from).GetIpv4 () << " at time " << Simulator::Now ().GetSeconds ();
+  s << "Sink received " << packet->GetSize () << " byte packet from " << InetSocketAddress::ConvertFrom(from).GetIpv4 () << " at time " << Simulator::Now ().GetSeconds ();
 
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -85,6 +85,16 @@ SensorDataSent (TraceConstData * constData, Ptr<const Packet> p)
   
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
+}
+
+/// Trace function for MDC forwarding a packet
+static void
+MdcPacketForward (TraceConstData * constData, Ptr<const Packet> p)
+{
+  MdcHeader head;
+  p->PeekHeader (head);
+
+  NS_LOG_INFO ("Forwarding packet from " << head.GetOrigin () << " to " << head.GetDest ());
 }
 
 int 
@@ -117,7 +127,7 @@ main (int argc, char *argv[])
     {
       LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
-      LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
+      //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
@@ -316,14 +326,14 @@ main (int argc, char *argv[])
   PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
   //MdcServerHelper sinkHelper (9);
   ApplicationContainer sinkSensorApps = sinkHelper.Install (sink);
-  sinkSensorApps.Start (simStartTime);
-  sinkSensorApps.Stop (simEndTime);
+  sinkSensorApps.Start (Seconds (simStartTime));
+  sinkSensorApps.Stop (Seconds (simEndTime));
 
   sinkHelper = PacketSinkHelper ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
   //MdcServerHelper sinkHelper (9);
   ApplicationContainer sinkMdcApps = sinkHelper.Install (sink);
-  sinkMdcApps.Start (simStartTime);
-  sinkMdcApps.Stop (simEndTime);
+  sinkMdcApps.Start (Seconds (simStartTime));
+  sinkMdcApps.Stop (Seconds (simEndTime));
   
   if (tracing)
     {
@@ -334,22 +344,32 @@ main (int argc, char *argv[])
   // MOBILE DATA COLLECTORS
   //OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
   MdcCollectorHelper mdcAppHelper;
-  mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkSensorInterface.GetAddress (0, 0))));
+  mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0, 0))));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
-  mdcApps.Start (simStartTime);
-  mdcApps.Stop (simEndTime);
+  mdcApps.Start (Seconds (simStartTime));
+  mdcApps.Stop (Seconds (simEndTime));
+
+  if (verbose)
+    {
+      NS_LOG_INFO ("MDCs talk to sink at " << sinkMdcInterface.GetAddress (0, 0));
+
+      for (uint8_t i = 0; i < mdcApps.GetN (); i++)
+        {
+          mdcApps.Get (i)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&MdcPacketForward, constData));
+        }
+    }
 
   // SENSORS
   MdcEventSensorHelper sensorAppHelper (sinkSensorInterface.GetAddress (0, 0), nEvents);
   sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
   sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (sendFullData));
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
-  sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (2.0, 10.0));
+  sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (simStartTime, simEndTime));
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
   
   ApplicationContainer sensorApps = sensorAppHelper.Install (sensors);
-  sensorApps.Start (simStartTime);
-  sensorApps.Stop (simEndTime);
+  sensorApps.Start (Seconds (simStartTime));
+  sensorApps.Stop (Seconds (simEndTime));
 
   for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
        itr != sensorApps.End (); itr++)
@@ -366,7 +386,7 @@ main (int argc, char *argv[])
       //DynamicCast<MdcEventSensor> (*itr)->ScheduleEventDetection (Seconds (3.0));
     }
   
-  Simulator::Stop (simEndTime);
+  Simulator::Stop (Seconds (simEndTime));
 
   /*pointToPoint.EnablePcapAll ("third");
   phy.EnablePcap ("third", apDevices.Get (0));
