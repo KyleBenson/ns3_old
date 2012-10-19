@@ -30,9 +30,6 @@
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
 
-#define simStartTime 1.0
-#define simEndTime 10.0
-
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
  * data being collected by a mobile data collector (MDC).
@@ -65,8 +62,13 @@ RemainingEnergySink (TraceConstData * constData, double oldValue, double remaini
 void
 SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const Address & from)
 {
+  MdcHeader head;
+  packet->PeekHeader (head);
+
   std::stringstream s;
-  s << "Sink received " << packet->GetSize () << " byte packet from " << InetSocketAddress::ConvertFrom(from).GetIpv4 () << " at time " << Simulator::Now ().GetSeconds ();
+  Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
+  s << "Sink " << constData->nodeId << " received "  << head.GetPacketType () << " (" << packet->GetSize () << "B) from node "
+    << head.GetId () << " via " << fromAddr << " at " << Simulator::Now ().GetSeconds ();
 
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -74,14 +76,13 @@ SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const A
 
 /// Trace function for sensors sending a packet
 static void
-SensorDataSent (TraceConstData * constData, Ptr<const Packet> p)
+SensorDataSent (TraceConstData * constData, Ptr<const Packet> packet)
 {
   MdcHeader head;
-  p->PeekHeader (head);
-  int dataSize = p->GetSize ();
+  packet->PeekHeader (head);
 
   std::stringstream s;
-  s << "Node " << constData->nodeId << " sent packet with " << dataSize << " bytes of data at " << Simulator::Now ().GetSeconds ();
+  s << "Sensor " << constData->nodeId << " sent " << head.GetPacketType () << " (" << packet->GetSize () << "B) at " << Simulator::Now ().GetSeconds ();
   
   NS_LOG_INFO (s.str ());
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -89,12 +90,16 @@ SensorDataSent (TraceConstData * constData, Ptr<const Packet> p)
 
 /// Trace function for MDC forwarding a packet
 static void
-MdcPacketForward (TraceConstData * constData, Ptr<const Packet> p)
+MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
 {
   MdcHeader head;
-  p->PeekHeader (head);
+  packet->PeekHeader (head);
 
-  NS_LOG_INFO ("Forwarding packet from " << head.GetOrigin () << " to " << head.GetDest ());
+  std::stringstream s;
+  s << "MDC " << constData->nodeId << " forwarding " << head.GetPacketType () << " (" << packet->GetSize () << "B) from "
+    << head.GetOrigin () << " to " << head.GetDest () << ") at " << Simulator::Now ().GetSeconds ();
+
+  NS_LOG_INFO (s);
 }
 
 int 
@@ -109,6 +114,8 @@ main (int argc, char *argv[])
   bool sendFullData = true;
   uint32_t boundaryLength = 100;
   std::string traceFile = "";
+  double simStartTime = 1.0;
+  double simEndTime = 10.0;
 
   CommandLine cmd;
   cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
@@ -120,6 +127,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("verbose", "Enable verbose logging", verbose);
   cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", boundaryLength);
   cmd.AddValue ("trace_file", "File to write traces to", traceFile);
+  cmd.AddValue ("time", "End time in seconds", simEndTime);
 
   cmd.Parse (argc,argv);
 
@@ -154,7 +162,7 @@ main (int argc, char *argv[])
     }
 
   //////////////////////////////////////////////////////////////////////
-  ////////////////////////   Create / setup nodes   ////////////////////
+  //////////////////   Create / setup nodes & devices   ////////////////
   //////////////////////////////////////////////////////////////////////
 
 
@@ -285,11 +293,11 @@ main (int argc, char *argv[])
   ////////////////////    Network    ///////////////////////////////////
   //////////////////////////////////////////////////////////////////////
 
-  
-  //  AodvHelper aodv;
-  //aodv.Set ("EnableHello", BooleanValue (false));
   InternetStackHelper stack;
-  //stack.SetRoutingHelper (aodv);
+  AodvHelper aodv;
+  aodv.Set ("EnableHello", BooleanValue (false));
+  stack.SetRoutingHelper (aodv);
+
   stack.Install (sensors);
   stack.Install (sink);
   stack.Install (mdcs);

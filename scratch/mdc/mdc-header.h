@@ -16,8 +16,18 @@ namespace ns3 {
 class MdcHeader : public Header 
 {
 public:
+  enum Flags// : uint16_t
+    {
+      sensorDataNotify,
+      sensorFullData,
+      sensorDataReply,
+      mdcDataRequest,
+      mdcDataForward,
+      sinkRouteUpdate
+    };
+
   explicit MdcHeader ();
-  MdcHeader (Ipv4Address dest);
+  MdcHeader (Ipv4Address dest, Flags flags);
   virtual ~MdcHeader ();
   MdcHeader (const MdcHeader& original);
   MdcHeader& operator=(const MdcHeader& original);
@@ -34,6 +44,10 @@ public:
   uint32_t GetXPosition () const;
   uint32_t GetYPosition () const;
   void SetPosition (uint32_t x, uint32_t y);
+  uint16_t GetId () const;
+  void SetId (uint16_t id);
+  std::string GetPacketType () const;
+  void SetFlags (Flags newFlags);
 
   static TypeId GetTypeId (void);
   virtual TypeId GetInstanceTypeId (void) const;
@@ -43,7 +57,9 @@ public:
   virtual uint32_t GetSerializedSize (void) const;
 
 private:
+  Flags m_flags;
   uint16_t m_data;
+  uint16_t m_id;
   uint32_t m_xPos;
   uint32_t m_yPos;
   uint32_t m_dest;
@@ -51,7 +67,7 @@ private:
   uint32_t m_seq;
 };
 
-#define MDC_HEADER_SIZE 22
+#define MDC_HEADER_SIZE 26
 
 } //namespace ns3
 

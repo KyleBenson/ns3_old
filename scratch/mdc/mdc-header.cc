@@ -20,10 +20,11 @@ MdcHeader::MdcHeader ()
   m_dest = 0;
 }
 
-MdcHeader::MdcHeader (Ipv4Address dest)
+MdcHeader::MdcHeader (Ipv4Address dest, Flags flags)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
+  m_flags = flags;
   m_data = 0;
   m_xPos = 0;
   m_yPos = 0;
@@ -147,6 +148,18 @@ MdcHeader::SetPosition (uint32_t x, uint32_t y)
   m_yPos = y;
 }
 
+uint16_t
+MdcHeader::GetId () const
+{
+  return m_id;
+}
+
+void
+MdcHeader::SetId (uint16_t id)
+{
+  m_id = id;
+}
+
 void
 MdcHeader::Print (std::ostream &os) const
 {
@@ -160,6 +173,34 @@ MdcHeader::Print (std::ostream &os) const
     }
 }
 
+std::string
+MdcHeader::GetPacketType () const
+{
+  switch (m_flags)
+    {
+    case sensorDataNotify:
+      {return "data notification";}
+    case sensorFullData:
+      {return "full data";}
+    case sensorDataReply:
+      {return "data reply";}
+    case mdcDataRequest:
+      {return "data request";}
+    case mdcDataForward:
+      {return "data forward";}
+    case sinkRouteUpdate:
+      {return "route update";}
+    default:
+      {return "UNRECOGNIZED FLAGS";}
+    }
+}
+
+void
+MdcHeader::SetFlags (Flags newFlags)
+{
+  m_flags = newFlags;
+}
+
 uint32_t
 MdcHeader::GetSerializedSize (void) const
 {
@@ -171,7 +212,9 @@ MdcHeader::Serialize (Buffer::Iterator start) const
 {
   NS_LOG_FUNCTION_NOARGS ();
 
+  start.WriteU16 (m_flags);
   start.WriteU16 (m_data);
+  start.WriteU16 (m_id);
   start.WriteU32 (m_xPos);
   start.WriteU32 (m_yPos);
   start.WriteU32 (m_dest);
@@ -184,7 +227,9 @@ MdcHeader::Deserialize (Buffer::Iterator start)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
+  m_flags = (Flags)(int)start.ReadU16 ();
   m_data = start.ReadU16 ();
+  m_id = start.ReadU16 ();
   m_xPos = start.ReadU32 ();
   m_yPos = start.ReadU32 ();
   m_dest = start.ReadU32 ();

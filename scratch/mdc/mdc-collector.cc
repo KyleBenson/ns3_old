@@ -212,8 +212,9 @@ MdcCollector::Send ()
   NS_ASSERT (ifaceIdx);
   Ipv4InterfaceAddress address = ipv4->GetAddress(ifaceIdx,0);
 
-  MdcHeader head(address.GetBroadcast ());
+  MdcHeader head(address.GetBroadcast (), MdcHeader::mdcDataRequest);
   head.SetOrigin (m_address);
+  head.SetId (GetNode ()->GetId ());
   
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);

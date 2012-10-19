@@ -311,6 +311,11 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
 
   if (event.WithinEventRegion (pos))
     {
+      //WARNING: remember that its possible for the event to be detected, tx to be queued,
+      //and the MDC to request data before expiration, invoking an immediate data reply.
+      //
+      //It seems realistic enough as the sensor could check for recent data requests and reply
+      //to them when done processing anyway...
       ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()));
       m_nOutstandingReadings++;
     }
@@ -337,17 +342,26 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
       m_sent++;
     }
 
-  MdcHeader head;
+  Ipv4Address destAddr = InetSocketAddress::ConvertFrom (dest).GetIpv4 ();
+  MdcHeader::Flags flags;
+
+  if (destAddr == m_sinkAddress)
+    {
+      flags = (m_sendFullData ? MdcHeader::sensorFullData : MdcHeader::sensorDataNotify);
+    }
+  else
+    flags = MdcHeader::sensorDataReply;
+
+  MdcHeader head (m_sinkAddress, flags);
   head.SetSeq (seq);
   head.SetOrigin (m_address);
-  //head.SetDest (Ipv4Address::ConvertFrom (dest));
-  head.SetDest (m_sinkAddress); //InetSocketAddress::ConvertFrom (dest).GetIpv4 ());
+  head.SetId (GetNode ()->GetId ());
 
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
   head.SetPosition (pos.x, pos.y);
 
   Ptr<Packet> p;
-  if (!m_sendFullData and InetSocketAddress::ConvertFrom (dest).GetIpv4 () == m_sinkAddress)
+  if (!m_sendFullData and destAddr == m_sinkAddress)
     {
       p = Create<Packet> (0);
       head.SetData (0);
@@ -417,6 +431,8 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
             }
 
           // Else it was a broadcast from an MDC
+          //
+          // Should we keep track of the last seen MDC?
           else
             {
               if (m_nOutstandingReadings > 0)
@@ -481,6 +497,8 @@ MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
         }
       else //give up sending it
         {
+          NS_LOG_INFO ("Packet failed to send after " << m_retries << " attempts at node " << GetNode ()->GetId ());
+
           m_outstandingSeqs.erase (triesLeft);
         }
     }

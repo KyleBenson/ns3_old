@@ -181,7 +181,7 @@ MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
           double radius = m_radiusRandomVariable->GetValue ();
           Time time = Seconds (m_eventTimeRandomVariable->GetValue ());
           
-          NS_LOG_INFO ("Event scheduled for " << time << " seconds at " << pos << " with radius " << radius);
+          NS_LOG_INFO ("Event scheduled for " << time.GetSeconds () << " seconds at " << pos << " with radius " << radius);
 
           m_events.push_back (SensedEvent (pos, radius, time));
         }
