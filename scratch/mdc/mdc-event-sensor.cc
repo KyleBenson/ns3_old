@@ -347,7 +347,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   head.SetPosition (pos.x, pos.y);
 
   Ptr<Packet> p;
-  if (!m_sendFullData and head.GetDest () == m_sinkAddress)
+  if (!m_sendFullData and InetSocketAddress::ConvertFrom (dest).GetIpv4 () == m_sinkAddress)
     {
       p = Create<Packet> (0);
       head.SetData (0);
@@ -474,8 +474,10 @@ MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
     {
       if (triesLeft->second > 0)
         {
-            m_events.push_front (Simulator::Schedule (Seconds (m_randomEventDetectionDelay.GetValue ()),
-                                                      &MdcEventSensor::Send, this, dest, seq));
+          NS_LOG_INFO ("Packet timed out at node " << GetNode ()->GetId ());
+
+          m_events.push_front (Simulator::Schedule (Seconds (m_randomEventDetectionDelay.GetValue ()),
+                                                    &MdcEventSensor::Send, this, dest, seq));
         }
       else //give up sending it
         {

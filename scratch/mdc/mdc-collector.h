@@ -78,6 +78,7 @@ private:
   void CancelEvents (void);
 
   void ForwardPacket (Ptr<Packet> packet);
+  void AckPacket (Ptr<Packet> packet, Address from);
 
   Time m_interval; //for sending request beacons
   Ipv4Address m_sinkAddress;

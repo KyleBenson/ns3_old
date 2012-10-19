@@ -345,8 +345,9 @@ main (int argc, char *argv[])
   //OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
   MdcCollectorHelper mdcAppHelper;
   mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0, 0))));
+  //mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
-  mdcApps.Start (Seconds (simStartTime));
+  mdcApps.Start (Seconds (simStartTime+1));
   mdcApps.Stop (Seconds (simEndTime));
 
   if (verbose)

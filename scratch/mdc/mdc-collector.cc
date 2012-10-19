@@ -122,8 +122,12 @@ MdcCollector::StartApplication (void)
     {
       TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
       m_sinkSocket = Socket::CreateSocket (GetNode (), tid);
-      InetSocketAddress local = InetSocketAddress (m_sinkAddress, m_port);
-      NS_ASSERT (m_sinkSocket->Bind (local));
+
+      //NS_LOG_INFO ("sink IP address: " << m_sinkAddress << ", port: " << m_port);
+      InetSocketAddress addr = InetSocketAddress (m_sinkAddress, m_port);
+
+      NS_ASSERT (m_sinkSocket->Bind () >= 0);
+      NS_ASSERT (m_sinkSocket->Connect (addr) >= 0);
     }
 
   // Use the first address of the first non-loopback device on the node for our address
@@ -247,8 +251,9 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
           NS_LOG_INFO ("Packet destined for " << head.GetDest ());
 
           // If the packet is for the sink, forward it
-          if (head.GetDest () == m_sinkAddress)
+          if (true )//head.GetDest () == m_sinkAddress)
             {
+              AckPacket (packet, from);
               ForwardPacket (packet);
             }
 
@@ -262,6 +267,21 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
 }
 
 void
+MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
+{
+  MdcHeader head;
+  packet->PeekHeader (head);
+  packet = Create<Packet> ();
+
+  head.SetDest (head.GetOrigin ());
+  head.SetOrigin (GetAddress ());
+
+  packet->AddHeader (head);
+
+  m_sensorSocket->SendTo (packet, 0, from);
+}
+
+void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
   NS_LOG_LOGIC ("Forwarding packet");
@@ -269,16 +289,15 @@ MdcCollector::ForwardPacket (Ptr<Packet> packet)
   packet->RemoveAllPacketTags ();
   packet->RemoveAllByteTags ();
 
-  MdcHeader head;
-  packet->PeekHeader (head);
-
-  Ipv4Address destination = head.GetDest ();
-
   m_forwardTrace (packet, GetNode ()-> GetId ());
 
   if (m_sinkSocket->Send (packet) < 1)
   //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(destination, m_port)) < 1)
     {
+      MdcHeader head;
+      packet->PeekHeader (head);
+
+      Ipv4Address destination = head.GetDest ();
       NS_LOG_UNCOND ("Error forwarding packet from " << head.GetOrigin () << " to " << destination);
     }
 }
