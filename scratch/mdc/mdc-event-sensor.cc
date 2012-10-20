@@ -497,7 +497,7 @@ MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
         }
       else //give up sending it
         {
-          NS_LOG_INFO ("Packet failed to send after " << m_retries << " attempts at node " << GetNode ()->GetId ());
+          NS_LOG_INFO ("Packet failed to send after " << (uint32_t)m_retries << " attempts at node " << GetNode ()->GetId ());
 
           m_outstandingSeqs.erase (triesLeft);
         }

@@ -195,6 +195,12 @@ MdcHeader::GetPacketType () const
     }
 }
 
+MdcHeader::Flags
+MdcHeader::GetFlags () const
+{
+  return m_flags;
+}
+
 void
 MdcHeader::SetFlags (Flags newFlags)
 {

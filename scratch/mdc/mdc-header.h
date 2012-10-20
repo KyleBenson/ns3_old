@@ -48,6 +48,7 @@ public:
   void SetId (uint16_t id);
   std::string GetPacketType () const;
   void SetFlags (Flags newFlags);
+  Flags GetFlags () const;
 
   static TypeId GetTypeId (void);
   virtual TypeId GetInstanceTypeId (void) const;

@@ -89,8 +89,8 @@ private:
   std::list<EventId> m_events;
 
   /// Callbacks for tracing
-  TracedCallback<Ptr<const Packet>, uint32_t> m_requestTrace;
-  TracedCallback<Ptr<const Packet>, uint32_t> m_forwardTrace;
+  TracedCallback<Ptr<const Packet> > m_requestTrace;
+  TracedCallback<Ptr<const Packet> > m_forwardTrace;
 };
 
 } // namespace ns3

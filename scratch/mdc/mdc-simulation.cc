@@ -65,6 +65,11 @@ SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const A
   MdcHeader head;
   packet->PeekHeader (head);
 
+  // Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
+  // though this shouldn't happen as broadcast should be to a network?
+  /* if (head.GetFlags () == MdcHeader::mdcDataRequest)
+     return;*/
+
   std::stringstream s;
   Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
   s << "Sink " << constData->nodeId << " received "  << head.GetPacketType () << " (" << packet->GetSize () << "B) from node "
@@ -97,9 +102,9 @@ MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
 
   std::stringstream s;
   s << "MDC " << constData->nodeId << " forwarding " << head.GetPacketType () << " (" << packet->GetSize () << "B) from "
-    << head.GetOrigin () << " to " << head.GetDest () << ") at " << Simulator::Now ().GetSeconds ();
+    << head.GetOrigin () << " to " << head.GetDest () << " at " << Simulator::Now ().GetSeconds ();
 
-  NS_LOG_INFO (s);
+  NS_LOG_INFO (s.str ());
 }
 
 int 
@@ -131,9 +136,9 @@ main (int argc, char *argv[])
 
   cmd.Parse (argc,argv);
 
-  if (verbose == 1)
+  if (verbose >= 1)
     {
-      LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
+      //LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
       //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
@@ -142,13 +147,25 @@ main (int argc, char *argv[])
       LogComponentEnable ("MdcHelper", LOG_LEVEL_INFO);
     }
 
-  if (verbose == 2)
+  if (verbose >= 2)
     {
-      LogComponentEnable ("OnOffApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("Socket", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("TcpSocket", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);      
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
+    }
+
+  if (verbose >= 3)
+    {
+      LogComponentEnable ("Socket", LOG_LEVEL_INFO);
+      LogComponentEnable ("TcpSocket", LOG_LEVEL_INFO);
+      LogComponentEnable ("TcpTahoe", LOG_LEVEL_INFO);
+      LogComponentEnable ("TcpNewReno", LOG_LEVEL_INFO);
+      LogComponentEnable ("TcpReno", LOG_LEVEL_INFO);
+      LogComponentEnable ("PacketSink", LOG_LEVEL_FUNCTION);
+      LogComponentEnable ("Socket", LOG_LEVEL_FUNCTION);
     }
 
   // Open trace file if requested
@@ -179,8 +196,8 @@ main (int argc, char *argv[])
   phy.SetChannel (channel.Create ());
 
   WifiHelper wifi = WifiHelper::Default ();
-  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
-  wifi.SetRemoteStationManager ("ns3::AarfcdWifiManager");
+  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+  //wifi.SetRemoteStationManager ("ns3::AarfcdWifiManager");
 
   //TODO: tweak rates, thresholds, power levels
 
@@ -192,16 +209,16 @@ main (int argc, char *argv[])
   mdcSensorDevices = wifi.Install (phy, mac, mdcs);
 
   // Setup MDCs and associated sink interface
-  Ssid ssid = Ssid ("ns-3-ssid");
+  /*Ssid ssid = Ssid ("ns-3-ssid");
   mac.SetType ("ns3::StaWifiMac",
                "Ssid", SsidValue (ssid),
-               "ActiveProbing", BooleanValue (false));
+               "ActiveProbing", BooleanValue (false));*/
   
   NetDeviceContainer mdcSinkDevices;
   mdcSinkDevices = wifi.Install (phy, mac, mdcs);
 
-  mac.SetType ("ns3::ApWifiMac",
-               "Ssid", SsidValue (ssid));
+  /*mac.SetType ("ns3::ApWifiMac",
+    "Ssid", SsidValue (ssid));*/
 
   NetDeviceContainer sinkMdcDevice;
   sinkMdcDevice = wifi.Install (phy, mac, sink);
@@ -260,6 +277,7 @@ main (int argc, char *argv[])
   LiIonEnergySourceHelper energySourceHelper;
   //energySourceHelper.Set ("LiIonEnergySourceInitialEnergyJ", DoubleValue (initEnergy));
   //energySourceHelper.Set ("TypCurrent", DoubleValue ());
+  energySourceHelper.Set ("PeriodicEnergyUpdateInterval", TimeValue (Seconds (10.)));
   EnergySourceContainer energySources = energySourceHelper.Install (sensors);
 
   // if not using a helper (such as for the SimpleDeviceEnergyModel that can be used to mimic a processor/sensor), you must do 
@@ -296,7 +314,16 @@ main (int argc, char *argv[])
   InternetStackHelper stack;
   AodvHelper aodv;
   aodv.Set ("EnableHello", BooleanValue (false));
-  stack.SetRoutingHelper (aodv);
+  aodv.Set ("EnableBroadcast", BooleanValue (false));
+
+  // For some reason, static routing is necessary for the MDCs to talk to the sink.
+  // Something to do with them having 2 interfaces, as the issue goes away if one is
+  // removed, even though the sink still has 2...
+  Ipv4StaticRoutingHelper staticRouting;
+  Ipv4ListRoutingHelper listRouting;
+  listRouting.Add (staticRouting, 5);
+  listRouting.Add (aodv, 1);
+  stack.SetRoutingHelper (listRouting);
 
   stack.Install (sensors);
   stack.Install (sink);
@@ -312,13 +339,13 @@ main (int argc, char *argv[])
   Ipv4InterfaceContainer mdcSensorInterfaces;
   mdcSensorInterfaces = address.Assign (mdcSensorDevices);
 
-  // The long-range wifi between sink and MDCs uses TCP on a different network
+  // The long-range wifi between sink and MDCs uses a different network
   address.NewNetwork ();
   Ipv4InterfaceContainer sinkMdcInterface;
   sinkMdcInterface = address.Assign (sinkMdcDevice);
   Ipv4InterfaceContainer mdcSinkInterfaces;
   mdcSinkInterfaces = address.Assign (mdcSinkDevices);
-
+  
   //////////////////////////////////////////////////////////////////////
   /////////////////////////  Install Applications   ////////////////////
   //////////////////////////////////////////////////////////////////////
@@ -328,17 +355,13 @@ main (int argc, char *argv[])
   constData->outputStream = outputStream;
   constData->nodeId = sink.Get (0)->GetId ();
   
-  Address sinkDestAddress (InetSocketAddress (sinkMdcInterface.GetAddress (0, 0), 9999));
-
   // SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
   PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
-  //MdcServerHelper sinkHelper (9);
   ApplicationContainer sinkSensorApps = sinkHelper.Install (sink);
   sinkSensorApps.Start (Seconds (simStartTime));
   sinkSensorApps.Stop (Seconds (simEndTime));
 
   sinkHelper = PacketSinkHelper ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
-  //MdcServerHelper sinkHelper (9);
   ApplicationContainer sinkMdcApps = sinkHelper.Install (sink);
   sinkMdcApps.Start (Seconds (simStartTime));
   sinkMdcApps.Stop (Seconds (simEndTime));
@@ -350,9 +373,9 @@ main (int argc, char *argv[])
     }
 
   // MOBILE DATA COLLECTORS
-  //OnOffHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
+  //BulkSendHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
   MdcCollectorHelper mdcAppHelper;
-  mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0, 0))));
+  mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0))));
   //mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
   mdcApps.Start (Seconds (simStartTime+1));
@@ -360,11 +383,12 @@ main (int argc, char *argv[])
 
   if (verbose)
     {
-      NS_LOG_INFO ("MDCs talk to sink at " << sinkMdcInterface.GetAddress (0, 0));
+      //NS_LOG_INFO ("MDCs talk to sink at " << sinkMdcInterface.GetAddress (0, 0));
+      //Address sinkDestAddress (InetSocketAddress (sinkMdcInterface.GetAddress (0, 0), 9999)); //FIX THIS TO MDC
 
       for (uint8_t i = 0; i < mdcApps.GetN (); i++)
         {
-          mdcApps.Get (i)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&MdcPacketForward, constData));
+          mdcApps.Get (i)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&MdcPacketForward, constData));
         }
     }
 
@@ -373,8 +397,12 @@ main (int argc, char *argv[])
   sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
   sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (sendFullData));
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
-  sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (simStartTime, simEndTime));
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
+
+  if (nEvents > 1)
+    sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (simStartTime, simEndTime));
+  else
+    sensorAppHelper.SetEventTimeRandomVariable (new ConstantVariable (simStartTime*2));
   
   ApplicationContainer sensorApps = sensorAppHelper.Install (sensors);
   sensorApps.Start (Seconds (simStartTime));
