@@ -78,15 +78,18 @@ private:
   void CancelEvents (void);
 
   void ForwardPacket (Ptr<Packet> packet);
-  void AckPacket (Ptr<Packet> packet, Address from);
+  void HandleAccept (Ptr<Socket> s, const Address& from);
+  //void AckPacket (Ptr<Packet> packet, Address from);
 
   Time m_interval; //for sending request beacons
   Ipv4Address m_sinkAddress;
   Ipv4Address m_address;
   Ptr<Socket> m_sinkSocket;
-  Ptr<Socket> m_sensorSocket;
+  Ptr<Socket> m_udpSensorSocket;
+  Ptr<Socket> m_tcpSensorSocket;
   uint16_t m_port;
   std::list<EventId> m_events;
+  std::map<Ptr<Socket>, uint32_t> m_expectedBytes; //keep track of bytes to come from sensors
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet> > m_requestTrace;

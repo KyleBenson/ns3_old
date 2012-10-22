@@ -174,7 +174,10 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
           m_rxTrace (packet, from);
         }
       else //decrement accordingly
-        m_expectedBytes[socket] -= packet->GetSize ();
+        {
+          m_expectedBytes[socket] -= packet->GetSize ();
+          NS_LOG_INFO ("Expecting " << m_expectedBytes[socket] << " more bytes.");
+        }
 
       if (InetSocketAddress::IsMatchingType (from))
         {

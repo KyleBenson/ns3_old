@@ -92,7 +92,8 @@ MdcEventSensor::MdcEventSensor ()
   NS_LOG_FUNCTION_NOARGS ();
 
   m_sent = 0;
-  m_socket = 0;
+  m_udpSocket = 0;
+  m_tcpSocket = 0;
   m_data = 0;
   m_dataSize = 0;
   m_nOutstandingReadings = 0;
@@ -105,8 +106,9 @@ MdcEventSensor::MdcEventSensor ()
 MdcEventSensor::~MdcEventSensor()
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_socket = 0;
-
+  m_udpSocket = 0;
+  m_tcpSocket = 0;
+  
   delete [] m_data;
 
   m_data = 0;
@@ -143,14 +145,24 @@ MdcEventSensor::StartApplication (void)
 
   TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
 
-  if (m_socket == 0)
+  if (m_udpSocket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-      m_socket = Socket::CreateSocket (GetNode (), tid);
+      m_udpSocket = Socket::CreateSocket (GetNode (), tid);
       InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), m_port);
-      m_socket->Bind (local);
+      m_udpSocket->Bind (local);
 
-      NS_LOG_LOGIC ("Socket bound");
+      NS_LOG_LOGIC ("Udp Socket bound");
+    }
+
+  if (m_tcpSocket == 0)
+    {
+      TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
+      m_tcpSocket = Socket::CreateSocket (GetNode (), tid);
+      InetSocketAddress local = InetSocketAddress (Ipv4Address::GetAny (), m_port);
+      m_tcpSocket->Bind (local);
+
+      NS_LOG_LOGIC ("Tcp Socket bound");
     }
 
   // Use the first address of the first non-loopback device on the node for our address
@@ -167,7 +179,8 @@ MdcEventSensor::StartApplication (void)
         }
     }
 
-  m_socket->SetRecvCallback (MakeCallback (&MdcEventSensor::HandleRead, this));
+  m_udpSocket->SetRecvCallback (MakeCallback (&MdcEventSensor::HandleRead, this));
+  m_tcpSocket->SetRecvCallback (MakeCallback (&MdcEventSensor::HandleRead, this));
 }
 
 void 
@@ -175,11 +188,18 @@ MdcEventSensor::StopApplication ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  if (m_socket != 0) 
-    {
-      m_socket->Close ();
-      m_socket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
-      m_socket = 0;
+  if (m_tcpSocket != 0) 
+    {   
+      m_tcpSocket->Close ();
+      m_tcpSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+      m_tcpSocket = 0;
+    }
+
+  if (m_udpSocket != 0) 
+    {   
+      m_udpSocket->Close ();
+      m_udpSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+      m_udpSocket = 0;
     }
 
   CancelEvents ();
@@ -316,16 +336,18 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
       //
       //It seems realistic enough as the sensor could check for recent data requests and reply
       //to them when done processing anyway...
-      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()));
-      m_nOutstandingReadings++;
+      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), InetSocketAddress(m_sinkAddress, m_port));
+
+      if (!m_sendFullData)
+        m_nOutstandingReadings++;
     }
 }
 
 void 
-MdcEventSensor::ScheduleTransmit (Time dt)
+MdcEventSensor::ScheduleTransmit (Time dt, Address address)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, InetSocketAddress(m_sinkAddress, m_port), 0));
+  m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, address, 0));
 }
 
 void 
@@ -396,7 +418,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
       head.SetData (p->GetSize ());
   
       // only schedule timeouts for full data
-      ScheduleTimeout (seq, dest);
+      //ScheduleTimeout (seq, dest);
     }
 
   p->AddHeader (head);
@@ -404,7 +426,20 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p);
-  m_socket->SendTo (p, 0, dest);
+
+  if (flags == MdcHeader::sensorFullData || flags == MdcHeader::sensorDataReply)
+    {
+      // some weird bug makes establishing a connection to the same address you did last time not work
+      if (dest != m_lastConnection)
+        {
+          NS_ASSERT (m_tcpSocket->Connect(dest) >= 0);
+          m_lastConnection = dest;
+        }
+
+      m_tcpSocket->Send (p);
+    }
+  else
+    m_udpSocket->SendTo (p, 0, dest);
 }
 
 void 
@@ -419,7 +454,7 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
 
       if (InetSocketAddress::IsMatchingType (from))
         {
-          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+          //Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
 
           MdcHeader head;
           packet->PeekHeader (head);
@@ -427,7 +462,8 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
           // If the packet is for us, process the ACK
           if (head.GetDest () == m_address)
             {
-              ProcessAck (packet, source);
+              return;
+              //ProcessAck (packet, source);
             }
 
           // Else it was a broadcast from an MDC
@@ -439,7 +475,7 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
                 {
                   for (int i = m_nOutstandingReadings; i > 0; i--)
                     {
-                      Send (from);
+                      ScheduleTransmit (Seconds (i*0.1 + 0.1), from);
                       m_nOutstandingReadings--;
                     }
                 }
@@ -448,6 +484,12 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
     }
 }
 
+Ipv4Address
+MdcEventSensor::GetAddress () const
+{
+  return m_address;
+}
+  /*
 void
 MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
 {
@@ -474,12 +516,6 @@ MdcEventSensor::ScheduleTimeout (uint32_t seq, Address dest)
     m_outstandingSeqs[seq] = m_retries;
 }
 
-Ipv4Address
-MdcEventSensor::GetAddress () const
-{
-  return m_address;
-}
-
 void
 MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
 {
@@ -502,6 +538,6 @@ MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
           m_outstandingSeqs.erase (triesLeft);
         }
     }
-}
+    }*/
 
 } // Namespace ns3

@@ -75,7 +75,8 @@ MdcCollector::MdcCollector ()
   NS_LOG_FUNCTION_NOARGS ();
 
   m_sinkSocket = 0;
-  m_sensorSocket = 0;
+  m_udpSensorSocket = 0;
+  m_tcpSensorSocket = 0;
   m_address = Ipv4Address((uint32_t)0);
 }
 
@@ -145,28 +146,20 @@ MdcCollector::StartApplication (void)
   NS_LOG_LOGIC ("MDC address set to " << GetAddress ());
 
   //TODO: bind sockets only to the network we talk on
-  if (m_sensorSocket == 0)
+  if (m_udpSensorSocket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::UdpSocketFactory");
-      m_sensorSocket = Socket::CreateSocket (GetNode (), tid);
+      m_udpSensorSocket = Socket::CreateSocket (GetNode (), tid);
       InetSocketAddress local = InetSocketAddress (GetAddress (), m_port); //Ipv4Address::GetAny ()
-      m_sensorSocket->Bind (local);
+      m_udpSensorSocket->Bind (local);
 
-      NS_ASSERT (m_sensorSocket->SetAllowBroadcast (true));
+      NS_ASSERT (m_udpSensorSocket->SetAllowBroadcast (true));
       }
   
   if (m_sinkSocket == 0)
     {
       TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
       m_sinkSocket = Socket::CreateSocket (GetNode (), tid);
-
-      if (m_sinkSocket->GetSocketType () != Socket::NS3_SOCK_STREAM &&
-          m_sinkSocket->GetSocketType () != Socket::NS3_SOCK_SEQPACKET)
-        {
-          NS_FATAL_ERROR ("Using MdcCollector's sink socket with an incompatible socket type. "
-                          "It requires SOCK_STREAM or SOCK_SEQPACKET. "
-                          "In other words, use TCP instead of UDP.");
-        }
 
       //NS_LOG_INFO ("sink IP address: " << m_sinkAddress << ", port: " << m_port);
       InetSocketAddress addr = InetSocketAddress (m_sinkAddress, m_port);
@@ -175,8 +168,20 @@ MdcCollector::StartApplication (void)
       NS_ASSERT (m_sinkSocket->Connect (addr) >= 0);
     }
 
-  m_sensorSocket->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
-  //TODO: callback for sinkSocket?
+  if (m_tcpSensorSocket == 0)
+    {
+      TypeId tid = TypeId::LookupByName ("ns3::TcpSocketFactory");
+      m_tcpSensorSocket = Socket::CreateSocket (GetNode (), tid);
+
+      //NS_LOG_INFO ("sink IP address: " << m_sinkAddress << ", port: " << m_port);
+      m_tcpSensorSocket->SetAcceptCallback (MakeNullCallback<bool, Ptr<Socket>, const Address &> (),
+                                            MakeCallback (&MdcCollector::HandleAccept, this));
+      
+      NS_ASSERT (m_tcpSensorSocket->Bind (InetSocketAddress (GetAddress (), m_port)) >= 0);
+      NS_ASSERT (m_tcpSensorSocket->Listen () >= 0);
+    }
+
+  m_sinkSocket->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
 
   UniformVariable random (0.0, 1.0);
   ScheduleTransmit (Seconds (random.GetValue ()));
@@ -187,11 +192,18 @@ MdcCollector::StopApplication ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  if (m_sensorSocket != 0) 
+  if (m_udpSensorSocket != 0) 
     {
-      m_sensorSocket->Close ();
-      m_sensorSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
-      m_sensorSocket = 0;
+      m_udpSensorSocket->Close ();
+      m_udpSensorSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+      m_udpSensorSocket = 0;
+    }
+
+  if (m_tcpSensorSocket != 0) 
+    {
+      m_tcpSensorSocket->Close ();
+      m_tcpSensorSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
+      m_tcpSensorSocket = 0;
     }
 
   if (m_sinkSocket != 0) 
@@ -233,7 +245,7 @@ MdcCollector::Send ()
   // add header to packet
   Ptr<Ipv4> ipv4 = GetNode ()->GetObject<Ipv4> ();
   NS_ASSERT (ipv4);
-  //int32_t ifaceIdx = ipv4->GetInterfaceForDevice (m_sensorSocket->GetBoundNetDevice ());
+  //int32_t ifaceIdx = ipv4->GetInterfaceForDevice (m_udpSensorSocket->GetBoundNetDevice ());
   int32_t ifaceIdx = ipv4->GetInterfaceForAddress (GetAddress ());
   //NS_LOG_LOGIC ("Iface index = " << ifaceIdx);
   //NS_ASSERT (ifaceIdx);
@@ -252,8 +264,8 @@ MdcCollector::Send ()
   // so that tags added to the packet can be sent as well
   m_requestTrace (p);
   
-  m_sensorSocket->SendTo (p, 0, InetSocketAddress(Ipv4Address (head.GetDest ()), m_port));
-  //if (m_sensorSocket->SendTo (p, 0, InetSocketAddress(m_sinkAddress, m_port)) <= 0)
+  m_udpSensorSocket->SendTo (p, 0, InetSocketAddress(Ipv4Address (head.GetDest ()), m_port));
+  //if (m_udpSensorSocket->SendTo (p, 0, InetSocketAddress(m_sinkAddress, m_port)) <= 0)
   //NS_LOG_INFO ("packet not sent correctly");
 
   m_events.push_front (Simulator::Schedule (m_interval, &MdcCollector::Send, this));
@@ -262,9 +274,6 @@ MdcCollector::Send ()
 void 
 MdcCollector::HandleRead (Ptr<Socket> socket)
 {
-
-  //TODO: use TCP instead! immediately ACK packets from sensors then use TCP to handle reliably getting the to the sink
-
   Ptr<Packet> packet;
   Address from;
 
@@ -274,32 +283,38 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
 
       if (InetSocketAddress::IsMatchingType (from))
         {
-          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
-
-          MdcHeader head;
-          packet->PeekHeader (head);
-          
-          NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " received " << head.GetPacketType () 
-                       << " from " << source << " destined for " << head.GetDest ());
-
-          // If the packet is for the sink, forward it
-          MdcHeader::Flags flags = head.GetFlags ();
-          if (flags == MdcHeader::sensorDataReply)
+          if (socket == m_sinkSocket)
             {
-              AckPacket (packet, from);
-              ForwardPacket (packet);
+              //TODO: handle incoming route updates
+              return;
             }
 
-          // Else its for us
-          else
+          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+          
+          // Start of a new packet
+          if (m_expectedBytes[socket] == 0)
             {
-              return; //TODO: handle incoming routing schedule
+              MdcHeader head;
+              packet->PeekHeader (head);
+              m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
+              
+              ForwardPacket (packet);
+              m_forwardTrace (packet);
+
+              NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " received " << head.GetPacketType () 
+                           << " from " << source << " destined for " << head.GetDest ());
+            }
+          else //decrement accordingly
+            {
+              m_expectedBytes[socket] -= packet->GetSize ();
+              ForwardPacket (packet);
+              NS_LOG_INFO ("Expecting " << m_expectedBytes[socket] << " more bytes.");
             }
         }
     }
 }
 
-void
+/*void
 MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
 {
   MdcHeader head;
@@ -311,8 +326,8 @@ MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
 
   packet->AddHeader (head);
 
-  m_sensorSocket->SendTo (packet, 0, from);
-}
+  m_udpSensorSocket->SendTo (packet, 0, from);
+  }*/
 
 void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
@@ -321,8 +336,6 @@ MdcCollector::ForwardPacket (Ptr<Packet> packet)
 
   packet->RemoveAllPacketTags ();
   packet->RemoveAllByteTags ();
-
-  m_forwardTrace (packet);
 
   if (m_sinkSocket->Send (packet) < (int)packet->GetSize ())
   //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(m_sinkAddress, m_port)) < (int)packet->GetSize ())
@@ -339,6 +352,15 @@ Ipv4Address
 MdcCollector::GetAddress () const
 {
   return m_address;
+}
+
+void
+MdcCollector::HandleAccept (Ptr<Socket> s, const Address& from)
+{
+  NS_LOG_FUNCTION (this << s << from);
+  s->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
+
+  m_expectedBytes[s] = 0;
 }
 
 } // Namespace ns3

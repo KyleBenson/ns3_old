@@ -141,7 +141,7 @@ main (int argc, char *argv[])
     {
       //LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
-      //LogComponentEnable ("MdcSink", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
@@ -385,6 +385,8 @@ main (int argc, char *argv[])
 
       for (uint8_t i = 0; i < mdcApps.GetN (); i++)
         {
+          constData = new TraceConstData();
+          constData->nodeId = mdcApps.Get (i)->GetNode ()->GetId ();
           mdcApps.Get (i)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&MdcPacketForward, constData));
         }
     }
