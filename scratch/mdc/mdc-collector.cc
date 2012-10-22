@@ -34,7 +34,7 @@
 #include "ns3/random-variable.h"
 
 #include "mdc-header.h"
-
+#include <climits>
 #include "mdc-collector.h"
 
 namespace ns3 {
@@ -96,6 +96,11 @@ MdcCollector::DoDispose (void)
   Application::DoDispose ();
 }
 
+void MdcCollector::DoConnect (Address addr)
+{
+  m_sinkSocket->Connect (addr);
+}
+
 void 
 MdcCollector::StartApplication (void)
 {
@@ -138,12 +143,14 @@ MdcCollector::StartApplication (void)
         {
           NS_LOG_LOGIC ("Binding TCP socket to device with IP address: " << ipv4->GetAddress (i, 0).GetLocal ());
           netDevice = ipv4->GetNetDevice (i);
-          tcpAddr = ipv4->GetAddress (i, 0).GetLocal ();
+          tcpAddr = ipv4->GetAddress (i, 0).GetLocal ();p
           break;
           }*/
     }
   
   NS_LOG_LOGIC ("MDC address set to " << GetAddress ());
+
+  UniformVariable randomStartDelay (0.0, 1.0);
 
   //TODO: bind sockets only to the network we talk on
   if (m_udpSensorSocket == 0)
@@ -165,7 +172,8 @@ MdcCollector::StartApplication (void)
       InetSocketAddress addr = InetSocketAddress (m_sinkAddress, m_port);
 
       NS_ASSERT (m_sinkSocket->Bind () >= 0);
-      NS_ASSERT (m_sinkSocket->Connect (addr) >= 0);
+      //m_sinkSocket->Connect (addr);
+      Simulator::Schedule (Seconds (randomStartDelay.GetValue ()), &MdcCollector::DoConnect, this, addr);
     }
 
   if (m_tcpSensorSocket == 0)
@@ -183,8 +191,7 @@ MdcCollector::StartApplication (void)
 
   m_sinkSocket->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
 
-  UniformVariable random (0.0, 1.0);
-  ScheduleTransmit (Seconds (random.GetValue ()));
+  ScheduleTransmit (Seconds (randomStartDelay.GetValue ()));
 }
 
 void 
@@ -274,42 +281,74 @@ MdcCollector::Send ()
 void 
 MdcCollector::HandleRead (Ptr<Socket> socket)
 {
+  Ptr<Packet> fullPacket = m_partialPacket[socket];
   Ptr<Packet> packet;
   Address from;
 
+  if (socket == m_sinkSocket)
+    {
+      //TODO: handle incoming route updates
+      return;
+    }
+
+  // If we already had a full header, we already fired traces about it
+  bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
+
+  MdcHeader head;
+  head.SetData (0);  // for if condition for removing completed packets
+
+  if (alreadyNotified)
+    {
+      fullPacket->PeekHeader (head);
+    }
+  
+  uint32_t packetSize;
+  packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+  
   while (packet = socket->RecvFrom (from))
     {
       NS_LOG_LOGIC ("Reading packet from socket.");
-
+      
       if (InetSocketAddress::IsMatchingType (from))
         {
-          if (socket == m_sinkSocket)
-            {
-              //TODO: handle incoming route updates
-              return;
-            }
-
-          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+          fullPacket->AddAtEnd (packet);
           
-          // Start of a new packet
-          if (m_expectedBytes[socket] == 0)
-            {
-              MdcHeader head;
-              packet->PeekHeader (head);
-              m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
-              
-              ForwardPacket (packet);
-              m_forwardTrace (packet);
+          while (fullPacket->GetSize () >= MDC_HEADER_SIZE)
+          {
+            Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+            
+            // Start of a new packet
+            if (!alreadyNotified)
+              //if (m_expectedBytes[socket] == 0)
+              {
+                fullPacket->PeekHeader (head);
+                //m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
+                alreadyNotified = true;
+                m_forwardTrace (packet);
 
-              NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " received " << head.GetPacketType () 
-                           << " from " << source << " destined for " << head.GetDest ());
-            }
-          else //decrement accordingly
-            {
-              m_expectedBytes[socket] -= packet->GetSize ();
-              ForwardPacket (packet);
-              NS_LOG_INFO ("Expecting " << m_expectedBytes[socket] << " more bytes.");
-            }
+                NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " received " << head.GetPacketType () 
+                             << " from " << source << " destined for " << head.GetDest ());
+              }
+            
+            // Remove completed transfers
+            if (fullPacket->GetSize () >= packetSize)            
+              {
+
+                fullPacket->RemoveAtStart (packetSize);
+                alreadyNotified = false;
+
+                NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " completed forwarding packet from " << source );
+              }
+            else
+              break;
+
+            //m_expectedBytes[socket] -= packet->GetSize ();
+            
+          }
+          
+          ForwardPacket (packet);
+
+          //NS_LOG_INFO ("MDC expecting " << m_expectedBytes[socket] << " more bytes.");
         }
     }
 }
@@ -360,7 +399,8 @@ MdcCollector::HandleAccept (Ptr<Socket> s, const Address& from)
   NS_LOG_FUNCTION (this << s << from);
   s->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
 
-  m_expectedBytes[s] = 0;
+  //m_expectedBytes[s] = 0;
+  m_partialPacket[s] = Create<Packet> ();
 }
 
 } // Namespace ns3

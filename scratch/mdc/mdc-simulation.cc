@@ -67,8 +67,8 @@ SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const A
 
   // Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
   // though this shouldn't happen as broadcast should be to a network?
-  /* if (head.GetFlags () == MdcHeader::mdcDataRequest)
-     return;*/
+  if (head.GetFlags () == MdcHeader::mdcDataRequest)
+    return;
 
   std::stringstream s;
   Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
@@ -141,26 +141,27 @@ main (int argc, char *argv[])
     {
       //LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcHelper", LOG_LEVEL_INFO);
     }
 
   if (verbose >= 2)
     {
-      LogComponentEnable ("Socket", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("TcpSocket", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
+      LogComponentEnable ("MdcSink", LOG_LEVEL_FUNCTION);
       //LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);      
-      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_LOGIC);
       //LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_LOGIC);
       //LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
     }
 
   if (verbose >= 3)
     {
+      LogComponentEnable ("Socket", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_LOGIC);
+      LogComponentEnable ("TcpSocket", LOG_LEVEL_LOGIC);
+
       LogComponentEnable ("Socket", LOG_LEVEL_INFO);
       LogComponentEnable ("TcpSocket", LOG_LEVEL_INFO);
       LogComponentEnable ("TcpTahoe", LOG_LEVEL_INFO);
@@ -198,8 +199,8 @@ main (int argc, char *argv[])
   phy.SetChannel (channel.Create ());
 
   WifiHelper wifi = WifiHelper::Default ();
-  wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
-  //wifi.SetRemoteStationManager ("ns3::AarfcdWifiManager");
+  //wifi.SetRemoteStationManager ("ns3::ConstantRateWifiManager");
+  wifi.SetRemoteStationManager ("ns3::AarfcdWifiManager");
 
   //TODO: tweak rates, thresholds, power levels
 

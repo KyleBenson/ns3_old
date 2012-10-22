@@ -22,6 +22,7 @@
 #define MDC_SINK_H
 
 #include "ns3/packet-sink.h"
+#include "ns3/buffer.h"
 #include <map>
 #include "ns3/waypoint-mobility-model.h"
 
@@ -96,7 +97,8 @@ private:
   std::map<uint32_t, Ptr<MobilityModel> > m_mobilityModels;
 
   // Need to keep track of the # expected bytes left in the next packet for each stream
-  std::map<Ptr<Socket>, uint32_t> m_expectedBytes;
+  //std::map<Ptr<Socket>, uint32_t> m_expectedBytes;
+  std::map<Ptr<Socket>, Ptr<Packet> > m_partialPacket; //buffer for partial headers
 
   Address         m_mdcLocal;        // Local address to bind to for talking with MDCs
   Address         m_sensorLocal;        // Local address to bind to for talking with sensors

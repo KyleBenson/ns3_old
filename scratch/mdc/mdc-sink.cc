@@ -35,6 +35,7 @@
 #include "ns3/udp-socket-factory.h"
 #include "ns3/node-container.h"
 
+#include <climits>
 #include "mdc-sink.h"
 #include "mdc-header.h"
 
@@ -154,48 +155,81 @@ void MdcSink::StopApplication ()     // Called at time specified by Stop
 void MdcSink::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
+
+  Ptr<Packet> fullPacket = (socket == m_sensorSocket ? Create<Packet> () : m_partialPacket[socket]);
   Ptr<Packet> packet;
   Address from;
+
+  // If we already had a full header, we already fired traces about it
+  bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
+
+  MdcHeader head;
+  head.SetData (0);  // for if condition for removing completed packets
+
+  if (alreadyNotified)
+    {
+      fullPacket->PeekHeader (head);
+    }
+  
+  uint32_t packetSize;
+  packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+  
   while ((packet = socket->RecvFrom (from)))
     {
+      fullPacket->AddAtEnd (packet);
+
       if (packet->GetSize () == 0)
         { //EOF
           break;
         }
-      m_totalRx += packet->GetSize ();
+          
+      while (fullPacket->GetSize () >= MDC_HEADER_SIZE)
+        {
+          Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+            
+          // Start of a new packet
+          if (!alreadyNotified)
+            //if (m_expectedBytes[socket] == 0)
+            {
+              fullPacket->PeekHeader (head);
+              //m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
+              alreadyNotified = true;
+              m_rxTrace (packet, from);
 
-      // Start of a new packet
-      if (m_expectedBytes[socket] == 0)
-        {
-          MdcHeader head;
-          packet->PeekHeader (head);
-          m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
+              if (InetSocketAddress::IsMatchingType (from))
+                {
+                  NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
+                               << "s packet sink received "
+                               <<  packet->GetSize () << " bytes from "
+                               << InetSocketAddress::ConvertFrom(from).GetIpv4 ()
+                               << " port " << InetSocketAddress::ConvertFrom (from).GetPort ()
+                               << " total Rx " << m_totalRx << " bytes");
+                }
+              else if (Inet6SocketAddress::IsMatchingType (from))
+                {
+                  NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
+                               << "s packet sink received "
+                               <<  packet->GetSize () << " bytes from "
+                               << Inet6SocketAddress::ConvertFrom(from).GetIpv6 ()
+                               << " port " << Inet6SocketAddress::ConvertFrom (from).GetPort ()
+                               << " total Rx " << m_totalRx << " bytes");
+                }
+            }
+            
+          // Remove completed transfers
+          if (fullPacket->GetSize () >= packetSize)            
+            {
+              fullPacket->RemoveAtStart (packetSize);
+              alreadyNotified = false;
 
-          m_rxTrace (packet, from);
-        }
-      else //decrement accordingly
-        {
-          m_expectedBytes[socket] -= packet->GetSize ();
-          NS_LOG_INFO ("Expecting " << m_expectedBytes[socket] << " more bytes.");
-        }
-
-      if (InetSocketAddress::IsMatchingType (from))
-        {
-          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                       << "s packet sink received "
-                       <<  packet->GetSize () << " bytes from "
-                       << InetSocketAddress::ConvertFrom(from).GetIpv4 ()
-                       << " port " << InetSocketAddress::ConvertFrom (from).GetPort ()
-                       << " total Rx " << m_totalRx << " bytes");
-        }
-      else if (Inet6SocketAddress::IsMatchingType (from))
-        {
-          NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                       << "s packet sink received "
-                       <<  packet->GetSize () << " bytes from "
-                       << Inet6SocketAddress::ConvertFrom(from).GetIpv6 ()
-                       << " port " << Inet6SocketAddress::ConvertFrom (from).GetPort ()
-                       << " total Rx " << m_totalRx << " bytes");
+              if (head.GetFlags () == MdcHeader::sensorFullData ||
+                  head.GetFlags () == MdcHeader::sensorDataReply)
+                m_totalRx += packetSize;
+      
+              NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " completed forwarding packet from " << source );
+            }
+          else
+            break;
         }
     }
 }
@@ -213,7 +247,7 @@ void MdcSink::HandlePeerError (Ptr<Socket> socket)
 
 void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 {
-  NS_LOG_FUNCTION (this << s << from);
+  NS_LOG_FUNCTION (this << s << from << Seconds (Simulator::Now ()));
   s->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
 
   // Get the mobility model associated with the MDC so that we know all their locations
@@ -240,7 +274,8 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
   
   uint32_t id = destNode->GetId ();
   m_acceptedSockets[id] = s;
-  m_expectedBytes[s] = 0;
+  //m_expectedBytes[s] = 0;
+  m_partialPacket[s] = Create<Packet> ();
 
   Ptr<WaypointMobilityModel> mobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
   if (mobility)

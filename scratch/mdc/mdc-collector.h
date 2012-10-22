@@ -21,6 +21,7 @@
 
 #include "ns3/application.h"
 #include "ns3/event-id.h"
+#include "ns3/buffer.h"
 #include "ns3/ptr.h"
 #include "ns3/address.h"
 #include "ns3/traced-callback.h"
@@ -69,6 +70,7 @@ protected:
 
 private:
 
+  void DoConnect (Address addr);
   virtual void StartApplication (void);
   virtual void StopApplication (void);
 
@@ -89,7 +91,8 @@ private:
   Ptr<Socket> m_tcpSensorSocket;
   uint16_t m_port;
   std::list<EventId> m_events;
-  std::map<Ptr<Socket>, uint32_t> m_expectedBytes; //keep track of bytes to come from sensors
+  //std::map<Ptr<Socket>, uint32_t> m_expectedBytes; //keep track of bytes to come from sensors
+  std::map<Ptr<Socket>, Ptr<Packet> > m_partialPacket; //buffer for partial headers
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet> > m_requestTrace;
