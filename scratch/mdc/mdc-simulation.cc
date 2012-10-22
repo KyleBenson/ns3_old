@@ -115,6 +115,7 @@ main (int argc, char *argv[])
   uint32_t nSensors = 10;
   uint32_t nMdcs = 1;
   uint32_t nEvents = 1;
+  uint32_t dataSize = 1024;
   double eventRadius = 5.0;
   double mdcSpeed = 3.0;
   bool sendFullData = true;
@@ -127,6 +128,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
   cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
   cmd.AddValue ("events", "Number of events to occur", nEvents);
+  cmd.AddValue ("data_size", "Size (in bytes) of full sensed event data", dataSize);
   cmd.AddValue ("event_radius", "Radius of affect of the events", eventRadius);
   cmd.AddValue ("mdc_speed", "Speed (in m/s) of the MDCs", mdcSpeed);
   cmd.AddValue ("send_full_data", "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs", sendFullData);
@@ -374,6 +376,7 @@ main (int argc, char *argv[])
   //BulkSendHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);
   MdcCollectorHelper mdcAppHelper;
   mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0))));
+  mdcAppHelper.SetAttribute ("Interval", TimeValue (Seconds (3.0)));
   //mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
   mdcApps.Start (Seconds (simStartTime));
@@ -394,7 +397,7 @@ main (int argc, char *argv[])
 
   // SENSORS
   MdcEventSensorHelper sensorAppHelper (sinkSensorInterface.GetAddress (0, 0), nEvents);
-  sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (1024));
+  sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (dataSize));
   sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (sendFullData));
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
