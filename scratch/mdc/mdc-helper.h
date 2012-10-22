@@ -27,6 +27,8 @@
 #include "ns3/ipv4-address.h"
 #include "ns3/position-allocator.h"
 
+#include "ns3/packet-sink-helper.h"
+
 #include "sensed-event.h"
 
 #include <list>
@@ -220,6 +222,31 @@ private:
   Ptr<PositionAllocator> m_posAllocator;
   RandomVariable * m_radiusRandomVariable;
   RandomVariable * m_eventTimeRandomVariable;
+};
+
+
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+////////////////////   Packet Sink     ///////////////////////////////
+//////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+
+class MdcSinkHelper
+{
+public:
+  MdcSinkHelper ();
+  void SetAttribute (std::string name, const AttributeValue &value);
+  ApplicationContainer Install (NodeContainer c) const;
+  ApplicationContainer Install (Ptr<Node> node) const;
+  ApplicationContainer Install (std::string nodeName) const;
+
+private:
+  /**
+   * \internal
+   */
+  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  ObjectFactory m_factory;
 };
 
 } // namespace ns3

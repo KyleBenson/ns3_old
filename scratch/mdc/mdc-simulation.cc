@@ -72,7 +72,8 @@ SinkPacketReceive (TraceConstData * constData, Ptr<const Packet> packet, const A
 
   std::stringstream s;
   Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
-  s << "Sink " << constData->nodeId << " received "  << head.GetPacketType () << " (" << packet->GetSize () << "B) from node "
+  s << "Sink " << constData->nodeId << " received "  << head.GetPacketType ()
+    << " (" << head.GetData () + head.GetSerializedSize () << "B) from node "
     << head.GetId () << " via " << fromAddr << " at " << Simulator::Now ().GetSeconds ();
 
   NS_LOG_INFO (s.str ());
@@ -140,6 +141,7 @@ main (int argc, char *argv[])
     {
       //LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
+      //LogComponentEnable ("MdcSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
       //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
       LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
@@ -356,20 +358,15 @@ main (int argc, char *argv[])
   constData->nodeId = sink.Get (0)->GetId ();
   
   // SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
-  PacketSinkHelper sinkHelper ("ns3::UdpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
-  ApplicationContainer sinkSensorApps = sinkHelper.Install (sink);
-  sinkSensorApps.Start (Seconds (simStartTime));
-  sinkSensorApps.Stop (Seconds (simEndTime));
-
-  sinkHelper = PacketSinkHelper ("ns3::TcpSocketFactory", InetSocketAddress (Ipv4Address::GetAny (), 9999));
-  ApplicationContainer sinkMdcApps = sinkHelper.Install (sink);
-  sinkMdcApps.Start (Seconds (simStartTime));
-  sinkMdcApps.Stop (Seconds (simEndTime));
   
+  MdcSinkHelper sinkHelper;
+  ApplicationContainer sinkApps = sinkHelper.Install (sink);
+  sinkApps.Start (Seconds (simStartTime));
+  sinkApps.Stop (Seconds (simEndTime));
+
   if (tracing)
     {
-      sinkSensorApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
-      sinkMdcApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
+      sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketReceive, constData));
     }
 
   // MOBILE DATA COLLECTORS
@@ -378,7 +375,7 @@ main (int argc, char *argv[])
   mdcAppHelper.SetAttribute ("RemoteAddress", Ipv4AddressValue (Ipv4Address::ConvertFrom (sinkMdcInterface.GetAddress (0))));
   //mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
   ApplicationContainer mdcApps = mdcAppHelper.Install (mdcs);
-  mdcApps.Start (Seconds (simStartTime+1));
+  mdcApps.Start (Seconds (simStartTime));
   mdcApps.Stop (Seconds (simEndTime));
 
   if (verbose)
