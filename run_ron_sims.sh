@@ -28,7 +28,7 @@ do
                	    #echo $out_dir/run$i.out
 		    ./waf --run "ron --file=rocketfuel/maps/$AS.cch --disaster=$disaster --RngSeed=$rseed --RngRun=$i --fail_prob=$pfail --latencies=rocketfuel/weights/all_latencies.intra --trace_file=$out_dir/run$i.out --contact_attempts=20 --timeout=0.5 --use_local_overlays=$local_overlays`if [ "$1" == "test" ]; then echo ' --verbose=1'; fi`"
 		    
-         		#quit after first run if argument is 'test'
+		             		#quit after first run if argument is 'test'
 		    if [ "$1" == "test" ];
 		    then
 			exit

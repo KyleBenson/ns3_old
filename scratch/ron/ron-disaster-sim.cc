@@ -30,7 +30,7 @@
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE ("RocketfuelExample");
+NS_LOG_COMPONENT_DEFINE ("RonDisasterSimulation");
 
 // Traced source callbacks
 static void
@@ -152,8 +152,9 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
-      LogComponentEnable ("RocketfuelExample", LOG_LEVEL_INFO);
-      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
 
@@ -203,6 +204,8 @@ main (int argc, char *argv[])
       AsciiTraceHelper asciiTraceHelper;
       outputStream = asciiTraceHelper.CreateFileStream (trace_file);
       tracing = true;
+
+      NS_LOG_UNCOND ("Trace file: " << trace_file);
     }
 
 
@@ -246,6 +249,8 @@ main (int argc, char *argv[])
   
   // Random variable for determining if links fail during the disaster
   UniformVariable random;
+
+  NS_LOG_INFO ("Generating links and checking failure model.");
 
   for (TopologyReader::ConstLinksIterator iter = topo_reader.LinksBegin();
        iter != topo_reader.LinksEnd(); iter++) {
@@ -318,7 +323,8 @@ main (int argc, char *argv[])
   /////************************************************************/////
   //////////////////////////////////////////////////////////////////////
 
-
+  
+  NS_LOG_INFO ("Choosing servers and clients");
 
   std::vector<Ipv4Address> overlayAddresses;
   NodeContainer overlayNodes;
@@ -328,11 +334,21 @@ main (int argc, char *argv[])
   for (NodeContainer::Iterator node = routers.Begin ();
        node != routers.End (); node++)
     {
+      // Sanity check that a node has some actual links, otherwise remove it from the simulation
+      if ((*node)->GetNDevices () <= 1)
+        {
+          NS_LOG_INFO ("Node " << (*node)->GetId () << " has no links!");
+          //node.erase ();
+          disasterNodes.erase ((*node)->GetId ());
+          continue;
+        }
+
       // Fail nodes within the disaster region with some probability
       if (random.GetValue () < failure_probability and
           disasterNodes.count ((*node)->GetId ()) != 0)
         {
           failNodes.Add (*node);
+          NS_LOG_LOGIC ("Node " << (*node)->GetId () << " will fail.");
         }
       
       // We may only install the overlay application on clients attached to stub networks,
@@ -346,7 +362,7 @@ main (int argc, char *argv[])
           if ((use_local_overlays and disasterNodes.count ((*node)->GetId ()) != 0) or
               disasterNodes.count ((*node)->GetId ()) == 0)
             overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ());
-          //NS_LOG_INFO (overlayAddresses.back () << " is an overlay node.");
+          NS_LOG_LOGIC (overlayAddresses.back () << " is an overlay node.");
         }
       
       // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
@@ -355,10 +371,10 @@ main (int argc, char *argv[])
     }
 
   // add another node to the router we pick from the server candidates to be the actual server (so we only deal with one IP address)
+  NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
   pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
   Ptr<Node> serverNode = CreateObject<Node> ();
   stack.Install (serverNode);
-  NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
   NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
                                                                    (serverNodeCandidates.GetN () ? 
                                                                     serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
@@ -464,9 +480,10 @@ main (int argc, char *argv[])
 
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
-  NS_LOG_UNCOND ("Starting simulation: " << std::endl
+  NS_LOG_UNCOND ("Starting simulation on map file " << rocketfuel_file << ": " << std::endl
                  << overlayNodes.GetN () << " total overlay nodes" << std::endl
                  << disasterNodes.size () << " nodes in " << disaster_location << " total" << std::endl
+                 << std::endl << "Failure probability: " << failure_probability << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
                  << ifacesToKill.GetN () / 2 << " links failed");
   
