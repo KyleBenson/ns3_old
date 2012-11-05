@@ -1,10 +1,10 @@
 #! /usr/bin/python
-RON_TRACE_ANALYZER_DESCRIPTION = '''A helper script for analyzing NS3 Resilient Overlay Network simulation traces and visualizing the data.'''
+RON_TRACE_ANALYZER_DESCRIPTION = '''A helper script for analyzing ns3 Resilient Overlay Network simulation traces and visualizing the data.'''
 #
 # (c) University of California Irvine 2012
 # @author: Kyle Benson
 
-import argparse, numpy, os.path, os, decimal, math, heapq, sys
+import argparse, os.path, os, decimal, math, heapq, sys, scipy.stats #numpy
 
 ##################################################################################
 #################      ARGUMENTS       ###########################################
@@ -29,7 +29,7 @@ def ParseArgs():
     (directories should group together runs from different parameters being studied). \
     Hidden files (those starting with '.') and subdirectories are ignored (use them to store parameters/observations/graphs).''')
 
-    # Labeling
+    # Labeling groups
     parser.add_argument('--label', '-l', nargs='+',
                         help='label each respective file or directory with these args instead of the file/directory names')
 
@@ -39,7 +39,7 @@ def ParseArgs():
     parser.add_argument('--prepend_label', nargs='+',
                         help='(*1/N) Prepend the given arguments to the group labels given in the legend.')
 
-    # Titling
+    # Titling graphics
     parser.add_argument('--title', nargs='+',
                         help='manually enter title(s) for the graph(s)')
 
@@ -99,10 +99,12 @@ CURRENTLY NOT IMPLEMENTED*')
     # Text data
     parser.add_argument('--summary', '-s', action='store_true',
                         help='Print statistics summary about each file/group.  Includes total nodes, # ACKS, # direct ACKs')
+    parser.add_argument('--t_test', action='store_true',
+                        help='Compute 2-sample t-test for every pair of groups, taken two at a time in the order specified.')
 
     return parser.parse_args()
 
-
+#TODO: how to compare intersections/unions of different groups? set difference?
 
     #TODO: add something to do with the number of forwards during the event?
     #TODO: what about when we want to specify the x-axis for groups?
@@ -195,7 +197,7 @@ class TraceRun:
     def getNNodes(self):
         '''Number of nodes that attempted contact with the server.'''
         if not self.nNodes:
-            self.nNodes = len([1 for n in self.nodes.values() if n.sends])
+            self.nNodes = sum([1 for n in self.nodes.values() if n.sends])
         return self.nNodes
 
     def getNAcks(self):
@@ -440,6 +442,24 @@ if __name__ == '__main__':
             nDirectAcks = g.getNDirectAcks()
             improvement = percentImprovement(nAcks, nDirectAcks)
             print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks, improvement)
+        print '\n==========================================================================================================='
+
+    if args.t_test:
+        print "\n================================================= T-Test ==================================================\n"
+        print '%s\t'*4 % ('Group 1 name\t\t', 'Group 2 name\t\t', 't-statistic', 'p-value'), '\n'
+        for i in range(0, len(traceGroups), 2):
+            if i+1 >= len(traceGroups):
+                print 'Not testing %s as uneven number of groups provided.' % traceGroups[i].name
+                break
+
+            g1 = traceGroups[i]
+            g1_acks = [t.getNAcks() for t in g1.traces]
+            g2 = traceGroups[i+1]
+            g2_acks = [t.getNAcks() for t in g2.traces]
+
+            print g1_acks, g2_acks
+            (t_statistic, p_value) = scipy.stats.ttest_ind(g1_acks, g2_acks)
+            print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f']) % (g1.name, g2.name, t_statistic, p_value)
         print '\n==========================================================================================================='
 
 
