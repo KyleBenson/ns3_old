@@ -356,6 +356,7 @@ class TraceGroup:
             self.forwardTimes = self.averageTimes([t.getForwardTimes() for t in self.traces])
         return self.forwardTimes
 
+
 ############################## Utility Functions ##########################
 
 def percentImprovement(nAcks, nDirectAcks):
@@ -366,6 +367,7 @@ def normalizedTimes(nNodes, timeCounts):
     returns the normalized form of the outputs (divides each data point by the node count).'''
     
     return (timeCounts[0], [c/float(nNodes) for c in timeCounts[1]])
+
 
 ################################# MAIN ####################################
 
@@ -446,20 +448,19 @@ if __name__ == '__main__':
 
     if args.t_test:
         print "\n================================================= T-Test ==================================================\n"
-        print '%s\t'*4 % ('Group 1 name\t\t', 'Group 2 name\t\t', 't-statistic', 'p-value'), '\n'
+        print '%s\t'*6 % ('Group 1 name\t\t', 'Group 2 name\t\t', 'Group 1 mean', 'Group 2 mean', 't-statistic', 'p-value'), '\n'
         for i in range(0, len(traceGroups), 2):
             if i+1 >= len(traceGroups):
                 print 'Not testing %s as uneven number of groups provided.' % traceGroups[i].name
                 break
 
             g1 = traceGroups[i]
-            g1_acks = [t.getNAcks() for t in g1.traces]
+            g1_acks = [t.getNAcks() - t.getNDirectAcks() for t in g1.traces]
             g2 = traceGroups[i+1]
-            g2_acks = [t.getNAcks() for t in g2.traces]
+            g2_acks = [t.getNAcks() - t.getNDirectAcks() for t in g2.traces]
 
-            print g1_acks, g2_acks
             (t_statistic, p_value) = scipy.stats.ttest_ind(g1_acks, g2_acks)
-            print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f']) % (g1.name, g2.name, t_statistic, p_value)
+            print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g1.name, g2.name, g1.getNAcks(), g2.getNAcks(), t_statistic, p_value)
         print '\n==========================================================================================================='
 
 
