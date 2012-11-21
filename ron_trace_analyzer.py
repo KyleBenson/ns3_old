@@ -55,8 +55,7 @@ def ParseArgs():
                         help='show graph of total ACKs received over time')
 
     parser.add_argument('--congestion', '-c', action='store_true',
-                        help='graph number of packets sent for each group'
-                        + 'CURRENTLY NOT IMPLEMENTED*')
+                        help='graph number of packets sent for each group')
 
     parser.add_argument('--improvement', '-i', action='store_true',
                         help='graph percent improvement over not using an overlay for each file or group')
@@ -133,7 +132,7 @@ class TraceNode:
     # TODO: implement getting more than one ACK????
 
     def __repr__(self):
-        return "Node " + self.id + ((" received first" + ("direct" if self.directAcks else "indirect") + " ACK at " + self.ackTime) if self.acks else "") + " sent %d and forwarded %d packets" % (self.sends, self.forwards)
+        return "Node " + self.id + ((" received first " + ("direct" if self.directAcks else "indirect") + " ACK at " + self.ackTime) if self.acks else "") + " sent %d and forwarded %d packets" % (self.sends, self.forwards)
 
     def getTotalSends(self):
         return self.sends + self.forwards
@@ -266,6 +265,7 @@ class TraceGroup:
         self.sendTimes = None
         self.ackTimes = None
         self.directAckTimes = None
+        self.stdevNAcks = None
 
         if folder:
             for f in os.listdir(folder):
@@ -289,6 +289,14 @@ class TraceGroup:
         if not self.nAcks:
             self.nAcks = sum([t.getNAcks() for t in self.traces])/float(len(self.traces))
         return self.nAcks
+
+    def getStdevNAcks(self):
+        '''
+        Standard deviation of the number of ACKs.
+        '''
+        if not self.stdevNAcks:
+            self.stdevNAcks = scipy.stats.tstd([t.getNAcks() for t in self.traces])
+        return self.stdevNAcks
 
     def getNDirectAcks(self):
         '''
@@ -360,7 +368,10 @@ class TraceGroup:
 ############################## Utility Functions ##########################
 
 def percentImprovement(nAcks, nDirectAcks):
-    return (nAcks - nDirectAcks) / float(nDirectAcks) * 100
+    if nDirectAcks:
+        return (nAcks - nDirectAcks) / float(nDirectAcks) * 100
+    else:
+        return float('inf')
 
 def normalizedTimes(nNodes, timeCounts):
     '''Takes a node count and a TraceRun or TraceGroup getXTimes() function output (2-tuple) as input and 
@@ -400,8 +411,8 @@ if __name__ == '__main__':
     
     # Fix label for the groups
     if args.label:   
-        if len(args.label) != len(traceGroups):
-            print "Number of given label must equal the number of parsed directories!"
+        if (len(args.label) != len(traceGroups)) and (len(args.label) != 1):
+            print "Number of given labels must equal the number of parsed directories or 1!"
             exit(1)
 
         if len(args.label) > 1:
@@ -412,8 +423,8 @@ if __name__ == '__main__':
                 g.name = args.label[0]
 
     if args.prepend_label:   
-        if len(args.prepend_label) != len(traceGroups):
-            print "Number of given appendix label must equal the number of parsed directories!"
+        if (len(args.prepend_label) != len(traceGroups)) and (len(args.prepend_label) != 1):
+            print "Number of given appendix labels must equal the number of parsed directories or 1!"
             exit(1)
 
         if len(args.prepend_label) > 1:
@@ -424,8 +435,8 @@ if __name__ == '__main__':
                 g.name = g.name + args.prepend_label[0]
 
     if args.append_label:   
-        if len(args.append_label) != len(traceGroups):
-            print "Number of given appendix label must equal the number of parsed directories!"
+        if (len(args.append_label) != len(traceGroups)) and (len(args.append_label) != 1):
+            print "Number of given appendix labels must equal the number of parsed directories or 1!"
             exit(1)
 
         if len(args.append_label) > 1:
@@ -435,15 +446,21 @@ if __name__ == '__main__':
             for g in traceGroups:
                 g.name += args.append_label[0]
 
-    # Print any requested textual data
+
+    ################################################################################
+    #####################  Print any requested textual data analysis  ##############
+    ################################################################################
+
     if args.summary:
         print "\n================================================= Summary =================================================\n"
-        print '%s\t'*5 % ('Group name\t\t', 'Active Nodes', '# ACKs\t', '# Direct ACKs', '% Improvement from overlay'), '\n'
+        print '%s\t'*6 % ('Group name\t\t', 'Active Nodes', '# ACKs\t', '# Direct ACKs', '% Improvement', 'Stdev'), '\n'
         for g in traceGroups:
             nAcks = g.getNAcks()
             nDirectAcks = g.getNDirectAcks()
             improvement = percentImprovement(nAcks, nDirectAcks)
-            print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks, improvement)
+            stdev = g.getStdevNAcks()
+            print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks,
+                                                                                    improvement, stdev)
         print '\n==========================================================================================================='
 
     if args.t_test:
@@ -483,8 +500,9 @@ if __name__ == '__main__':
     nextTitleIdx = 0
 
     if args.time:
-        for g in traceGroups:
-            plt.plot(*normalizedTimes(g.getNNodes(), g.getAckTimes()), label=g.name)
+        markers = 'x.*+do^s1_|'
+        for i,g in enumerate(traceGroups):
+            plt.plot(*normalizedTimes(g.getNNodes(), g.getAckTimes()), label=g.name, marker=markers[i%len(markers)])
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
@@ -510,8 +528,9 @@ if __name__ == '__main__':
             savefig(os.path.join(args.output_directory, )'''
 
     if args.congestion:
-        for g in traceGroups:
-            plt.plot(*normalizedTimes(g.getNNodes(), g.getSendTimes()), label=g.name)
+        markers = 'x.*+do^s1_|'
+        for i,g in enumerate(traceGroups):
+            plt.plot(*normalizedTimes(g.getNNodes(), g.getSendTimes()), label=g.name, marker=markers[i%len(markers)])
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
