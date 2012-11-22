@@ -48,7 +48,6 @@ main (int argc, char *argv[])
   std::string latencyFile = "";
   std::string disaster_location = "Los Angeles, CA";
   bool tracing = false;
-  int runs = 1;
   double timeout = 1.0;
 
   CommandLine cmd;
@@ -65,7 +64,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have <= specified links)", install_stubs);
   cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
   cmd.AddValue ("heuristic", "Which heuristic(s) to use when choosing intermediate overlay nodes.", heuristic);
-  cmd.AddValue ("runs", "Number of times to run simulation on given inputs.", runs);
+  cmd.AddValue ("runs", "Number of times to run simulation on given inputs.", exp.nruns);
   cmd.AddValue ("timeout", "Seconds to wait for server reply before attempting contact through the overlay.", timeout);
   cmd.AddValue ("contact_attempts", "Number of times a reporting node will attempt to contact the server "
                 "(it will use the overlay after the first attempt).  Default is 1 (no overlay).", exp.contactAttempts);
@@ -93,7 +92,7 @@ main (int argc, char *argv[])
       // Need to allow users to input '_'s instead of spaces so the parser won't truncate locations...
       //std::string correctedToken = boost::replace_all_copy(*tokIter, '_', ' ');
       //correctedToken = *(new std::string(*tokIter));
-      std::string correctedToken = boost::algorithm::replace_all_copy ((std::string)correctedToken, "_", " ");
+      std::string correctedToken = boost::algorithm::replace_all_copy ((std::string)*tokIter, "_", " ");
       disasterLocations->push_back (correctedToken);
     }
 
@@ -111,12 +110,13 @@ main (int argc, char *argv[])
 
   if (verbose == 1)
     {
+      LogComponentEnable ("RonTracers", LOG_LEVEL_INFO);
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("GeocronExperiment", LOG_LEVEL_INFO);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
-      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
+      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
 
@@ -126,7 +126,6 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RocketfuelExample", LOG_LEVEL_LOGIC);
       LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
@@ -155,7 +154,7 @@ main (int argc, char *argv[])
   exp.ReadTopology (filename);
   exp.ReadLatencyFile (latencyFile);
   //exp.SetTraceFile (traceFile);
-  exp.Run ();
+  exp.RunAllScenarios ();
 
 
   //in a loop, advance parameters

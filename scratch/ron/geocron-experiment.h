@@ -38,6 +38,7 @@ public:
 
   void ReadTopology (std::string topologyFile);
   void ReadLatencyFile (std::string latencyFile);
+  void RunAllScenarios ();
   void Run ();
   /*void SetHeuristic (int newHeuristic);
   void SetDisasterLocation (std::string newLocation);
@@ -45,7 +46,11 @@ public:
 
   void SetTimeout (Time newTimeout);
   void SetTraceFile (std::string newTraceFile);
+  void ConnectAppTraces (ApplicationContainer clientApps);
   
+  void SetDisasterLocation (std::string newDisasterLocation);
+  void SetFailureProbability (double newFailureProbability);
+  //void SetHeuristic (newHeuristic);
   void NextHeuristic ();
   void NextDisasterLocation ();
   void NextFailureProbability ();
@@ -53,16 +58,20 @@ public:
   std::vector<std::string> * disasterLocations;
   std::vector<double> * failureProbabilities;
   //TODO: timeouts, max retries, etc.
-  uint8_t minNDevs;
 
+  // These are public to allow a command line parser to set them
+  uint8_t minNDevs;
   uint8_t contactAttempts;
+  uint8_t nruns;
 
 private:
   bool IsDisasterNode (Ptr<Node> node);
+  void AutoSetTraceFile ();
 
   std::string currHeuristic;
   std::string currLocation;
   double currFprob;
+  int currRun; //keep regular as it's used as a string later
   Time timeout;
 
   NodeContainer nodes;

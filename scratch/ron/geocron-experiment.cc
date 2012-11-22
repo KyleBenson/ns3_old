@@ -8,6 +8,13 @@
 #include "ron-trace-functions.h"
 #include "failure-helper-functions.h"
 
+#include <boost/filesystem.hpp>
+#include <boost/lexical_cast.hpp>
+#include <boost/algorithm/string/replace.hpp>
+
+#include <sstream>
+#include <iomanip>
+
 namespace ns3 {
 
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
@@ -22,6 +29,7 @@ GeocronExperiment::GeocronExperiment ()
   currFprob = 0.0;
   contactAttempts = 10;
   traceFile = "";
+  nruns = 1;
 }
 
 
@@ -96,7 +104,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   RocketfuelTopologyReader topo_reader;
   topo_reader.SetFileName(topologyFile);
   nodes = topo_reader.Read();
-  NS_LOG_INFO("Nodes read from file: " + boost::lexical_cast<std::string>(nodes.GetN()));
+  NS_LOG_INFO ("Nodes read from file: " + boost::lexical_cast<std::string> (nodes.GetN()));
 
   NS_LOG_INFO ("Assigning addresses and installing interfaces...");
 
@@ -194,10 +202,116 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
 }
 
 
+
+void
+GeocronExperiment::SetDisasterLocation (std::string newDisasterLocation)
+{
+  currLocation = newDisasterLocation;
+}
+
+
+void
+GeocronExperiment::SetFailureProbability (double newFailureProbability)
+{
+  currFprob = newFailureProbability;
+}
+
+
+/*void
+GeocronExperiment::SetHeuristic (newHeuristic)
+{
+
+}*/
+
+
+
 void
 GeocronExperiment::SetTraceFile (std::string newTraceFile)
 {
+  NS_LOG_LOGIC ("New trace file is: " + newTraceFile);
+
   traceFile = newTraceFile;
+}
+
+
+void
+GeocronExperiment::AutoSetTraceFile ()
+{
+  boost::filesystem::path newTraceFile ("ron_output");
+  newTraceFile /= boost::filesystem::path(topologyFile).stem ();
+  newTraceFile /= boost::algorithm::replace_all_copy (currLocation, " ", "_");
+
+  std::ostringstream fprob;
+  std::setprecision (1);
+  fprob << currFprob;
+  newTraceFile /= fprob.str ();
+  //newTraceFile /= boost::lexical_cast<std::string> (currFprob);
+  //newTraceFile /=  (currHeuristic);
+  newTraceFile /= ("random"); //default heuristic
+
+  std::string fname = "run";
+  fname += boost::lexical_cast<std::string> (currRun);
+  newTraceFile /= (fname);
+  newTraceFile.replace_extension(".out");
+
+  boost::filesystem::create_directories (newTraceFile.parent_path ());
+
+  SetTraceFile (newTraceFile.string ());
+}
+
+
+/** Run through all the possible combinations of disaster locations, failure probabilities,
+    heuristics, and other parameters for the given number of runs. */
+void
+GeocronExperiment::RunAllScenarios ()
+{
+  for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
+       disasterLocation != disasterLocations->end (); disasterLocation++)
+    {
+      SetDisasterLocation (*disasterLocation);
+      for (std::vector<double>::iterator fprob = failureProbabilities->begin ();
+           fprob != failureProbabilities->end (); fprob++)
+        {
+          for (currRun = 0; currRun < nruns; currRun++)
+            {
+              SetFailureProbability (*fprob);
+          
+              AutoSetTraceFile ();
+              Run ();
+            }
+        }
+    }
+}
+
+
+/** Connect the defined traces to the specified client applications. */
+void
+GeocronExperiment::ConnectAppTraces (ApplicationContainer clientApps)
+{
+  Ptr<OutputStreamWrapper> traceOutputStream;
+  if (traceFile != "")
+    {
+      AsciiTraceHelper asciiTraceHelper;
+      traceOutputStream = asciiTraceHelper.CreateFileStream (traceFile);
+
+      NS_LOG_UNCOND ("Trace file: " << traceFile);
+
+      for (ApplicationContainer::Iterator itr = clientApps.Begin ();
+           itr != clientApps.End (); itr++)
+        {
+          //need to prevent stupid waf from throwing errors for unused definitions...
+          (void) PacketForwarded;
+          (void) PacketSent;
+          (void) AckReceived;
+
+          //if (trace_acks)
+            (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
+            //if (trace_forwards)
+            (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
+            //if (trace_sends)
+            (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
+        }
+    }
 }
 
 
@@ -261,23 +375,57 @@ GeocronExperiment::Run ()
         }
       
       // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
-      else if (disasterNodes[currLocation].count ((*node)->GetId ()) == 0)
+      //else if (!IsDisasterNode (*node))
+      if ((*node)->GetNDevices () == 2)
         serverNodeCandidates.Add (*node);
     }
 
-  // add another node to the router we pick from the server candidates to be the actual server (so we only deal with one IP address)
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
-  //$$$$$pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
+  /*Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
+                          serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
+                          nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));
+                          Ipv4Address serverAddress = GetNodeAddress (serverNode);*/
+
+
+
+PointToPointHelper pointToPoint;
+  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+
+  // NixHelper to install nix-vector routing
+  Ipv4NixVectorHelper nixRouting;
+  nixRouting.SetAttribute("FollowDownEdges", BooleanValue (true));
+  Ipv4StaticRoutingHelper staticRouting;
+  Ipv4ListRoutingHelper routingList;
+  routingList.Add (staticRouting, 0);
+  routingList.Add (nixRouting, 10);
+  InternetStackHelper stack;
+  stack.SetRoutingHelper (routingList); // has effect on the next Install ()
+
+  //For each link in topology, add a connection between nodes and assign IP
+  //addresses to the new network they've created between themselves.
+  Ipv4AddressHelper address;
+  address.SetBase ("101.1.0.0", "255.0.0.0");
+  //NetDeviceContainer router_devices;
+  //Ipv4InterfaceContainer router_interfaces;
+
+
+
+
+
+ pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
   Ptr<Node> serverNode = CreateObject<Node> ();
-  //$$$$stack.Install (serverNode);
-  /*NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
+  stack.Install (serverNode);
+  NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
+  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
                                                                    (serverNodeCandidates.GetN () ? 
                                                                     serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
-                                                                    nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));*///$$$$$$
-  Ipv4Address serverAddress;//$$$$$ = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
+                                                                    routers.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
+  Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
-  NS_LOG_INFO ("Done network setup!");
 
+
+  NS_LOG_INFO ("Server is at: " + serverAddress);
 
 
   //////////////////////////////////////////////////////////////////////
@@ -291,13 +439,8 @@ GeocronExperiment::Run ()
   RonServerHelper ronServer (9);
 
   ApplicationContainer serverApps = ronServer.Install (serverNode);
-  //ApplicationContainer serverApps = ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-  //ApplicationContainer serverApps = ronServer.Install (ronServerNode);
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (appStopTime);
-
-  //Ipv4Address echo_addr = router_interfaces.Get (0).first->GetAddress (2,0).GetLocal ();
-  //Ipv4Address echo_addr = nodes.Get (0)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
   
   RonClientHelper ronClient (serverAddress, 9);
   ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
@@ -312,9 +455,9 @@ GeocronExperiment::Run ()
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
-      if (!IsDisasterNode (*node)) //report_disaster && 
+      /*if (!IsDisasterNode (*node)) //report_disaster && 
         ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
-      else
+        else*/
         ronClient.SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
 
       ApplicationContainer newApp = ronClient.Install (*node);
@@ -333,30 +476,7 @@ GeocronExperiment::Run ()
   //NS_LOG_INFO ("Done populating routing tables!");
 
   // Open trace file if requested
-  Ptr<OutputStreamWrapper> outputStream;
-  if (traceFile != "")
-    {
-      AsciiTraceHelper asciiTraceHelper;
-      outputStream = asciiTraceHelper.CreateFileStream (traceFile);
-
-      NS_LOG_UNCOND ("Trace file: " << traceFile);
-
-      for (ApplicationContainer::Iterator itr = clientApps.Begin ();
-           itr != clientApps.End (); itr++)
-        {
-          //need to prevent stupid waf from throwing errors for unused definitions...
-          (void) PacketForwarded;
-          (void) PacketSent;
-          (void) AckReceived;
-
-          //if (trace_acks)
-            (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, outputStream));
-            //if (trace_forwards)
-            (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, outputStream));
-            //if (trace_sends)
-            (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, outputStream));
-        }
-    }
+  ConnectAppTraces (clientApps);
 
 
   //////////////////////////////////////////////////////////////////////
