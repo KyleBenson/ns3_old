@@ -18,8 +18,11 @@ void FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
 
 void UnfailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
 {
-  ipv4->SetUp (iface);
-  ipv4->SetForwarding (iface, true);
+  if (! ipv4->IsUp (iface))
+    {
+      ipv4->SetUp (iface);
+      ipv4->SetForwarding (iface, true);
+    }
 }
 
 // Fail nodes by turning off all its net devices and prevent applications from running

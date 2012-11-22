@@ -273,12 +273,15 @@ GeocronExperiment::RunAllScenarios ()
       for (std::vector<double>::iterator fprob = failureProbabilities->begin ();
            fprob != failureProbabilities->end (); fprob++)
         {
+          double tempFprob = 0.9;
           for (currRun = 0; currRun < nruns; currRun++)
             {
-              SetFailureProbability (*fprob);
-          
+              //SetFailureProbability (*fprob);
+              SetFailureProbability (tempFprob);
               AutoSetTraceFile ();
               Run ();
+
+              tempFprob = 0.0;
             }
         }
     }
@@ -534,6 +537,8 @@ PointToPointHelper pointToPoint;
     {
       UnfailNode (*node, appStopTime);
     }
+
+  
 }
 
 } //namespace ns3

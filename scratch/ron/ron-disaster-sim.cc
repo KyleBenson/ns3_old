@@ -117,6 +117,9 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
       LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
+
+      //LogComponentEnable ("DefaultSimulatorImpl", LOG_LEVEL_LOGIC);
+
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
 

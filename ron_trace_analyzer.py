@@ -295,7 +295,12 @@ class TraceGroup:
         Standard deviation of the number of ACKs.
         '''
         if not self.stdevNAcks:
-            self.stdevNAcks = scipy.stats.tstd([t.getNAcks() for t in self.traces])
+            #check for no acks at all...
+            nacks = [t.getNAcks() for t in self.traces]
+            if sum(nacks) == 0:
+                self.stdevNAcks = 0
+            else:
+                self.stdevNAcks = scipy.stats.tstd(nacks)
         return self.stdevNAcks
 
     def getNDirectAcks(self):
