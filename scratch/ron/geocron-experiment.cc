@@ -23,6 +23,7 @@ NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
 GeocronExperiment::GeocronExperiment ()
 {
   appStopTime = Time (Seconds (30.0));
+  simulationLength = Seconds (10.0);
 
   currHeuristic = "";
   currLocation = "";
@@ -381,6 +382,11 @@ GeocronExperiment::Run ()
     }
 
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
+
+  //////////////////// $$$$$$$$$$  TODO  !!!!!!!! //////////////////////////////
+  //////////   clean up this huge mess here and figure out why we can't address nodes on any interface we want....
+
+
   /*Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
                           serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
                           nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));
@@ -405,7 +411,7 @@ PointToPointHelper pointToPoint;
   //For each link in topology, add a connection between nodes and assign IP
   //addresses to the new network they've created between themselves.
   Ipv4AddressHelper address;
-  address.SetBase ("101.1.0.0", "255.0.0.0");
+  address.SetBase ("101.0.0.0", "255.0.0.0");
   //NetDeviceContainer router_devices;
   //Ipv4InterfaceContainer router_interfaces;
 
@@ -418,14 +424,14 @@ PointToPointHelper pointToPoint;
   stack.Install (serverNode);
   NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
   NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
-                                                                   (serverNodeCandidates.GetN () ? 
-                                                                    serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
-                                                                    routers.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
+                                                                   //(serverNodeCandidates.GetN () ? 
+                                                                   serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));// :
+                                                                   //nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
   Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
 
 
 
-  NS_LOG_INFO ("Server is at: " + serverAddress);
+  NS_LOG_INFO ("Server is at: " << serverAddress);
 
 
   //////////////////////////////////////////////////////////////////////
@@ -509,9 +515,11 @@ PointToPointHelper pointToPoint;
                  << failNodes.GetN () << " nodes failed" << std::endl
                  << potentialIfacesToKill[currLocation].GetN () / 2 << " links failed");
 
-  Simulator::Stop (Seconds (60.0));
+  Simulator::Stop (simulationLength);
   Simulator::Run ();
   Simulator::Destroy ();
+
+  NS_LOG_INFO ("Next simulation run...");
 
   // Unfail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();

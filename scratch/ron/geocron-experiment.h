@@ -73,6 +73,7 @@ private:
   double currFprob;
   int currRun; //keep regular as it's used as a string later
   Time timeout;
+  Time simulationLength;
 
   NodeContainer nodes;
   std::map<std::string,std::string> latencies;
