@@ -334,7 +334,6 @@ GeocronExperiment::Run ()
   
   NS_LOG_INFO ("Choosing servers and clients");
 
-  std::vector<Ipv4Address> overlayAddresses;
   NodeContainer overlayNodes;
   NodeContainer failNodes;
   NodeContainer serverNodeCandidates;
@@ -362,7 +361,7 @@ GeocronExperiment::Run ()
       // We may only install the overlay application on clients attached to stub networks,
       // so we just choose the stub network nodes here
       // (note that all nodes have a loopback device)
-      if (!minNDevs or (*node)->GetNDevices () <= minNDevs) 
+      if (!maxNDevs or (*node)->GetNDevices () <= maxNDevs) 
         {
           overlayNodes.Add (*node);
 
@@ -373,14 +372,11 @@ GeocronExperiment::Run ()
               // TODO: this is a bug, only works if choosing external nodes only.  If use_local_overlays is true,
               // all overlay nodes will become candidates
               //(!use_local_overlays and disasterNodes[currLocation].count ((*node)->GetId ()) == 0))
-          
-          overlayAddresses.push_back ((*node)->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ());
-          NS_LOG_LOGIC (overlayAddresses.back () << " is an overlay node.");
         }
       
       // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
       //else if (!IsDisasterNode (*node))
-      if ((*node)->GetNDevices () == 2)
+      if ((*node)->GetNDevices () > maxNDevs)
         serverNodeCandidates.Add (*node);
     }
 
@@ -460,6 +456,19 @@ PointToPointHelper pointToPoint;
 
   // Install client app and set number of server contacts they make based on whether all nodes
   // should report the disaster or only the ones in the disaster region.
+  Ptr<RonPeerTable> overlayPeers = Create<RonPeerTable> ();
+  for (NodeContainer::Iterator node = overlayNodes.Begin ();
+       node != overlayNodes.End (); node++)
+    {
+      overlayPeers->AddPeer (*node);
+    }
+
+  //TODO: different heuristics
+  Ptr<RonPathHeuristic> heuristic = Create<RonPathHeuristic> ();
+  heuristic->SetPeerTable (overlayPeers);
+
+  Ptr<RonPeerEntry> serverPeer = Create<RonPeerEntry> (serverNode);
+
   ApplicationContainer clientApps;
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
@@ -471,7 +480,10 @@ PointToPointHelper pointToPoint;
 
       ApplicationContainer newApp = ronClient.Install (*node);
       clientApps.Add (newApp);
-      DynamicCast<RonClient> (newApp.Get (0))->SetPeerList (overlayAddresses); //TODO: make this part of the helper??
+      RonClient newClient = DynamicCast<RonClient> (newApp.Get (0));
+      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper??
+      newClient->SetRemotePeer (serverPeer);
+      newClient->SetHeuristic (heuristic);
     }
 
   clientApps.Start (Seconds (2.0));

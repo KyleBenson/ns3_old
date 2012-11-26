@@ -60,9 +60,9 @@ public:
   //TODO: timeouts, max retries, etc.
 
   // These are public to allow a command line parser to set them
-  uint8_t minNDevs;
-  uint8_t contactAttempts;
-  uint8_t nruns;
+  int maxNDevs;
+  int contactAttempts;
+  int nruns;
 
 private:
   bool IsDisasterNode (Ptr<Node> node);

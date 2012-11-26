@@ -88,15 +88,21 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+  SetDefaults ();
+  m_peers = std::vector<Ipv4Address> ();
+  m_address = Ipv4Address ((uint32_t)0);
+}
 
+void
+RonClient::Reset ()
+{
   m_sent = 0;
   m_socket = 0;
-  m_data = 0;
-  m_dataSize = 0;
   m_nextPeer = 0;
+  m_count = 0;
 
-  m_address = Ipv4Address((uint32_t)0);
-  m_peers = std::vector<Ipv4Address>();
+  //Ipv4Address m_servAddress; //HANDLE SETTING!!
+  m_outstandingSeqs.clear ();
 }
 
 RonClient::~RonClient()
@@ -187,6 +193,7 @@ RonClient::StopApplication ()
     }
 
   CancelEvents ();
+  Reset ();
 }
 
 void
@@ -340,19 +347,19 @@ RonClient::Send (bool viaOverlay)
 
   // add RON header to packet
   RonHeader head;
-  head.SetSeq (m_sent);
-  head.SetOrigin (m_address);
 
   // If forwarding thru overlay, just pick a peer at random from those available
   if (viaOverlay)
     {
-      Ipv4Address intermediary = m_peers[random.GetInteger (0, m_peers.size () - 1)];
+      Ipv4Address intermediary = m_heuristic->GetNextPeerAddress (m_serverPeer);//m_peers[random.GetInteger (0, m_peers.size () - 1)];
       //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
       head = RonHeader (m_servAddress, intermediary);
     }
   else
     head = RonHeader (m_servAddress);
 
+  head.SetSeq (m_sent);
+  head.SetOrigin (m_address);
   p->AddHeader (head);
 
   // call to the trace sinks before the packet is actually sent,
@@ -459,10 +466,26 @@ RonClient::AddPeer (Ipv4Address addr)
     m_peers.push_back (addr);
 }
 
+
+
 void
-RonClient::SetPeerList (std::vector<Ipv4Address> peers)
+RonClient::SetPeerTable (Ptr<RonPeerTable> peers)
 {
   m_peers = peers;
+}
+
+
+void
+RonClient::SetRemotePeer (Ptr<RonPeerEntry> peer)
+{
+  m_serverPeer = peer;
+}
+
+
+void
+RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
+{
+  m_heuristic = heuristic;
 }
 
 Ipv4Address
@@ -486,5 +509,13 @@ RonClient::CheckTimeout (uint32_t seq)
         ScheduleTransmit (Seconds (0.0), true);
     }
 }
+
+
+void
+RonClient::Reset ()
+{
+  
+}
+
 
 } // Namespace ns3

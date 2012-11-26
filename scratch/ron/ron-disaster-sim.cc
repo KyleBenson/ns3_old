@@ -25,8 +25,6 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("RonDisasterSimulation");
 
-#define nslog(x) NS_LOG_UNCOND(x);
-
 int 
 main (int argc, char *argv[])
 {
@@ -41,7 +39,7 @@ main (int argc, char *argv[])
   bool trace_sends = true;
   // Max number of devices a node can have to be in the overlay (to eliminate backbone routers)
   std::string fail_prob = "0.3";
-  uint8_t install_stubs = 3; //all nodes have at least a loopback interface device!!!
+  uint32_t minNDevs = 2; //all nodes have at least a loopback interface device!!!
   bool report_disaster = true;
   std::string heuristic = "0 1 2";
   std::string filename = "rocketfuel/maps/3356.cch";
@@ -61,7 +59,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("disaster", "Where the disaster(s) (and subsequent failures) is(are) to occur "
                 "(use underscores for spaces so the command line parser will actually work)", disaster_location);
   cmd.AddValue ("fail_prob", "Probability(s) that a link in the disaster region will fail", fail_prob);
-  cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have <= specified links)", install_stubs);
+  cmd.AddValue ("install_stubs", "Install RON client only on stub nodes (have <= specified links - 1 (for loopback dev))", minNDevs);
   cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
   cmd.AddValue ("heuristic", "Which heuristic(s) to use when choosing intermediate overlay nodes.", heuristic);
   cmd.AddValue ("runs", "Number of times to run simulation on given inputs.", exp.nruns);

@@ -8,6 +8,9 @@ Ipv4Address GetNodeAddress (Ptr<Node> node)
   // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
 }
 
+#ifndef nslog
+#define nslog(x) NS_LOG_UNCOND(x);
+#endif
 
 // Fail links by turning off the net devices at each end
 void FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)

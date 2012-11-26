@@ -26,6 +26,7 @@
 #include "ns3/traced-callback.h"
 
 #include "ron-header.h"
+#include "ron-peer-table.h"
 
 #include <list>
 #include <set>
@@ -141,9 +142,11 @@ public:
   /**
    * Use the specified peer list for this client.  Useful for sharing them among several clients to save memory.
    *
-   * \param peers Pointer to the vector of Ipv4Addresses to use as the peer list.
+   * \param peers Smart Pointer to the RonPeerTable to be used.
    */
-  void SetPeerList(std::vector<Ipv4Address> peers);
+  void SetPeerTable (Ptr<RonPeerTable> peers);
+  void SetRemotePeer (Ptr<RonPeerEntry> peer);
+  void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
   Ipv4Address GetAddress () const;
 
@@ -154,6 +157,7 @@ private:
 
   virtual void StartApplication (void);
   virtual void StopApplication (void);
+  void Reset ();
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);
@@ -174,7 +178,7 @@ private:
   uint8_t *m_data;
 
   Time m_timeout;
-  Address m_local;
+  //Address m_local;
 
   uint32_t m_sent;
   Ipv4Address m_servAddress;
@@ -183,8 +187,11 @@ private:
   uint16_t m_port;
   std::list<EventId> m_events;
   std::set<uint32_t> m_outstandingSeqs;
-  std::vector<Ipv4Address> m_peers;
   int m_nextPeer;
+
+  Ptr<RonPeerTable> m_peers;
+  Ptr<RonPeerEntry> m_serverPeer;
+  Ptr<RonPathHeuristic> m_heuristic;
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet>, uint32_t> m_sendTrace;
