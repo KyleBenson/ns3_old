@@ -32,6 +32,7 @@ namespace ns3 {
 
 class RonPeerEntry : public SimpleRefCount<RonPeerEntry>
 {
+public:
   RonPeerEntry ();
   RonPeerEntry (Ptr<Node> node);
   
@@ -50,11 +51,11 @@ class RonPeerEntry : public SimpleRefCount<RonPeerEntry>
 class RonPeerTable : public SimpleRefCount<RonPeerTable>
 {
  private:
-  typedef std::map<int, RonPeerEntry>::const_iterator underlyingIterator;
+  typedef std::map<int, RonPeerEntry> underlyingMapType;
+  typedef boost::range_detail::select_second_mutable_range<underlyingMapType> underlyingIterator;
  public:
-  typedef boost::select_second_const<underlyingIterator> Iterator;
+  typedef boost::range_iterator<underlyingIterator>::type Iterator;
 
-  RonPeerTable ();
   int GetNPeers ();
 
   /** Returns old entry if it existed, else new one. */
@@ -64,7 +65,7 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
   /** Returns true if entry existed. */
   bool RemovePeer (int id);
   /** Returns iterator to requested entry. Use IsInTable to verify its prescence in the table. */
-  Iterator GetPeer (int id);
+  Ptr<RonPeerEntry> GetPeer (int id);
   bool IsInTable (int id);
   bool IsInTable (Iterator itr);
   //TODO: other forms of get/remove

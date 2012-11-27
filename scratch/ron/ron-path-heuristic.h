@@ -20,28 +20,50 @@
 #define RON_PATH_HEURISTIC_H
 
 #include "ron-peer-table.h"
-
+#include "boost/function.hpp"
 #include <vector>
 
 namespace ns3 {
 
 //TODO: enum for choosing which heuristic?
 
+/** This class represents a heuristic for choosing overlay paths.  Derived classes must override the ComparePeers
+    function to implement the actual heuristic logic. */
 class RonPathHeuristic : public SimpleRefCount<RonPathHeuristic>
 {
 public:
-  RonPeerEntry GetNextPeer (RonPeerEntry destination);
-  Ipv4Address GetNextPeerAddress (RonPeerEntry destination);
+  enum Heuristic
+    {
+      RANDOM = 0,
+      ORTHOGONAL = 1
+    };
+
+  static Ptr<RonPathHeuristic> CreateHeuristic (Heuristic heuristic);
+  
+  RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
+  Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
   void SetPeerTable (Ptr<RonPeerTable> table);
 
-private:
-  /** Returns requested entry if it existed, null otherwise. */
-  RonPeerEntry GetClosestPeer (Vector location);
-
-  virtual bool ComparePeers (RonPeerEntry peer1, RonPeerEntry peer2) const = 0;
+protected:
   std::vector<RonPeerEntry> peerHeap;
   Ptr<RonPeerTable> peers;
-  RonPeerEntry destination;
+  Ptr<RonPeerEntry> destination;
+  UniformVariable random; //for random decisions
+
+private:
+  boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
+  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;
+};
+
+class RandomRonPathHeuristic : public RonPathHeuristic
+{
+  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
+};
+
+
+class OrthogonalRonPathHeuristic : public RonPathHeuristic
+{
+  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
 };
 
 } //namespace

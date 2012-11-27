@@ -16,6 +16,7 @@
 #include "ns3/ipv4-address-generator.h" //necessary?
 #include "ns3/point-to-point-module.h"
 #include "ns3/network-module.h"
+#include "ns3/mobility-module.h"
 
 /* REMOVE THESE INCLUDES WHEN MOVED OUT OF SCRATCH DIRECTORY!!!!!!!!!!! */
 #include "ron-header.h"
@@ -60,9 +61,9 @@ public:
   //TODO: timeouts, max retries, etc.
 
   // These are public to allow a command line parser to set them
-  int maxNDevs;
-  int contactAttempts;
-  int nruns;
+  uint32_t maxNDevs;
+  uint32_t contactAttempts;
+  uint32_t nruns;
 
 private:
   bool IsDisasterNode (Ptr<Node> node);
@@ -71,7 +72,7 @@ private:
   std::string currHeuristic;
   std::string currLocation;
   double currFprob;
-  int currRun; //keep regular as it's used as a string later
+  uint32_t currRun; //keep at 32 as it's used as a string later
   Time timeout;
   Time simulationLength;
 

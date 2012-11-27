@@ -17,36 +17,85 @@
  */
 
 #include "ron-path-heuristic.h"
+#include "boost/bind.hpp"
 
 using namespace ns3;
 
-RonPeerEntry
-RonPathHeuristic::GetNextPeer (RonPeerEntry destination)
+////////////////////////////////////////////////////////////////////////////////
+//////////$$$$$$$$$$      Heuristic functions      $$$$$$$$$$///////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+bool 
+RandomRonPathHeuristic::ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2)
 {
-  this.destination = destination;
+  
+  return random.GetValue () < 0.5;
+  //return rand () % 2;
+}
+
+
+bool
+OrthogonalRonPathHeuristic::ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2)
+{
+  return false;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//////////$$$$$$$$$$     Class definitions         $$$$$$$$$$///////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+
+Ptr<RonPathHeuristic>
+RonPathHeuristic::CreateHeuristic (Heuristic heuristic)
+{
+  switch (heuristic)
+    {
+    case ORTHOGONAL:
+      return Create<OrthogonalRonPathHeuristic> ();
+    default: //RANDOM
+      return Create<RandomRonPathHeuristic> ();
+    };
+}
+
+
+RonPeerEntry
+RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
+{
+  this->destination = destination;
   RonPeerEntry ret = peerHeap.front ();
-  std::pop_heap (peerHeap.begin (), peerHeap.end (), ComparePeers);
+  std::pop_heap (peerHeap.begin (), peerHeap.end (), GetPeerComparator (destination));
   peerHeap.pop_back ();
   return ret;
 }
 
 
 Ipv4Address
-RonPathHeuristic::GetNextPeerAddress (RonPeerEntry destination)
+RonPathHeuristic::GetNextPeerAddress (Ptr<RonPeerEntry> destination)
 {
   return GetNextPeer (destination).address;
 }
 
 
 void
-RonPeerTable::SetPeerTable (Ptr<RonPeerTable> table)
+RonPathHeuristic::SetPeerTable (Ptr<RonPeerTable> table)
 {
   peers = table;
 
-  for (RonPeerTable::Iterator itr = peers.Begin (); itr != peers.End (); itr++)
+  for (RonPeerTable::Iterator itr = peers->Begin (); itr != peers->End (); itr++)
     {
-      peerHeap.push_front (itr*);
+      peerHeap.push_back (*itr);
     }
 
-  std::make_heap (peerHeap.begin (), peerHeap.end (), ComparePeers);
+  std::make_heap (peerHeap.begin (), peerHeap.end (), GetPeerComparator ());
+}
+
+
+boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)>
+//void *
+RonPathHeuristic::GetPeerComparator (Ptr<RonPeerEntry> destination /* = NULL*/)
+{
+  return boost::bind (&RonPathHeuristic::ComparePeers, this, destination, _1, _2);
 }

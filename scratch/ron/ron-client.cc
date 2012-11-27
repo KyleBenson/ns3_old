@@ -88,8 +88,8 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
-  SetDefaults ();
-  m_peers = std::vector<Ipv4Address> ();
+  Reset ();
+  m_peers = Create<RonPeerTable> ();
   m_address = Ipv4Address ((uint32_t)0);
 }
 
@@ -460,10 +460,10 @@ RonClient::ScheduleTimeout (uint32_t seq)
 }
 
 void
-RonClient::AddPeer (Ipv4Address addr)
+RonClient::AddPeer (Ptr<Node> node)
 {
-  if (addr != m_address)
-    m_peers.push_back (addr);
+  //if (addr != m_address)
+  m_peers->AddPeer (node);
 }
 
 
@@ -509,13 +509,5 @@ RonClient::CheckTimeout (uint32_t seq)
         ScheduleTransmit (Seconds (0.0), true);
     }
 }
-
-
-void
-RonClient::Reset ()
-{
-  
-}
-
 
 } // Namespace ns3

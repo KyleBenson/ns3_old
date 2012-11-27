@@ -27,6 +27,7 @@
 
 #include "ron-header.h"
 #include "ron-peer-table.h"
+#include "ron-path-heuristic.h"
 
 #include <list>
 #include <set>
@@ -132,12 +133,7 @@ public:
    */
   void SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize);
 
-  /**
-   * Add an overlay peer address to this nodes list.
-   *
-   * \param addr The IPv4 address of the peer to be added.
-   */
-  void AddPeer (Ipv4Address addr);
+  void AddPeer (Ptr<Node> node);
 
   /**
    * Use the specified peer list for this client.  Useful for sharing them among several clients to save memory.

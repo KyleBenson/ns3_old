@@ -464,7 +464,7 @@ PointToPointHelper pointToPoint;
     }
 
   //TODO: different heuristics
-  Ptr<RonPathHeuristic> heuristic = Create<RonPathHeuristic> ();
+  Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (RonPathHeuristic::RANDOM);
   heuristic->SetPeerTable (overlayPeers);
 
   Ptr<RonPeerEntry> serverPeer = Create<RonPeerEntry> (serverNode);
@@ -480,7 +480,7 @@ PointToPointHelper pointToPoint;
 
       ApplicationContainer newApp = ronClient.Install (*node);
       clientApps.Add (newApp);
-      RonClient newClient = DynamicCast<RonClient> (newApp.Get (0));
+      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
       newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper??
       newClient->SetRemotePeer (serverPeer);
       newClient->SetHeuristic (heuristic);

@@ -1,4 +1,4 @@
-* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
+/* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 /*
  * Copyright 2007 University of Washington
  * 
@@ -23,39 +23,34 @@
 
 using namespace ns3;
 
-RonPeerEntry::RonPeerEntry ()
-  {}
-
+RonPeerEntry::RonPeerEntry () {}
 
 RonPeerEntry::RonPeerEntry (Ptr<Node> node)
   {
-    this.node = node;
+    this->node = node;
     id = node-> GetId ();
     address = GetNodeAddress (node);
     lastContact = Simulator::Now ();
     
-    MobilityModel mobility = node->GetObject<MobilityModel> ();
+    Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
     NS_ASSERT_MSG (mobility, "Geocron nodes need MobilityModels for determining locations!");
     location = mobility->GetPosition ();
   }
 
-RonPeerTable::RonPeerTable ()
-{}
-
 
 int
-RonPeerEntry::GetNPeers ()
+RonPeerTable::GetNPeers ()
 {
   return peers.size ();
 }
 
 
 RonPeerEntry
-RonPeerEntry::AddPeer (RonPeerEntry entry)
+RonPeerTable::AddPeer (RonPeerEntry entry)
 {
-  if (peers.count (entry) != 0)
+  if (peers.count (entry.id) != 0)
     {
-      RonPeerEntry temp = *(peers.find (entry.id));
+      RonPeerEntry temp = (*(peers.find (entry.id))).second;
       peers[entry.id] = entry;
       return temp;
     }
@@ -65,7 +60,7 @@ RonPeerEntry::AddPeer (RonPeerEntry entry)
 
 
 RonPeerEntry
-RonPeerEntry::AddPeer (Ptr<Node> node)
+RonPeerTable::AddPeer (Ptr<Node> node)
 {
   RonPeerEntry newEntry (node);
   return AddPeer (newEntry);
@@ -73,7 +68,7 @@ RonPeerEntry::AddPeer (Ptr<Node> node)
 
 
 bool
-RonPeerEntry::RemovePeer (int id)
+RonPeerTable::RemovePeer (int id)
 {
   bool retValue = false;
   if (peers.count (id))
@@ -83,29 +78,32 @@ RonPeerEntry::RemovePeer (int id)
 }
 
 
-Iterator
-RonPeerEntry::GetPeer (int id)
+Ptr<RonPeerEntry>
+RonPeerTable::GetPeer (int id)
 {
-  return peers.find (id);
+  if (peers.count (id))
+    return Create<RonPeerEntry> ((*(peers.find (id))).second);
+  else
+    return NULL;
 }
 
 
 bool
-RonPeerEntry::IsInTable (int id)
+RonPeerTable::IsInTable (int id)
 {
-  return IsInTable (GetPeer (id));
+  return peers.count (id);
 }
 
 
 bool
-RonPeerEntry::IsInTable (Iterator itr)
+RonPeerTable::IsInTable (Iterator itr)
 {
-  return itr != End ();
+  return IsInTable ((*itr).id);
 }
 
 
-Iterator
-RonPeerEntry::Begin ()
+RonPeerTable::Iterator
+RonPeerTable::Begin ()
 {
   return boost::begin (boost::adaptors::values (peers));
 /*template<typename T1, typename T2> T2& take_second(const std::pair<T1, T2> &a_pair)
@@ -116,8 +114,8 @@ boost::make_transform_iterator(a_map.begin(), take_second<int, string>),*/
 }
 
 
-Iterator
-RonPeerEntry::End ()
+RonPeerTable::Iterator
+RonPeerTable::End ()
 {
   return boost::end (boost::adaptors::values (peers));
 }
