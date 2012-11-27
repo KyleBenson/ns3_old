@@ -176,6 +176,15 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     //router_interfaces.Add(new_interfaces);
     address.NewNetwork();
 
+    // Mobility model to set positions for geographically-correlated information
+    MobilityHelper mobility;
+    Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
+    Vector position = Vector3D (0.0, 0.0, 0.0);
+    positionAllocator->Add (position); //from
+    positionAllocator->Add (position); //to
+    mobility.SetPositionAllocator (positionAllocator);
+    mobility.Install (both_nodes);
+
     // If the node is in a disaster region, add it to the corresponding list
     for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
          disasterLocation != disasterLocations->end (); disasterLocation++)
