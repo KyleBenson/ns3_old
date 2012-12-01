@@ -47,7 +47,7 @@ public:
 
   void SetTimeout (Time newTimeout);
   void SetTraceFile (std::string newTraceFile);
-  void ConnectAppTraces (ApplicationContainer clientApps);
+  void ConnectAppTraces ();
   
   void SetDisasterLocation (std::string newDisasterLocation);
   void SetFailureProbability (double newFailureProbability);
@@ -77,6 +77,8 @@ private:
   Time simulationLength;
 
   NodeContainer nodes;
+  ApplicationContainer clientApps;
+  Ptr<RonPeerTable> overlayPeers;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
 

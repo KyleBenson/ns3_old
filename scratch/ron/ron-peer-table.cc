@@ -33,13 +33,13 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
     lastContact = Simulator::Now ();
     
     Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
-    NS_ASSERT_MSG (mobility, "Geocron nodes need MobilityModels for determining locations!");
+    NS_ASSERT_MSG (mobility != NULL, "Geocron nodes need MobilityModels for determining locations!");
     location = mobility->GetPosition ();
   }
 
 
 int
-RonPeerTable::GetNPeers ()
+RonPeerTable::GetN ()
 {
   return peers.size ();
 }

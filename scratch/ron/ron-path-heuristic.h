@@ -44,10 +44,19 @@ public:
   Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
   void SetPeerTable (Ptr<RonPeerTable> table);
 
+
+  class NoValidPeerException : public std::exception
+  {
+  public:
+    virtual const char* what() const throw()
+    {
+      return "No valid peers could be chosen for the overlay.";
+    }
+  };
+
 protected:
   std::vector<RonPeerEntry> peerHeap;
   Ptr<RonPeerTable> peers;
-  Ptr<RonPeerEntry> destination;
   UniformVariable random; //for random decisions
 
 private:

@@ -70,7 +70,7 @@ RonClient::GetTypeId (void)
                    TimeValue (Seconds (1.0)),
                    MakeTimeAccessor (&RonClient::m_interval),
                    MakeTimeChecker ())
-    .AddAttribute ("PacketSize", "Size of echo data in outbound packets",
+    .AddAttribute ("PacketSize", "Size of data in outbound packets",
                    UintegerValue (100),
                    MakeUintegerAccessor (&RonClient::SetDataSize,
                                          &RonClient::GetDataSize),
@@ -88,6 +88,7 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+  m_data = NULL;
   Reset ();
   m_peers = Create<RonPeerTable> ();
   m_address = Ipv4Address ((uint32_t)0);
@@ -96,12 +97,16 @@ RonClient::RonClient ()
 void
 RonClient::Reset ()
 {
+  NS_LOG_FUNCTION_NOARGS ();
+  std::cout << "Resetting RonClient";
+
   m_sent = 0;
   m_socket = 0;
   m_nextPeer = 0;
   m_count = 0;
 
   //Ipv4Address m_servAddress; //HANDLE SETTING!!
+  CancelEvents ();
   m_outstandingSeqs.clear ();
 }
 
@@ -134,7 +139,7 @@ void
 RonClient::StartApplication (void)
 {
   NS_LOG_FUNCTION_NOARGS ();
-
+  std::cout << "starting...";
   if (m_startTime >= m_stopTime)
     {
       NS_LOG_LOGIC ("Cancelling application (start > stop)");
@@ -204,6 +209,8 @@ RonClient::CancelEvents ()
   for (std::list<EventId>::iterator itr = m_events.begin ();
        itr != m_events.end (); itr++)
     Simulator::Cancel (*itr);
+
+  m_events.clear ();
 }
 
 void 
@@ -215,7 +222,8 @@ RonClient::SetFill (std::string fill)
 
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -233,7 +241,8 @@ RonClient::SetFill (uint8_t fill, uint32_t dataSize)
 {
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -251,7 +260,8 @@ RonClient::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 {
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -293,7 +303,8 @@ RonClient::SetDataSize (uint32_t dataSize)
   // that she doesn't care about the contents of the packet at all, so 
   // neither will we.
   //
-  delete [] m_data;
+  if (m_data)
+    delete [] m_data;
   m_data = 0;
   m_dataSize = 0;
   m_size = dataSize;
@@ -351,7 +362,18 @@ RonClient::Send (bool viaOverlay)
   // If forwarding thru overlay, just pick a peer at random from those available
   if (viaOverlay)
     {
-      Ipv4Address intermediary = m_heuristic->GetNextPeerAddress (m_serverPeer);//m_peers[random.GetInteger (0, m_peers.size () - 1)];
+      Ipv4Address intermediary;
+      try
+        {
+          intermediary = m_heuristic->GetNextPeerAddress (m_serverPeer);//m_peers[random.GetInteger (0, m_peers.size () - 1)];
+        }
+      catch (RonPathHeuristic::NoValidPeerException& e)
+        {
+          NS_LOG_DEBUG (e.what ());
+          CancelEvents ();
+          return;
+        }
+
       //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
       head = RonHeader (m_servAddress, intermediary);
     }

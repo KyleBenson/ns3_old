@@ -64,7 +64,9 @@ RonPathHeuristic::CreateHeuristic (Heuristic heuristic)
 RonPeerEntry
 RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
 {
-  this->destination = destination;
+  if (peerHeap.size () <= 0)
+    throw NoValidPeerException();
+
   RonPeerEntry ret = peerHeap.front ();
   std::pop_heap (peerHeap.begin (), peerHeap.end (), GetPeerComparator (destination));
   peerHeap.pop_back ();

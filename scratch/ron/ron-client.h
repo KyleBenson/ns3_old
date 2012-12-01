@@ -145,6 +145,7 @@ public:
   void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
   Ipv4Address GetAddress () const;
+  void Reset ();
 
 protected:
   virtual void DoDispose (void);
@@ -153,7 +154,6 @@ private:
 
   virtual void StartApplication (void);
   virtual void StopApplication (void);
-  void Reset ();
 
   void HandleRead (Ptr<Socket> socket);
   void SetTimeout (Time t);

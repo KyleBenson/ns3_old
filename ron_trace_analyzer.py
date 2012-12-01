@@ -463,7 +463,10 @@ if __name__ == '__main__':
             nAcks = g.getNAcks()
             nDirectAcks = g.getNDirectAcks()
             improvement = percentImprovement(nAcks, nDirectAcks)
-            stdev = g.getStdevNAcks()
+            try:
+                stdev = g.getStdevNAcks()
+            except AttributeError:
+                stdev = 0.0
             print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks,
                                                                                     improvement, stdev)
         print '\n==========================================================================================================='

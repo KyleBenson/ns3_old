@@ -15,13 +15,13 @@ then
     debug=1
 fi
 
-if [ "$1" == "visualize" -o $1 == "vis" ]
+if [ "$1" == "visualize" -o "$1" == "vis" ]
 then
     visualize=1
 fi
 
-runs=20
-fail_probs='"0.1 0.2 0.3 0.5 0.7 0.9"'
+runs=10
+fail_probs='"0.5"' #'"0.1 0.2 0.3 0.5 0.7 0.9"'
 #AS_choices='3356 2914 1239' #Level 3, Verio, Sprintlink
 AS_choices='6461 1755 3967' #smaller ones
 disasters[1755]='"Amsterdam,_Netherlands London,_UnitedKingdom Paris,_France"'

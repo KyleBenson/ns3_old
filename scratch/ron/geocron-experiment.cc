@@ -15,7 +15,7 @@
 #include <sstream>
 #include <iomanip>
 
-namespace ns3 {
+using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
   //NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
@@ -24,6 +24,7 @@ GeocronExperiment::GeocronExperiment ()
 {
   appStopTime = Time (Seconds (30.0));
   simulationLength = Seconds (10.0);
+  overlayPeers = Create<RonPeerTable> ();
 
   currHeuristic = "";
   currLocation = "";
@@ -209,6 +210,62 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
           }
       }
   }
+
+  NS_LOG_INFO ("Topology finished.  Choosing & installing clients.");
+
+  NodeContainer overlayNodes;
+
+  for (NodeContainer::Iterator node = nodes.Begin ();
+       node != nodes.End (); node++)
+    {
+      // Sanity check that a node has some actual links, otherwise remove it from the simulation
+      if ((*node)->GetNDevices () <= 1)
+        {
+          NS_LOG_INFO ("Node " << (*node)->GetId () << " has no links!");
+          //node.erase ();
+          disasterNodes[currLocation].erase ((*node)->GetId ());
+          continue;
+        }
+      
+      // We may only install the overlay application on clients attached to stub networks,
+      // so we just choose the stub network nodes here
+      // (note that all nodes have a loopback device)
+      if (!maxNDevs or (*node)->GetNDevices () <= maxNDevs) 
+        {
+          overlayNodes.Add (*node);
+
+          // OLD SILLY HEURISTIC  $$$$//
+          // Only add address of overlay if we're contacting local peers and it is one,
+          // or if it's outside of the local region
+          //if ((disasterNodes[currLocation].count ((*node)->GetId ()) != 0) or
+          // TODO: this is a bug, only works if choosing external nodes only.  If use_local_overlays is true,
+          // all overlay nodes will become candidates
+          //(!use_local_overlays and disasterNodes[currLocation].count ((*node)->GetId ()) == 0))
+        }
+    }
+      
+
+  RonClientHelper ronClient (Ipv4Address (), 9);
+  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  ronClient.SetAttribute ("Timeout", TimeValue (timeout));
+  
+  // Install client app and set number of server contacts they make based on whether all nodes
+  // should report the disaster or only the ones in the disaster region.
+  for (NodeContainer::Iterator node = overlayNodes.Begin ();
+       node != overlayNodes.End (); node++)
+    {
+      overlayPeers->AddPeer (*node);
+    }
+
+  for (NodeContainer::Iterator node = overlayNodes.Begin ();
+       node != overlayNodes.End (); node++)
+    {
+      ApplicationContainer newApp = ronClient.Install (*node);
+      clientApps.Add (newApp);
+      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
+      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper??
+    }
 }
 
 
@@ -282,15 +339,12 @@ GeocronExperiment::RunAllScenarios ()
       for (std::vector<double>::iterator fprob = failureProbabilities->begin ();
            fprob != failureProbabilities->end (); fprob++)
         {
-          double tempFprob = 0.9;
+          SetFailureProbability (*fprob);
           for (currRun = 0; currRun < nruns; currRun++)
             {
-              //SetFailureProbability (*fprob);
-              SetFailureProbability (tempFprob);
+              SeedManager::SetRun(currRun);
               AutoSetTraceFile ();
               Run ();
-
-              tempFprob = 0.0;
             }
         }
     }
@@ -299,7 +353,7 @@ GeocronExperiment::RunAllScenarios ()
 
 /** Connect the defined traces to the specified client applications. */
 void
-GeocronExperiment::ConnectAppTraces (ApplicationContainer clientApps)
+GeocronExperiment::ConnectAppTraces ()
 {
   Ptr<OutputStreamWrapper> traceOutputStream;
   if (traceFile != "")
@@ -331,56 +385,24 @@ GeocronExperiment::ConnectAppTraces (ApplicationContainer clientApps)
 void
 GeocronExperiment::Run ()
 {
-  //////////////////////////////////////////////////////////////////////
-  /////************************************************************/////
-  ////////////////       CHOOSE SERVER & CLIENTS      //////////////////
-  /////************************************************************/////
-  //////////////////////////////////////////////////////////////////////
-
-
+  // choose server //
   // Random variable for determining if links fail during the disaster
   UniformVariable random;
   
-  NS_LOG_INFO ("Choosing servers and clients");
+  NS_LOG_INFO ("Choosing server and failed nodes.");
 
-  NodeContainer overlayNodes;
   NodeContainer failNodes;
   NodeContainer serverNodeCandidates;
 
   for (NodeContainer::Iterator node = nodes.Begin ();
        node != nodes.End (); node++)
     {
-      // Sanity check that a node has some actual links, otherwise remove it from the simulation
-      if ((*node)->GetNDevices () <= 1)
-        {
-          NS_LOG_INFO ("Node " << (*node)->GetId () << " has no links!");
-          //node.erase ();
-          disasterNodes[currLocation].erase ((*node)->GetId ());
-          continue;
-        }
-
       // Fail nodes within the disaster region with some probability
       if (random.GetValue () < currFprob and
           disasterNodes[currLocation].count ((*node)->GetId ()) != 0)
         {
           failNodes.Add (*node);
           NS_LOG_LOGIC ("Node " << (*node)->GetId () << " will fail.");
-        }
-      
-      // We may only install the overlay application on clients attached to stub networks,
-      // so we just choose the stub network nodes here
-      // (note that all nodes have a loopback device)
-      if (!maxNDevs or (*node)->GetNDevices () <= maxNDevs) 
-        {
-          overlayNodes.Add (*node);
-
-          // OLD SILLY HEURISTIC  $$$$//
-          // Only add address of overlay if we're contacting local peers and it is one,
-          // or if it's outside of the local region
-          //if ((disasterNodes[currLocation].count ((*node)->GetId ()) != 0) or
-              // TODO: this is a bug, only works if choosing external nodes only.  If use_local_overlays is true,
-              // all overlay nodes will become candidates
-              //(!use_local_overlays and disasterNodes[currLocation].count ((*node)->GetId ()) == 0))
         }
       
       // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
@@ -402,7 +424,7 @@ GeocronExperiment::Run ()
 
 
 
-PointToPointHelper pointToPoint;
+  PointToPointHelper pointToPoint;
   pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
   pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
 
@@ -427,7 +449,7 @@ PointToPointHelper pointToPoint;
 
 
 
- pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
+  pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
   Ptr<Node> serverNode = CreateObject<Node> ();
   stack.Install (serverNode);
   NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
@@ -439,15 +461,20 @@ PointToPointHelper pointToPoint;
 
 
 
+  // Mobility model to set positions for geographically-correlated information
+  MobilityHelper mobility;
+  Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
+  Vector position = Vector3D (0.0, 0.0, 0.0);
+  positionAllocator->Add (position); //from
+  positionAllocator->Add (position); //to
+  mobility.SetPositionAllocator (positionAllocator);
+  mobility.Install (serverNode);
+
+
+
+
+
   NS_LOG_INFO ("Server is at: " << serverAddress);
-
-
-  //////////////////////////////////////////////////////////////////////
-  /////************************************************************/////
-  ////////////////        INSTALL APPLICATIONS        //////////////////
-  /////************************************************************/////
-  //////////////////////////////////////////////////////////////////////
-
 
   //Application
   RonServerHelper ronServer (9);
@@ -456,47 +483,7 @@ PointToPointHelper pointToPoint;
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (appStopTime);
   
-  RonClientHelper ronClient (serverAddress, 9);
-  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
-  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
-  ronClient.SetAttribute ("Timeout", TimeValue (timeout));
-  
-  NS_LOG_INFO ("Installing applications...");
-
-  // Install client app and set number of server contacts they make based on whether all nodes
-  // should report the disaster or only the ones in the disaster region.
-  Ptr<RonPeerTable> overlayPeers = Create<RonPeerTable> ();
-  for (NodeContainer::Iterator node = overlayNodes.Begin ();
-       node != overlayNodes.End (); node++)
-    {
-      overlayPeers->AddPeer (*node);
-    }
-
-  //TODO: different heuristics
-  Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (RonPathHeuristic::RANDOM);
-  heuristic->SetPeerTable (overlayPeers);
-
   Ptr<RonPeerEntry> serverPeer = Create<RonPeerEntry> (serverNode);
-
-  ApplicationContainer clientApps;
-  for (NodeContainer::Iterator node = overlayNodes.Begin ();
-       node != overlayNodes.End (); node++)
-    {
-      /*if (!IsDisasterNode (*node)) //report_disaster && 
-        ronClient.SetAttribute ("MaxPackets", UintegerValue (0));
-        else*/
-        ronClient.SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
-
-      ApplicationContainer newApp = ronClient.Install (*node);
-      clientApps.Add (newApp);
-      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
-      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper??
-      newClient->SetRemotePeer (serverPeer);
-      newClient->SetHeuristic (heuristic);
-    }
-
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (appStopTime);
 
   NS_LOG_INFO ("Done Installing applications...");
 
@@ -504,9 +491,33 @@ PointToPointHelper pointToPoint;
   //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   //NS_LOG_INFO ("Done populating routing tables!");
+  
 
-  // Open trace file if requested
-  ConnectAppTraces (clientApps);
+  ////////////////////////////////////////////////////////////////////////////////
+  //////////      Update client apps with new params                  ////////////
+  ////////////////////////////////////////////////////////////////////////////////
+
+  for (ApplicationContainer::Iterator app = clientApps.Begin ();
+       app != clientApps.End (); app++)
+    {
+      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
+
+      //TODO: different heuristics
+      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (RonPathHeuristic::RANDOM);
+      heuristic->SetPeerTable (overlayPeers);
+      ronClient->SetRemotePeer (serverPeer);
+      ronClient->SetHeuristic (heuristic);
+
+      if (!IsDisasterNode ((*app)->GetNode ())) //report_disaster && 
+        ronClient->SetAttribute ("MaxPackets", UintegerValue (0));
+      else
+        ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
+    }
+
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (appStopTime);  
+
+  ConnectAppTraces ();
 
 
   //////////////////////////////////////////////////////////////////////
@@ -533,7 +544,7 @@ PointToPointHelper pointToPoint;
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
   NS_LOG_UNCOND ("Starting simulation on map file " << topologyFile << ": " << std::endl
-                 << overlayNodes.GetN () << " total overlay nodes" << std::endl
+                 << overlayPeers->GetN () << " total overlay nodes" << std::endl
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
                  << std::endl << "Failure probability: " << currFprob << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
@@ -544,6 +555,14 @@ PointToPointHelper pointToPoint;
   Simulator::Destroy ();
 
   NS_LOG_INFO ("Next simulation run...");
+
+  // reset apps
+  for (ApplicationContainer::Iterator app = clientApps.Begin ();
+       app != clientApps.End (); app++)
+    {
+      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
+      ronClient->Reset ();
+    }
 
   // Unfail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
@@ -561,8 +580,6 @@ PointToPointHelper pointToPoint;
 
   
 }
-
-} //namespace ns3
     /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
 
 
