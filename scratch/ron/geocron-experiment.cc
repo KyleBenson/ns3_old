@@ -372,11 +372,14 @@ GeocronExperiment::ConnectAppTraces ()
           (void) AckReceived;
 
           //if (trace_acks)
-            (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
-            //if (trace_forwards)
-            (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
-            //if (trace_sends)
-            (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
+          (*itr)->TraceDisconnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
+          (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
+          //if (trace_forwards)
+          (*itr)->TraceDisconnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
+          (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
+          //if (trace_sends)
+          (*itr)->TraceDisconnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
+          (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
         }
     }
 }
