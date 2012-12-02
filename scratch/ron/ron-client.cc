@@ -88,22 +88,34 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+  SetDefaults ();
+
   m_data = NULL;
-  Reset ();
   m_peers = Create<RonPeerTable> ();
   m_address = Ipv4Address ((uint32_t)0);
 }
 
 void
-RonClient::Reset ()
+RonClient::SetDefaults ()
 {
-  NS_LOG_FUNCTION_NOARGS ();
-  std::cout << "Resetting RonClient";
-
   m_sent = 0;
   m_socket = 0;
   m_nextPeer = 0;
   m_count = 0;
+}
+
+
+void
+RonClient::DoReset ()
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  SetDefaults ();
+
+  // Reschedule start so that StartApplication gets rescheduled
+  // WARNING: was ScheduleWithContext (GetId (), args...) for in a node
+  Simulator::Schedule (Seconds (0.0), 
+                       &Application::Start, this);
 
   //Ipv4Address m_servAddress; //HANDLE SETTING!!
   CancelEvents ();
@@ -139,7 +151,7 @@ void
 RonClient::StartApplication (void)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  std::cout << "starting...";
+
   if (m_startTime >= m_stopTime)
     {
       NS_LOG_LOGIC ("Cancelling application (start > stop)");
@@ -501,6 +513,7 @@ void
 RonClient::SetRemotePeer (Ptr<RonPeerEntry> peer)
 {
   m_serverPeer = peer;
+  m_servAddress = peer->address;
 }
 
 

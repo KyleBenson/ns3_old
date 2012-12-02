@@ -413,66 +413,10 @@ GeocronExperiment::Run ()
 
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
 
-  //////////////////// $$$$$$$$$$  TODO  !!!!!!!! //////////////////////////////
-  //////////   clean up this huge mess here and figure out why we can't address nodes on any interface we want....
-
-
-  /*Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
+  Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
                           serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
                           nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));
-                          Ipv4Address serverAddress = GetNodeAddress (serverNode);*/
-
-
-
-  PointToPointHelper pointToPoint;
-  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-
-  // NixHelper to install nix-vector routing
-  Ipv4NixVectorHelper nixRouting;
-  nixRouting.SetAttribute("FollowDownEdges", BooleanValue (true));
-  Ipv4StaticRoutingHelper staticRouting;
-  Ipv4ListRoutingHelper routingList;
-  routingList.Add (staticRouting, 0);
-  routingList.Add (nixRouting, 10);
-  InternetStackHelper stack;
-  stack.SetRoutingHelper (routingList); // has effect on the next Install ()
-
-  //For each link in topology, add a connection between nodes and assign IP
-  //addresses to the new network they've created between themselves.
-  Ipv4AddressHelper address;
-  address.SetBase ("101.0.0.0", "255.0.0.0");
-  //NetDeviceContainer router_devices;
-  //Ipv4InterfaceContainer router_interfaces;
-
-
-
-
-
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
-  Ptr<Node> serverNode = CreateObject<Node> ();
-  stack.Install (serverNode);
-  NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
-  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
-                                                                   //(serverNodeCandidates.GetN () ? 
-                                                                   serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));// :
-                                                                   //nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
-  Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
-
-
-
-  // Mobility model to set positions for geographically-correlated information
-  MobilityHelper mobility;
-  Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-  Vector position = Vector3D (0.0, 0.0, 0.0);
-  positionAllocator->Add (position); //from
-  positionAllocator->Add (position); //to
-  mobility.SetPositionAllocator (positionAllocator);
-  mobility.Install (serverNode);
-
-
-
-
+  Ipv4Address serverAddress = GetNodeAddress (serverNode);
 
   NS_LOG_INFO ("Server is at: " << serverAddress);
 
@@ -556,14 +500,6 @@ GeocronExperiment::Run ()
 
   NS_LOG_INFO ("Next simulation run...");
 
-  // reset apps
-  for (ApplicationContainer::Iterator app = clientApps.Begin ();
-       app != clientApps.End (); app++)
-    {
-      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
-      ronClient->Reset ();
-    }
-
   // Unfail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
        iface != potentialIfacesToKill[currLocation].End (); iface++)
@@ -577,8 +513,16 @@ GeocronExperiment::Run ()
     {
       UnfailNode (*node, appStopTime);
     }
-
   
+  //serverNode->GetObject<Ipv4NixVectorRouting> ()->FlushGlobalNixRoutingCache ();
+  
+  // reset apps
+  for (ApplicationContainer::Iterator app = clientApps.Begin ();
+       app != clientApps.End (); app++)
+    {
+      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
+      ronClient->Reset ();
+    }
 }
     /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
 
