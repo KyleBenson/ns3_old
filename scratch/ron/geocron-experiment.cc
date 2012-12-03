@@ -17,6 +17,7 @@
 #include <sstream>
 #include <iomanip>
 #include <fstream>
+#include <ctime>
 
 using namespace ns3;
 
@@ -29,7 +30,7 @@ GeocronExperiment::GeocronExperiment ()
   simulationLength = Seconds (10.0);
   overlayPeers = Create<RonPeerTable> ();
 
-  currHeuristic = "";
+  currHeuristic = (RonPathHeuristic::Heuristic)0;
   currLocation = "";
   currFprob = 0.0;
   contactAttempts = 10;
@@ -119,7 +120,7 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
           lon = boost::lexical_cast<double> (parts[2]);
 
           //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
-          locations[loc] = Vector2D (lat, lon);
+          locations[loc] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
         }
     }
 }
@@ -213,9 +214,10 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector position = Vector3D (0.0, 0.0, 0.0);
-    positionAllocator->Add (position); //from
-    positionAllocator->Add (position); //to
+    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : Vector (0.0, 0.0, 0.0);
+    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : Vector (0.0, 0.0, 0.0);
+    positionAllocator->Add (fromPosition);
+    positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
 
@@ -347,7 +349,15 @@ GeocronExperiment::AutoSetTraceFile ()
   newTraceFile /= fprob.str ();
   //newTraceFile /= boost::lexical_cast<std::string> (currFprob);
   //newTraceFile /=  (currHeuristic);
-  newTraceFile /= ("random"); //default heuristic
+  switch (currHeuristic)
+    {
+    case RonPathHeuristic::ORTHOGONAL:
+      newTraceFile /= "orthogonal";
+      break;
+    default:
+      //case RonPathHeuristic::RANDOM:
+      newTraceFile /= ("random");
+    }
 
   std::string fname = "run";
   fname += boost::lexical_cast<std::string> (currRun);
@@ -373,11 +383,18 @@ GeocronExperiment::RunAllScenarios ()
            fprob != failureProbabilities->end (); fprob++)
         {
           SetFailureProbability (*fprob);
-          for (currRun = 0; currRun < nruns; currRun++)
+          for (std::vector<int>::iterator heuristic = heuristics->begin ();
+               heuristic != heuristics->end (); heuristic++)
             {
-              SeedManager::SetRun(currRun);
-              AutoSetTraceFile ();
-              //Run ();
+              currHeuristic = (RonPathHeuristic::Heuristic)*heuristic;
+              SeedManager::SetSeed(std::time (NULL));
+
+              for (currRun = 0; currRun < nruns; currRun++)
+                {
+                  SeedManager::SetRun(currRun);
+                  AutoSetTraceFile ();
+                  Run ();
+                }
             }
         }
     }
@@ -474,10 +491,11 @@ GeocronExperiment::Run ()
       Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
 
       //TODO: different heuristics
-      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (RonPathHeuristic::RANDOM);
+      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
+      // Must set heuristic first so that source will be set and heuristic can make its heap
+      ronClient->SetHeuristic (heuristic);
       heuristic->SetPeerTable (overlayPeers);
       ronClient->SetRemotePeer (serverPeer);
-      ronClient->SetHeuristic (heuristic);
 
       if (!IsDisasterNode ((*app)->GetNode ())) //report_disaster && 
         ronClient->SetAttribute ("MaxPackets", UintegerValue (0));

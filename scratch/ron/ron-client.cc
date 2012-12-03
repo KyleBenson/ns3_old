@@ -522,6 +522,7 @@ void
 RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
 {
   m_heuristic = heuristic;
+  heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
 
 Ipv4Address

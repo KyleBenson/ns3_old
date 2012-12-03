@@ -43,7 +43,8 @@ public:
   RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
   Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
   void SetPeerTable (Ptr<RonPeerTable> table);
-
+  void SetSourcePeer (Ptr<RonPeerEntry> peer);
+  Ptr<RonPeerEntry> GetSourcePeer ();
 
   class NoValidPeerException : public std::exception
   {
@@ -58,10 +59,14 @@ protected:
   std::vector<RonPeerEntry> peerHeap;
   Ptr<RonPeerTable> peers;
   UniformVariable random; //for random decisions
+  Ptr<RonPeerEntry> m_source;
+
+  /** Returns true if peer1 has 'higher priority' than peer2, false otherwise.*/
+  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;
+  virtual bool SameRegion (RonPeerEntry peer1, RonPeerEntry peer2);
 
 private:
   boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
-  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;
 };
 
 class RandomRonPathHeuristic : public RonPathHeuristic

@@ -74,12 +74,10 @@ main (int argc, char *argv[])
   // Parse string args for possible multiple arguments
   typedef boost::tokenizer<boost::char_separator<char> > 
     tokenizer;
-  boost::char_separator<char> sep("_");
+  boost::char_separator<char> sep("-");
   
   std::vector<double> * failureProbabilities = new std::vector<double> ();
   tokenizer tokens(fail_prob, sep);
-  std::cout << fail_prob << std::endl;
-
   for (tokenizer::iterator tokIter = tokens.begin();
        tokIter != tokens.end(); ++tokIter)
     {
@@ -149,17 +147,7 @@ main (int argc, char *argv[])
   ////////////////////////////////////////////////////////////////////////////////
   //////////       Create experiment and set parameters   ////////////////////////
   ////////////////////////////////////////////////////////////////////////////////
-  for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
-       disasterLocation != disasterLocations->end (); disasterLocation++)
-    {
-      std::cout << *disasterLocation;
-    }
-  for (std::vector<double>::iterator disasterLocation = failureProbabilities->begin ();
-       disasterLocation != failureProbabilities->end (); disasterLocation++)
-    {
-      std::cout << *disasterLocation;
-    }
-  exit(0);
+
   exp.maxNDevs = maxNDevs;
   exp.heuristics = heuristics;
   exp.disasterLocations = disasterLocations;
@@ -169,13 +157,8 @@ main (int argc, char *argv[])
   exp.ReadTopology (filename);
   exp.ReadLatencyFile (latencyFile);
   exp.ReadLocationFile (locationFile);
-  exit(0);
   //exp.SetTraceFile (traceFile);
   exp.RunAllScenarios ();
-
-
-  //in a loop, advance parameters
-  
 
   return 0;
 }
