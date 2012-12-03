@@ -5,6 +5,7 @@ NEW_SCRIPT_DESCRIPTION = '''Read an input file (specified on the command line) a
 # (c) Kyle Benson 2012
 
 import argparse, sys
+from string import maketrans
 #from os.path import isdir
 #from os import listdir
 #from getpass import getpass
@@ -35,9 +36,21 @@ def ParseArgs(args=sys.argv[1:]):
 
 
 def ParseCchCityName(line):
-    name = line.split(' ')[1].replace('@','').replace('+',' ')
+    #name = line.split(' ')[1].replace('@','').replace('+',' ')
+    ## Ignore blank lines
+    if line.strip() == "":
+        return None
+    try:
+        name = line.split(' ')[1].translate(maketrans('+',' '), '@')
+    except IndexError:
+        #print "Error splitting line: %s" % line
+        name = None
+    ## Hacky name massaging
+    '''
     if name == 'Washington, DC':
         name = 'Washington, D. C.'
+    if name == 'New York, NY':
+        name = 'New York City, NY'''
     return name
 
 def ReadCchFile(filename, cities):
@@ -48,7 +61,7 @@ def ReadCchFile(filename, cities):
                 break
 
             city_name = ParseCchCityName(line)
-            if city_name not in cities and city_name not in ['IAD']:
+            if city_name is not None and city_name not in cities and city_name not in ['IAD', 'T']:
                 cities[city_name] = None
 
     return cities
@@ -69,15 +82,17 @@ def ParseCityLocation(line):
     parts = line.split('\t')
     try:
         name = parts[nameidx]
+        # Remove 'City' for NY, and everything after the ',' for Washington, DC (state code will add it back)
+        name = name.split(',')[0].replace('New York City', 'New York').replace('Saint','St.')
         if parts[countryidx] == 'US':
             name = name + ', ' + parts[stateidx]
+
         return name, parts[latidx], parts[lonidx]
     except IndexError:
         print "Error parsing line: %s" % line
 
 def GetCityLocations(cities, locfile):
     '''Go through the locations file and record the lat/lon of each city that's been requested from the CCH files'''
-    print cities
     with open(locfile) as infile:
         for line in infile.readlines():
             city, lat, lon = ParseCityLocation(line)
@@ -86,7 +101,7 @@ def GetCityLocations(cities, locfile):
                 print "Invalid parsed city attributes: name=%s lat=%s lon=%s" % (city, lat, lon)
 
             if city in cities:
-                print lat, lon
+                #print city, lat, lon
                 cities[city] = (lat, lon)
 
     return cities
@@ -95,7 +110,7 @@ def WriteLocations(cities, outfile):
     with open(outfile, 'w') as f:
         for city,latlon in cities.iteritems():
             try:
-                f.write('\t'.join([city,latlon[0],latlon[1]]) + '/n')
+                f.write('\t'.join([city,latlon[0],latlon[1]]) + '\n')
             except:
                 print 'Error writing to outfile: city=%s, latlon=%s' % (city, latlon)
 
