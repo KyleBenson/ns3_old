@@ -11,9 +11,12 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <sstream>
 #include <iomanip>
+#include <fstream>
 
 using namespace ns3;
 
@@ -88,6 +91,36 @@ GeocronExperiment::ReadLatencyFile (std::string latencyFile)
           exit(-1);
         }
       latencies = RocketfuelTopologyReader::ReadLatencies (latencyFile);
+    }
+}
+
+
+void
+GeocronExperiment::ReadLocationFile (std::string locationFile)
+{
+  if (locationFile != "")
+    {
+      if (! boost::filesystem::exists (locationFile))
+        {
+          NS_LOG_ERROR("File does not exist: " + locationFile);
+          exit(-1);
+        }
+
+      std::ifstream infile (locationFile.c_str ());
+      std::string loc, line;
+      double lat = 0.0, lon = 0.0;
+      std::vector<std::string> parts; //for splitting up line
+
+      while (std::getline (infile, line))
+        {
+          boost::split (parts, line, boost::is_any_of ("\t"));
+          loc = parts[0];
+          lat = boost::lexical_cast<double> (parts[1]);
+          lon = boost::lexical_cast<double> (parts[2]);
+
+          //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
+          locations[loc] = Vector2D (lat, lon);
+        }
     }
 }
 

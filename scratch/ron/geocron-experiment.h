@@ -39,6 +39,7 @@ public:
 
   void ReadTopology (std::string topologyFile);
   void ReadLatencyFile (std::string latencyFile);
+  void ReadLocationFile (std::string locationFile);
   void RunAllScenarios ();
   void Run ();
   /*void SetHeuristic (int newHeuristic);
@@ -81,6 +82,7 @@ private:
   Ptr<RonPeerTable> overlayPeers;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
+  std::map<std::string,Vector2D> locations;
 
   std::string traceFile;
   Time appStopTime;

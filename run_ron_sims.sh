@@ -53,7 +53,9 @@ do
     command="$command--file=rocketfuel/maps/$AS.cch "
     command="$command--disaster=${disasters[$AS]} "
     command="$command--RngSeed=$rseed --runs=$runs "
-    command="$command--latencies=rocketfuel/weights/all_latencies.intra --contact_attempts=20 --timeout=0.5 --heuristic=$heuristics"
+    command="$command--latencies=rocketfuel/weights/all_latencies.intra "
+    command="$command--locations=rocketfuel/city_locations.txt "
+    command="$command--contact_attempts=20 --timeout=0.5 --heuristic=$heuristics"
 
     ##### $$$$ NO LONGER ASSUME SPACES " " AFTER COMMANDS
     
