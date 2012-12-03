@@ -20,17 +20,23 @@ then
     visualize=1
 fi
 
-runs=10
-fail_probs='"0.5"' #'"0.1 0.2 0.3 0.5 0.7 0.9"'
-#AS_choices='3356 2914 1239' #Level 3, Verio, Sprintlink
-AS_choices='6461 1755 3967' #smaller ones
+if [ "$1" == "--as" ]
+then
+    AS_choices=$2
+else
+    #AS_choices='3356 2914 1239' #Level 3, Verio, Sprintlink
+    AS_choices='6461 1755 3967' #smaller ones
+fi  
+
+runs=20
+fail_probs='"0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.9"'
 disasters[1755]='"Amsterdam,_Netherlands London,_UnitedKingdom Paris,_France"'
 disasters[3967]='"Herndon,_VA Irvine,_CA Santa_Clara,_CA"'
 disasters[6461]='"San_Jose,_CA Los_Angeles,_CA New_York,_NY"'
 disasters[3356]='"Miami,_FL New_York,_NY Los_Angeles,_CA"'
 disasters[2914]='"New_York,_NY New_Orleans,_LA Irvine,_CA"'
 disasters[1239]='"New_York,_NY Washington,_DC Dallas,_TX"'
-heuristics='"0 1 2"' # ideal, random, orthogonal network path
+heuristics='"0"' # 1 2"' # ideal, random, orthogonal network path
 
 for AS in $AS_choices;
 do
@@ -85,5 +91,3 @@ do
 	exit
     fi
 done
-
-

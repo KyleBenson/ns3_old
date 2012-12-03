@@ -31,6 +31,7 @@
 #include "ns3/ipv4.h"
 #include "ns3/random-variable.h"
 
+#include "ron-trace-functions.h"
 #include "ron-client.h"
 
 namespace ns3 {
@@ -544,5 +545,23 @@ RonClient::CheckTimeout (uint32_t seq)
         ScheduleTransmit (Seconds (0.0), true);
     }
 }
+
+
+void
+RonClient::ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream)
+{
+  this->TraceDisconnectWithoutContext ("Ack", m_ackcb);
+  this->TraceDisconnectWithoutContext ("Send", m_sendcb);
+  this->TraceDisconnectWithoutContext ("Forward", m_forwardcb);
+  
+  m_ackcb = MakeBoundCallback (&AckReceived, traceOutputStream);
+  m_sendcb = MakeBoundCallback (&PacketSent, traceOutputStream);
+  m_forwardcb = MakeBoundCallback (&PacketForwarded, traceOutputStream);
+
+  this->TraceConnectWithoutContext ("Ack", m_ackcb);
+  this->TraceConnectWithoutContext ("Forward", m_forwardcb);
+  this->TraceConnectWithoutContext ("Send", m_sendcb);
+}
+  
 
 } // Namespace ns3

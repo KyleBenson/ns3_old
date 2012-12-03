@@ -145,6 +145,7 @@ public:
   void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
   Ipv4Address GetAddress () const;
+  void ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream);
 
 protected:
   virtual void DoDispose (void);
@@ -194,6 +195,9 @@ private:
   TracedCallback<Ptr<const Packet>, uint32_t> m_sendTrace;
   TracedCallback<Ptr<const Packet>, uint32_t > m_ackTrace;
   TracedCallback<Ptr<const Packet>, uint32_t > m_forwardTrace;
+  CallbackBase m_ackcb;
+  CallbackBase m_forwardcb;
+  CallbackBase m_sendcb;
 };
 
 } // namespace ns3

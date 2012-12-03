@@ -328,7 +328,7 @@ GeocronExperiment::SetHeuristic (newHeuristic)
 void
 GeocronExperiment::SetTraceFile (std::string newTraceFile)
 {
-  NS_LOG_LOGIC ("New trace file is: " + newTraceFile);
+  NS_LOG_INFO ("New trace file is: " + newTraceFile);
 
   traceFile = newTraceFile;
 }
@@ -377,7 +377,7 @@ GeocronExperiment::RunAllScenarios ()
             {
               SeedManager::SetRun(currRun);
               AutoSetTraceFile ();
-              Run ();
+              //Run ();
             }
         }
     }
@@ -388,31 +388,22 @@ GeocronExperiment::RunAllScenarios ()
 void
 GeocronExperiment::ConnectAppTraces ()
 {
-  Ptr<OutputStreamWrapper> traceOutputStream;
+  //need to prevent stupid waf from throwing errors for unused definitions...
+  (void) PacketForwarded;
+  (void) PacketSent;
+  (void) AckReceived;
+
   if (traceFile != "")
     {
+      Ptr<OutputStreamWrapper> traceOutputStream;
       AsciiTraceHelper asciiTraceHelper;
       traceOutputStream = asciiTraceHelper.CreateFileStream (traceFile);
-
-      NS_LOG_UNCOND ("Trace file: " << traceFile);
-
+  
       for (ApplicationContainer::Iterator itr = clientApps.Begin ();
            itr != clientApps.End (); itr++)
         {
-          //need to prevent stupid waf from throwing errors for unused definitions...
-          (void) PacketForwarded;
-          (void) PacketSent;
-          (void) AckReceived;
-
-          //if (trace_acks)
-          (*itr)->TraceDisconnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
-          (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
-          //if (trace_forwards)
-          (*itr)->TraceDisconnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
-          (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
-          //if (trace_sends)
-          (*itr)->TraceDisconnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
-          (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
+          Ptr<RonClient> app = DynamicCast<RonClient> (*itr);
+          app->ConnectTraces (traceOutputStream);
         }
     }
 }
