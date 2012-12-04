@@ -4,7 +4,7 @@ RON_TRACE_ANALYZER_DESCRIPTION = '''A helper script for analyzing ns3 Resilient 
 # (c) University of California Irvine 2012
 # @author: Kyle Benson
 
-import argparse, os.path, os, decimal, math, heapq, sys, scipy.stats #numpy
+import argparse, os.path, os, decimal, math, heapq, sys, scipy.stats, itertools #numpy
 
 ##################################################################################
 #################      ARGUMENTS       ###########################################
@@ -182,6 +182,30 @@ class TraceNode:
         return 0
 
 
+class Parameters:
+    '''
+    The parameters used for a simulation run.
+    '''
+    def __init__(self):
+        self.fprob = 0.0
+        self.heuristic = ''
+        #TODO: everything else
+
+    @staticmethod
+    def parseFolderHierarchy(name):
+        parts = name.split(os.path.sep)
+        
+        # cut off filename as its just the run #
+        if not os.path.isdir(parts[-1]):
+            parts = parts[:-1]
+
+        params = Parameters()
+        params.heuristic = parts[-1]
+        params.fprob = float(parts[-2])
+
+        return params
+
+
 class TraceRun:
     '''
     A single simulation run from one file. Holds the nodes and performs calculations.
@@ -204,6 +228,8 @@ class TraceRun:
         self.ackTimes = {}
         self.sendTimes = {}
         self.nNodes = None
+
+        self.params = Parameters.parseFolderHierarchy(filename)
 
         sigDigits = int(round(-math.log(TraceRun.TIME_RESOLUTION,10)))
 
@@ -296,7 +322,7 @@ class TraceRun:
 
     def getUtility(self):
         if not self.utility:
-            utilities = [n.getUtility() if n.getUtility() is not None for n in nodes]
+            utilities = [n.getUtility() for n in self.nodes.values() if n.getUtility() is not None]
             self.utility = float(sum(utilities))/len(utilities)
         return self.utility
 
@@ -319,13 +345,17 @@ class TraceGroup:
         self.ackTimes = None
         self.directAckTimes = None
         self.stdevNAcks = None
+        self.utility = None
 
         if folder:
             for f in os.listdir(folder):
                 if not f.startswith('.'):
                     self.traces.append(TraceRun(os.path.join(folder,f)))
-        else:
+        elif folder is not None:
             print folder, "is not a directory!"
+
+    def __len__(self):
+        return len(self.traces)
 
     def getNNodes(self):
         '''
@@ -422,6 +452,11 @@ class TraceGroup:
             self.forwardTimes = self.averageTimes([t.getForwardTimes() for t in self.traces])
         return self.forwardTimes
 
+    def getUtility(self):
+        if not self.utility:
+            utilities = [n.getUtility() for n in self.traces if n.getUtility() is not None]
+            self.utility = float(sum(utilities))/len(utilities)
+        return self.utility
 
 ################################# MAIN ####################################
 
@@ -496,17 +531,20 @@ if __name__ == '__main__':
 
     if args.summary:
         print "\n================================================= Summary =================================================\n"
-        print '%s\t'*6 % ('Group name\t\t', 'Active Nodes', '# ACKs\t', '# Direct ACKs', '% Improvement', 'Stdev'), '\n'
+        headings = ('Group name\t\t', 'Active Nodes', '# ACKs\t', '# Direct ACKs', '% Improvement', 'Utility\t', 'Stdev')
+        print '%s\t'*len(headings) % headings, '\n'
+
         for g in traceGroups:
             nAcks = g.getNAcks()
             nDirectAcks = g.getNDirectAcks()
             improvement = percentImprovement(nAcks, nDirectAcks)
+            utility = g.getUtility()
             try:
                 stdev = g.getStdevNAcks()
             except AttributeError:
                 stdev = 0.0
-            print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks,
-                                                                                    improvement, stdev)
+            print "\t\t".join(["%-20s", '%.2f', '%.2f', '%.2f', '%.2f', '%.2f', '%.2f']) % (g.name, g.getNNodes(), nAcks, nDirectAcks,
+                                                                                    improvement, utility, stdev)
         print '\n==========================================================================================================='
 
     if args.t_test:
@@ -518,12 +556,23 @@ if __name__ == '__main__':
                 break
 
             g1 = traceGroups[i]
-            g1_acks = [t.getNAcks() - t.getNDirectAcks() for t in g1.traces]
             g2 = traceGroups[i+1]
-            g2_acks = [t.getNAcks() - t.getNDirectAcks() for t in g2.traces]
+            
+            if args.utility:
+                print 'Using utility instead of # ACKs'
+                g1_utilities = [r.getUtility() for r in g1.traces]
+                g2_utilities = [r.getUtility() for r in g2.traces]
+                
+                (t_statistic, p_value) = scipy.stats.ttest_ind(g1_utilities, g2_utilities)
+                print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g1.name, g2.name, g1.getUtility(), g2.getUtility(), t_statistic, p_value)
 
-            (t_statistic, p_value) = scipy.stats.ttest_ind(g1_acks, g2_acks)
-            print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g1.name, g2.name, g1.getNAcks(), g2.getNAcks(), t_statistic, p_value)
+            else:
+                g1_acks = [t.getNAcks() - t.getNDirectAcks() for t in g1.traces]
+                g2_acks = [t.getNAcks() - t.getNDirectAcks() for t in g2.traces]
+
+                (t_statistic, p_value) = scipy.stats.ttest_ind(g1_acks, g2_acks)
+                print "\t\t".join(["%-20s", "%-20s", '%.2f', '%.2f', '%.2f', '%.2f']) % (g1.name, g2.name, g1.getNAcks() - g1.getNDirectAcks(), g2.getNAcks() - g2.getNDirectAcks(), t_statistic, p_value)
+
         print '\n==========================================================================================================='
 
 
@@ -575,13 +624,49 @@ if __name__ == '__main__':
 
     if args.utility:
         markers = 'x.*+do^s1_|'
-        for i,g in enumerate(traceGroups):
-            plt.plot(*cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes())), label=g.name, marker=markers[i%len(markers)])
+        # We first group the trace groups by their heuristic
+        if isinstance(traceGroups[0], TraceGroup):
+            runs = []
+            for t in traceGroups:
+                runs.extend(t.traces)
+        else:
+            runs = traceGroups
+
+        def heuristic_key(run):
+            return run.params.heuristic
+
+        runs = sorted(runs, key=heuristic_key)
+        groups = itertools.groupby(runs, heuristic_key)
+
+        # Then order them by fprob and plot them
+        def fprob_key(run):
+            return run.params.fprob
+        
+        i = 0
+        for heuristic,g in groups:
+            #print [([r1.params.heuristic for r1 in r],heuristic) for heuristic,r in groups]
+
+            fgroups = [g1 for g1 in g]
+            fgroups = sorted(fgroups, key=fprob_key)
+            fgroups = itertools.groupby(fgroups, fprob_key)
+
+            ## build up fprobs and associated utilities for each
+            utilities = []
+            fprobs = []
+            for fprob,fg in fgroups:
+                fprobs.append(fprob)
+                fruns = [frun for frun in fg] #extract runs
+                utilities.append(sum([t.getUtility() for t in fruns])/len(fruns))
+
+            plt.plot(fprobs, utilities, label=heuristic, marker=markers[i%len(markers)])
+
+            i+=1
+
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
                                 (args.title[nextTitleIdx if len(args.title) > 1 else 0]
-                                 if args.title else "Cumulative ACKs over time"),
+                                 if args.title else "Heuristic Utility vs. Failure Probability"),
                                 (args.append_title[nextTitleIdx if len(args.append_title) > 1 else 0]
                                  if args.append_title else ''))))
         except IndexError:
@@ -589,8 +674,8 @@ if __name__ == '__main__':
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
         nextTitleIdx += 1
-        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
-        plt.ylabel("Normalized Count")
+        plt.xlabel("Failure probability")
+        plt.ylabel("Average utility")
         plt.legend()
         adjustXAxis(plt)
         #ax.Axes.autoscale_view() #need instance

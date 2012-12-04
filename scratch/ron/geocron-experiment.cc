@@ -364,6 +364,13 @@ GeocronExperiment::AutoSetTraceFile ()
   newTraceFile /= (fname);
   newTraceFile.replace_extension(".out");
 
+  // Change name to avoid overwriting
+  int copy = 1;
+  while (boost::filesystem::exists (newTraceFile))
+    {
+      newTraceFile.replace_extension (".out(" + boost::lexical_cast<std::string> (copy++) + ")");
+    }
+
   boost::filesystem::create_directories (newTraceFile.parent_path ());
 
   SetTraceFile (newTraceFile.string ());
