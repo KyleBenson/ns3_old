@@ -31,6 +31,7 @@
 #include "ns3/ipv4.h"
 #include "ns3/random-variable.h"
 
+#include "ron-trace-functions.h"
 #include "ron-client.h"
 
 namespace ns3 {
@@ -70,7 +71,7 @@ RonClient::GetTypeId (void)
                    TimeValue (Seconds (1.0)),
                    MakeTimeAccessor (&RonClient::m_interval),
                    MakeTimeChecker ())
-    .AddAttribute ("PacketSize", "Size of echo data in outbound packets",
+    .AddAttribute ("PacketSize", "Size of data in outbound packets",
                    UintegerValue (100),
                    MakeUintegerAccessor (&RonClient::SetDataSize,
                                          &RonClient::GetDataSize),
@@ -88,15 +89,38 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+  SetDefaults ();
 
+  m_data = NULL;
+  m_peers = Create<RonPeerTable> ();
+  m_address = Ipv4Address ((uint32_t)0);
+}
+
+void
+RonClient::SetDefaults ()
+{
   m_sent = 0;
   m_socket = 0;
-  m_data = 0;
-  m_dataSize = 0;
   m_nextPeer = 0;
+  m_count = 0;
+}
 
-  m_address = Ipv4Address((uint32_t)0);
-  m_peers = std::vector<Ipv4Address>();
+
+void
+RonClient::DoReset ()
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  SetDefaults ();
+
+  // Reschedule start so that StartApplication gets rescheduled
+  // WARNING: was ScheduleWithContext (GetId (), args...) for in a node
+  Simulator::Schedule (Seconds (0.0), 
+                       &Application::Start, this);
+
+  //Ipv4Address m_servAddress; //HANDLE SETTING!!
+  CancelEvents ();
+  m_outstandingSeqs.clear ();
 }
 
 RonClient::~RonClient()
@@ -187,6 +211,7 @@ RonClient::StopApplication ()
     }
 
   CancelEvents ();
+  Reset ();
 }
 
 void
@@ -197,6 +222,8 @@ RonClient::CancelEvents ()
   for (std::list<EventId>::iterator itr = m_events.begin ();
        itr != m_events.end (); itr++)
     Simulator::Cancel (*itr);
+
+  m_events.clear ();
 }
 
 void 
@@ -208,7 +235,8 @@ RonClient::SetFill (std::string fill)
 
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -226,7 +254,8 @@ RonClient::SetFill (uint8_t fill, uint32_t dataSize)
 {
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -244,7 +273,8 @@ RonClient::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 {
   if (dataSize != m_dataSize)
     {
-      delete [] m_data;
+      if (m_data)
+        delete [] m_data;
       m_data = new uint8_t [dataSize];
       m_dataSize = dataSize;
     }
@@ -286,7 +316,8 @@ RonClient::SetDataSize (uint32_t dataSize)
   // that she doesn't care about the contents of the packet at all, so 
   // neither will we.
   //
-  delete [] m_data;
+  if (m_data)
+    delete [] m_data;
   m_data = 0;
   m_dataSize = 0;
   m_size = dataSize;
@@ -340,19 +371,30 @@ RonClient::Send (bool viaOverlay)
 
   // add RON header to packet
   RonHeader head;
-  head.SetSeq (m_sent);
-  head.SetOrigin (m_address);
 
   // If forwarding thru overlay, just pick a peer at random from those available
   if (viaOverlay)
     {
-      Ipv4Address intermediary = m_peers[random.GetInteger (0, m_peers.size () - 1)];
+      Ipv4Address intermediary;
+      try
+        {
+          intermediary = m_heuristic->GetNextPeerAddress (m_serverPeer);//m_peers[random.GetInteger (0, m_peers.size () - 1)];
+        }
+      catch (RonPathHeuristic::NoValidPeerException& e)
+        {
+          NS_LOG_DEBUG (e.what ());
+          CancelEvents ();
+          return;
+        }
+
       //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
       head = RonHeader (m_servAddress, intermediary);
     }
   else
     head = RonHeader (m_servAddress);
 
+  head.SetSeq (m_sent);
+  head.SetOrigin (m_address);
   p->AddHeader (head);
 
   // call to the trace sinks before the packet is actually sent,
@@ -453,16 +495,34 @@ RonClient::ScheduleTimeout (uint32_t seq)
 }
 
 void
-RonClient::AddPeer (Ipv4Address addr)
+RonClient::AddPeer (Ptr<Node> node)
 {
-  if (addr != m_address)
-    m_peers.push_back (addr);
+  //if (addr != m_address)
+  m_peers->AddPeer (node);
 }
 
+
+
 void
-RonClient::SetPeerList (std::vector<Ipv4Address> peers)
+RonClient::SetPeerTable (Ptr<RonPeerTable> peers)
 {
   m_peers = peers;
+}
+
+
+void
+RonClient::SetRemotePeer (Ptr<RonPeerEntry> peer)
+{
+  m_serverPeer = peer;
+  m_servAddress = peer->address;
+}
+
+
+void
+RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
+{
+  m_heuristic = heuristic;
+  heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
 
 Ipv4Address
@@ -486,5 +546,23 @@ RonClient::CheckTimeout (uint32_t seq)
         ScheduleTransmit (Seconds (0.0), true);
     }
 }
+
+
+void
+RonClient::ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream)
+{
+  this->TraceDisconnectWithoutContext ("Ack", m_ackcb);
+  this->TraceDisconnectWithoutContext ("Send", m_sendcb);
+  this->TraceDisconnectWithoutContext ("Forward", m_forwardcb);
+  
+  m_ackcb = MakeBoundCallback (&AckReceived, traceOutputStream);
+  m_sendcb = MakeBoundCallback (&PacketSent, traceOutputStream);
+  m_forwardcb = MakeBoundCallback (&PacketForwarded, traceOutputStream);
+
+  this->TraceConnectWithoutContext ("Ack", m_ackcb);
+  this->TraceConnectWithoutContext ("Forward", m_forwardcb);
+  this->TraceConnectWithoutContext ("Send", m_sendcb);
+}
+  
 
 } // Namespace ns3

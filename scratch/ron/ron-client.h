@@ -26,6 +26,8 @@
 #include "ns3/traced-callback.h"
 
 #include "ron-header.h"
+#include "ron-peer-table.h"
+#include "ron-path-heuristic.h"
 
 #include <list>
 #include <set>
@@ -131,21 +133,19 @@ public:
    */
   void SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize);
 
-  /**
-   * Add an overlay peer address to this nodes list.
-   *
-   * \param addr The IPv4 address of the peer to be added.
-   */
-  void AddPeer (Ipv4Address addr);
+  void AddPeer (Ptr<Node> node);
 
   /**
    * Use the specified peer list for this client.  Useful for sharing them among several clients to save memory.
    *
-   * \param peers Pointer to the vector of Ipv4Addresses to use as the peer list.
+   * \param peers Smart Pointer to the RonPeerTable to be used.
    */
-  void SetPeerList(std::vector<Ipv4Address> peers);
+  void SetPeerTable (Ptr<RonPeerTable> peers);
+  void SetRemotePeer (Ptr<RonPeerEntry> peer);
+  void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
   Ipv4Address GetAddress () const;
+  void ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream);
 
 protected:
   virtual void DoDispose (void);
@@ -160,6 +160,8 @@ private:
   void Send (bool viaOverlay);
   void ScheduleTransmit (Time dt, bool viaOverlay = false);
   void CancelEvents (void);
+  void SetDefaults (void);
+  void DoReset ();
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
@@ -174,7 +176,7 @@ private:
   uint8_t *m_data;
 
   Time m_timeout;
-  Address m_local;
+  //Address m_local;
 
   uint32_t m_sent;
   Ipv4Address m_servAddress;
@@ -183,13 +185,19 @@ private:
   uint16_t m_port;
   std::list<EventId> m_events;
   std::set<uint32_t> m_outstandingSeqs;
-  std::vector<Ipv4Address> m_peers;
   int m_nextPeer;
+
+  Ptr<RonPeerTable> m_peers;
+  Ptr<RonPeerEntry> m_serverPeer;
+  Ptr<RonPathHeuristic> m_heuristic;
 
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet>, uint32_t> m_sendTrace;
   TracedCallback<Ptr<const Packet>, uint32_t > m_ackTrace;
   TracedCallback<Ptr<const Packet>, uint32_t > m_forwardTrace;
+  CallbackBase m_ackcb;
+  CallbackBase m_forwardcb;
+  CallbackBase m_sendcb;
 };
 
 } // namespace ns3

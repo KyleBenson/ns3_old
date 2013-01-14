@@ -86,7 +86,7 @@ NodeListPriv::DoGet (void)
     {
       ptr = CreateObject<NodeListPriv> ();
       Config::RegisterRootNamespaceObject (ptr);
-      Simulator::ScheduleDestroy (&NodeListPriv::Delete);
+      //Simulator::ScheduleDestroy (&NodeListPriv::Delete);
     }
   return &ptr;
 }

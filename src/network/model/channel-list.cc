@@ -86,7 +86,7 @@ ChannelListPriv::DoGet (void)
     {
       ptr = CreateObject<ChannelListPriv> ();
       Config::RegisterRootNamespaceObject (ptr);
-      Simulator::ScheduleDestroy (&ChannelListPriv::Delete);
+      //Simulator::ScheduleDestroy (&ChannelListPriv::Delete);
     }
   return &ptr;
 }
@@ -101,7 +101,7 @@ ChannelListPriv::Delete (void)
 
 ChannelListPriv::ChannelListPriv ()
 {
-  NS_LOG_FUNCTION (this);
+  NS_LOG_FUNCTION_NOARGS ();
 }
 
 ChannelListPriv::~ChannelListPriv ()
