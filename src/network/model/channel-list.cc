@@ -101,7 +101,7 @@ ChannelListPriv::Delete (void)
 
 ChannelListPriv::ChannelListPriv ()
 {
-  NS_LOG_FUNCTION_NOARGS ();
+  NS_LOG_FUNCTION (this);
 }
 
 ChannelListPriv::~ChannelListPriv ()
