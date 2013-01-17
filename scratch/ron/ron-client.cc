@@ -31,6 +31,7 @@
 #include "ns3/ipv4.h"
 #include "ns3/random-variable.h"
 
+#include "ron-trace-functions.h"
 #include "ron-client.h"
 
 namespace ns3 {
@@ -88,22 +89,34 @@ RonClient::GetTypeId (void)
 RonClient::RonClient ()
 {
   NS_LOG_FUNCTION_NOARGS ();
+  SetDefaults ();
+
   m_data = NULL;
-  Reset ();
   m_peers = Create<RonPeerTable> ();
   m_address = Ipv4Address ((uint32_t)0);
 }
 
 void
-RonClient::Reset ()
+RonClient::SetDefaults ()
 {
-  NS_LOG_FUNCTION_NOARGS ();
-  std::cout << "Resetting RonClient";
-
   m_sent = 0;
   m_socket = 0;
   m_nextPeer = 0;
   m_count = 0;
+}
+
+
+void
+RonClient::DoReset ()
+{
+  NS_LOG_FUNCTION_NOARGS ();
+
+  SetDefaults ();
+
+  // Reschedule start so that StartApplication gets rescheduled
+  // WARNING: was ScheduleWithContext (GetId (), args...) for in a node
+  Simulator::Schedule (Seconds (0.0), 
+                       &Application::Start, this);
 
   //Ipv4Address m_servAddress; //HANDLE SETTING!!
   CancelEvents ();
@@ -139,7 +152,7 @@ void
 RonClient::StartApplication (void)
 {
   NS_LOG_FUNCTION_NOARGS ();
-  std::cout << "starting...";
+
   if (m_startTime >= m_stopTime)
     {
       NS_LOG_LOGIC ("Cancelling application (start > stop)");
@@ -501,6 +514,7 @@ void
 RonClient::SetRemotePeer (Ptr<RonPeerEntry> peer)
 {
   m_serverPeer = peer;
+  m_servAddress = peer->address;
 }
 
 
@@ -508,6 +522,7 @@ void
 RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
 {
   m_heuristic = heuristic;
+  heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
 
 Ipv4Address
@@ -531,5 +546,23 @@ RonClient::CheckTimeout (uint32_t seq)
         ScheduleTransmit (Seconds (0.0), true);
     }
 }
+
+
+void
+RonClient::ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream)
+{
+  this->TraceDisconnectWithoutContext ("Ack", m_ackcb);
+  this->TraceDisconnectWithoutContext ("Send", m_sendcb);
+  this->TraceDisconnectWithoutContext ("Forward", m_forwardcb);
+  
+  m_ackcb = MakeBoundCallback (&AckReceived, traceOutputStream);
+  m_sendcb = MakeBoundCallback (&PacketSent, traceOutputStream);
+  m_forwardcb = MakeBoundCallback (&PacketForwarded, traceOutputStream);
+
+  this->TraceConnectWithoutContext ("Ack", m_ackcb);
+  this->TraceConnectWithoutContext ("Forward", m_forwardcb);
+  this->TraceConnectWithoutContext ("Send", m_sendcb);
+}
+  
 
 } // Namespace ns3

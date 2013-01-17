@@ -11,9 +11,13 @@
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/algorithm/string/split.hpp>
+#include <boost/algorithm/string/classification.hpp>
 
 #include <sstream>
 #include <iomanip>
+#include <fstream>
+#include <ctime>
 
 using namespace ns3;
 
@@ -26,7 +30,7 @@ GeocronExperiment::GeocronExperiment ()
   simulationLength = Seconds (10.0);
   overlayPeers = Create<RonPeerTable> ();
 
-  currHeuristic = "";
+  currHeuristic = (RonPathHeuristic::Heuristic)0;
   currLocation = "";
   currFprob = 0.0;
   contactAttempts = 10;
@@ -88,6 +92,36 @@ GeocronExperiment::ReadLatencyFile (std::string latencyFile)
           exit(-1);
         }
       latencies = RocketfuelTopologyReader::ReadLatencies (latencyFile);
+    }
+}
+
+
+void
+GeocronExperiment::ReadLocationFile (std::string locationFile)
+{
+  if (locationFile != "")
+    {
+      if (! boost::filesystem::exists (locationFile))
+        {
+          NS_LOG_ERROR("File does not exist: " + locationFile);
+          exit(-1);
+        }
+
+      std::ifstream infile (locationFile.c_str ());
+      std::string loc, line;
+      double lat = 0.0, lon = 0.0;
+      std::vector<std::string> parts; //for splitting up line
+
+      while (std::getline (infile, line))
+        {
+          boost::split (parts, line, boost::is_any_of ("\t"));
+          loc = parts[0];
+          lat = boost::lexical_cast<double> (parts[1]);
+          lon = boost::lexical_cast<double> (parts[2]);
+
+          //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
+          locations[loc] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
+        }
     }
 }
 
@@ -180,9 +214,10 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector position = Vector3D (0.0, 0.0, 0.0);
-    positionAllocator->Add (position); //from
-    positionAllocator->Add (position); //to
+    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : Vector (0.0, 0.0, 0.0);
+    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : Vector (0.0, 0.0, 0.0);
+    positionAllocator->Add (fromPosition);
+    positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
 
@@ -295,7 +330,7 @@ GeocronExperiment::SetHeuristic (newHeuristic)
 void
 GeocronExperiment::SetTraceFile (std::string newTraceFile)
 {
-  NS_LOG_LOGIC ("New trace file is: " + newTraceFile);
+  NS_LOG_INFO ("New trace file is: " + newTraceFile);
 
   traceFile = newTraceFile;
 }
@@ -314,12 +349,27 @@ GeocronExperiment::AutoSetTraceFile ()
   newTraceFile /= fprob.str ();
   //newTraceFile /= boost::lexical_cast<std::string> (currFprob);
   //newTraceFile /=  (currHeuristic);
-  newTraceFile /= ("random"); //default heuristic
+  switch (currHeuristic)
+    {
+    case RonPathHeuristic::ORTHOGONAL:
+      newTraceFile /= "orthogonal";
+      break;
+    default:
+      //case RonPathHeuristic::RANDOM:
+      newTraceFile /= ("random");
+    }
 
   std::string fname = "run";
   fname += boost::lexical_cast<std::string> (currRun);
   newTraceFile /= (fname);
   newTraceFile.replace_extension(".out");
+
+  // Change name to avoid overwriting
+  int copy = 1;
+  while (boost::filesystem::exists (newTraceFile))
+    {
+      newTraceFile.replace_extension (".out(" + boost::lexical_cast<std::string> (copy++) + ")");
+    }
 
   boost::filesystem::create_directories (newTraceFile.parent_path ());
 
@@ -340,11 +390,18 @@ GeocronExperiment::RunAllScenarios ()
            fprob != failureProbabilities->end (); fprob++)
         {
           SetFailureProbability (*fprob);
-          for (currRun = 0; currRun < nruns; currRun++)
+          for (std::vector<int>::iterator heuristic = heuristics->begin ();
+               heuristic != heuristics->end (); heuristic++)
             {
-              SeedManager::SetRun(currRun);
-              AutoSetTraceFile ();
-              Run ();
+              currHeuristic = (RonPathHeuristic::Heuristic)*heuristic;
+              SeedManager::SetSeed(std::time (NULL));
+
+              for (currRun = 0; currRun < nruns; currRun++)
+                {
+                  SeedManager::SetRun(currRun);
+                  AutoSetTraceFile ();
+                  Run ();
+                }
             }
         }
     }
@@ -355,28 +412,22 @@ GeocronExperiment::RunAllScenarios ()
 void
 GeocronExperiment::ConnectAppTraces ()
 {
-  Ptr<OutputStreamWrapper> traceOutputStream;
+  //need to prevent stupid waf from throwing errors for unused definitions...
+  (void) PacketForwarded;
+  (void) PacketSent;
+  (void) AckReceived;
+
   if (traceFile != "")
     {
+      Ptr<OutputStreamWrapper> traceOutputStream;
       AsciiTraceHelper asciiTraceHelper;
       traceOutputStream = asciiTraceHelper.CreateFileStream (traceFile);
-
-      NS_LOG_UNCOND ("Trace file: " << traceFile);
-
+  
       for (ApplicationContainer::Iterator itr = clientApps.Begin ();
            itr != clientApps.End (); itr++)
         {
-          //need to prevent stupid waf from throwing errors for unused definitions...
-          (void) PacketForwarded;
-          (void) PacketSent;
-          (void) AckReceived;
-
-          //if (trace_acks)
-            (*itr)->TraceConnectWithoutContext ("Ack", MakeBoundCallback (&AckReceived, traceOutputStream));
-            //if (trace_forwards)
-            (*itr)->TraceConnectWithoutContext ("Forward", MakeBoundCallback (&PacketForwarded, traceOutputStream));
-            //if (trace_sends)
-            (*itr)->TraceConnectWithoutContext ("Send", MakeBoundCallback (&PacketSent, traceOutputStream));
+          Ptr<RonClient> app = DynamicCast<RonClient> (*itr);
+          app->ConnectTraces (traceOutputStream);
         }
     }
 }
@@ -413,66 +464,10 @@ GeocronExperiment::Run ()
 
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
 
-  //////////////////// $$$$$$$$$$  TODO  !!!!!!!! //////////////////////////////
-  //////////   clean up this huge mess here and figure out why we can't address nodes on any interface we want....
-
-
-  /*Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
+  Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
                           serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
                           nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));
-                          Ipv4Address serverAddress = GetNodeAddress (serverNode);*/
-
-
-
-  PointToPointHelper pointToPoint;
-  pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("100Gbps"));
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-
-  // NixHelper to install nix-vector routing
-  Ipv4NixVectorHelper nixRouting;
-  nixRouting.SetAttribute("FollowDownEdges", BooleanValue (true));
-  Ipv4StaticRoutingHelper staticRouting;
-  Ipv4ListRoutingHelper routingList;
-  routingList.Add (staticRouting, 0);
-  routingList.Add (nixRouting, 10);
-  InternetStackHelper stack;
-  stack.SetRoutingHelper (routingList); // has effect on the next Install ()
-
-  //For each link in topology, add a connection between nodes and assign IP
-  //addresses to the new network they've created between themselves.
-  Ipv4AddressHelper address;
-  address.SetBase ("101.0.0.0", "255.0.0.0");
-  //NetDeviceContainer router_devices;
-  //Ipv4InterfaceContainer router_interfaces;
-
-
-
-
-
-  pointToPoint.SetChannelAttribute ("Delay", StringValue ("1ms"));
-  Ptr<Node> serverNode = CreateObject<Node> ();
-  stack.Install (serverNode);
-  NS_LOG_INFO ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
-  NetDeviceContainer serverAndProviderDevs = pointToPoint.Install (serverNode,
-                                                                   //(serverNodeCandidates.GetN () ? 
-                                                                   serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));// :
-                                                                   //nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1))));
-  Ipv4Address serverAddress = address.Assign (serverAndProviderDevs).Get (0).first->GetAddress (1,0).GetLocal ();
-
-
-
-  // Mobility model to set positions for geographically-correlated information
-  MobilityHelper mobility;
-  Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-  Vector position = Vector3D (0.0, 0.0, 0.0);
-  positionAllocator->Add (position); //from
-  positionAllocator->Add (position); //to
-  mobility.SetPositionAllocator (positionAllocator);
-  mobility.Install (serverNode);
-
-
-
-
+  Ipv4Address serverAddress = GetNodeAddress (serverNode);
 
   NS_LOG_INFO ("Server is at: " << serverAddress);
 
@@ -503,10 +498,11 @@ GeocronExperiment::Run ()
       Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
 
       //TODO: different heuristics
-      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (RonPathHeuristic::RANDOM);
+      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
+      // Must set heuristic first so that source will be set and heuristic can make its heap
+      ronClient->SetHeuristic (heuristic);
       heuristic->SetPeerTable (overlayPeers);
       ronClient->SetRemotePeer (serverPeer);
-      ronClient->SetHeuristic (heuristic);
 
       if (!IsDisasterNode ((*app)->GetNode ())) //report_disaster && 
         ronClient->SetAttribute ("MaxPackets", UintegerValue (0));
@@ -556,14 +552,6 @@ GeocronExperiment::Run ()
 
   NS_LOG_INFO ("Next simulation run...");
 
-  // reset apps
-  for (ApplicationContainer::Iterator app = clientApps.Begin ();
-       app != clientApps.End (); app++)
-    {
-      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
-      ronClient->Reset ();
-    }
-
   // Unfail the links that were chosen
   for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
        iface != potentialIfacesToKill[currLocation].End (); iface++)
@@ -577,8 +565,16 @@ GeocronExperiment::Run ()
     {
       UnfailNode (*node, appStopTime);
     }
-
   
+  //serverNode->GetObject<Ipv4NixVectorRouting> ()->FlushGlobalNixRoutingCache ();
+  
+  // reset apps
+  for (ApplicationContainer::Iterator app = clientApps.Begin ();
+       app != clientApps.End (); app++)
+    {
+      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
+      ronClient->Reset ();
+    }
 }
     /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
 

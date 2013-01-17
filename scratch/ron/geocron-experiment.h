@@ -39,6 +39,7 @@ public:
 
   void ReadTopology (std::string topologyFile);
   void ReadLatencyFile (std::string latencyFile);
+  void ReadLocationFile (std::string locationFile);
   void RunAllScenarios ();
   void Run ();
   /*void SetHeuristic (int newHeuristic);
@@ -69,7 +70,7 @@ private:
   bool IsDisasterNode (Ptr<Node> node);
   void AutoSetTraceFile ();
 
-  std::string currHeuristic;
+  RonPathHeuristic::Heuristic currHeuristic;
   std::string currLocation;
   double currFprob;
   uint32_t currRun; //keep at 32 as it's used as a string later
@@ -81,6 +82,7 @@ private:
   Ptr<RonPeerTable> overlayPeers;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
+  std::map<std::string,Vector> locations;
 
   std::string traceFile;
   Time appStopTime;

@@ -44,6 +44,7 @@ main (int argc, char *argv[])
   std::string heuristic = "0 1 2";
   std::string filename = "rocketfuel/maps/3356.cch";
   std::string latencyFile = "";
+  std::string locationFile = "";
   std::string disaster_location = "Los Angeles, CA";
   bool tracing = false;
   double timeout = 1.0;
@@ -51,6 +52,7 @@ main (int argc, char *argv[])
   CommandLine cmd;
   cmd.AddValue ("file", "File to read network topology from", filename);
   cmd.AddValue ("latencies", "File to read latencies from in Rocketfuel weights file format", latencyFile);
+  cmd.AddValue ("locations", "File to read city locations from", locationFile);
   cmd.AddValue ("tracing", "Whether to write traces to file", tracing);
   cmd.AddValue ("trace_acks", "Whether to print traces when a client receives an ACK from the server", trace_acks);
   cmd.AddValue ("trace_forwards", "Whether to print traces when a client forwards a packet", trace_forwards);
@@ -72,7 +74,7 @@ main (int argc, char *argv[])
   // Parse string args for possible multiple arguments
   typedef boost::tokenizer<boost::char_separator<char> > 
     tokenizer;
-  boost::char_separator<char> sep(" ");
+  boost::char_separator<char> sep("-");
   
   std::vector<double> * failureProbabilities = new std::vector<double> ();
   tokenizer tokens(fail_prob, sep);
@@ -114,7 +116,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
-      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
+      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
 
       //LogComponentEnable ("DefaultSimulatorImpl", LOG_LEVEL_LOGIC);
 
@@ -154,12 +156,9 @@ main (int argc, char *argv[])
 
   exp.ReadTopology (filename);
   exp.ReadLatencyFile (latencyFile);
+  exp.ReadLocationFile (locationFile);
   //exp.SetTraceFile (traceFile);
   exp.RunAllScenarios ();
-
-
-  //in a loop, advance parameters
-  
 
   return 0;
 }
