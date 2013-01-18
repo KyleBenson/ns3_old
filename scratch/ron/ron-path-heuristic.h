@@ -39,7 +39,8 @@ public:
     };
 
   static Ptr<RonPathHeuristic> CreateHeuristic (Heuristic heuristic);
-  
+  virtual ~RonPathHeuristic ();
+
   RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
   Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
   void SetPeerTable (Ptr<RonPeerTable> table);

@@ -114,6 +114,10 @@ RonPathHeuristic::CreateHeuristic (Heuristic heuristic)
 }
 
 
+RonPathHeuristic::~RonPathHeuristic ()
+{} //required to keep gcc from complaining
+
+
 RonPeerEntry
 RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
 {
