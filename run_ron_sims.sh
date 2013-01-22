@@ -2,6 +2,12 @@
 
 verbosity_level=1
 nprocs=8
+if [ $nprocs -gt 1 ]
+then
+    parallel=1
+else
+    parallel=0
+fi
 
 # check args
 
@@ -31,8 +37,8 @@ else
 fi  
 
 #set number of runs for each spawned process if we run more than one proc
-runs=100
-if [ $nprocs -gt 1 ]
+runs=40
+if [ $parallel ]
 then
     remainder=$((runs%nprocs))
     for i in `seq $nprocs`;
@@ -49,7 +55,7 @@ then
     
 fi
 
-fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6"'
+fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6-0.7-0.8"'
 disasters[1755]='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
 disasters[3967]='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
 disasters[6461]='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
@@ -60,6 +66,7 @@ heuristics='"1-2"' # random, orthogonal network path
 
 for AS in $AS_choices;
 do
+    start=0
     for runs in $nruns;
     do
     #out_dir=ron_output/$pfail/$AS/$disaster/`if [ "$local_overlays" == '0' ]; then echo external; else echo internal; fi;`
@@ -80,6 +87,13 @@ do
 	command="$command--file=rocketfuel/maps/$AS.cch "
 	command="$command--disaster=${disasters[$AS]} "
 	command="$command--runs=$runs "
+
+	if [ $parallel ]
+	then
+	    command="$command--start_run=$start "
+	    start=$((start+runs))
+	fi
+
 	command="$command--latencies=rocketfuel/weights/all_latencies.intra "
 	command="$command--locations=rocketfuel/city_locations.txt "
 	command="$command--contact_attempts=20 --timeout=0.5 --heuristic=$heuristics"
@@ -105,7 +119,7 @@ do
 	
     # MUST use eval, or waf parses things strangely and tries to use the ron program's args...
 	eval $command &
-
+	#echo $command
 #quit after first run if argument is 'test'
 	if [ $testing ];
 	then

@@ -33,6 +33,7 @@ GeocronExperiment::GeocronExperiment ()
   currHeuristic = (RonPathHeuristic::Heuristic)0;
   currLocation = "";
   currFprob = 0.0;
+  currRun = 0;
   contactAttempts = 10;
   traceFile = "";
   nruns = 1;
@@ -339,6 +340,7 @@ GeocronExperiment::SetTraceFile (std::string newTraceFile)
 void
 GeocronExperiment::AutoSetTraceFile ()
 {
+  std::cout << "got here" <<std::endl;
   boost::filesystem::path newTraceFile ("ron_output");
   newTraceFile /= boost::filesystem::path(topologyFile).stem ();
   newTraceFile /= boost::algorithm::replace_all_copy (currLocation, " ", "_");
@@ -360,17 +362,17 @@ GeocronExperiment::AutoSetTraceFile ()
     }
 
   // set output number if start_run_number is specified
-  int outnum = currRun;
+  uint32_t outnum = currRun;
   if (start_run_number and nruns > 1)
     outnum = currRun + start_run_number;
-
+  
   std::string fname = "run";
   fname += boost::lexical_cast<std::string> (outnum);
   newTraceFile /= (fname);
   newTraceFile.replace_extension(".out");
 
   // Change name to avoid overwriting
-  int copy = 0;
+  uint32_t copy = 0;
   while (boost::filesystem::exists (newTraceFile))
     {
       newTraceFile.replace_extension (".out(" + boost::lexical_cast<std::string> (copy++) + ")");
