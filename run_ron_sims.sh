@@ -26,7 +26,8 @@ then
     AS_choices=$2
 else
 #AS_choices='1239' # 3356 2914' #sprint#Level 3, Verio, Sprintlink
-    AS_choices='6461' # 1755 3967' #smaller ones
+    AS_choices='3356' 
+#6461' # 1755 3967' #smaller ones
 fi  
 
 #set number of runs for each spawned process if we run more than one proc
@@ -55,7 +56,7 @@ disasters[6461]='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
 disasters[3356]='"New_York,_NY"' #-Miami,_FL-Los_Angeles,_CA"'
 disasters[2914]='"New_York,_NY-New_Orleans,_LA-Irvine,_CA"'
 disasters[1239]='"New_York,_NY"' #Washington,_DC-Dallas,_TX"'
-heuristics='"1"' #-2"' # random, orthogonal network path
+heuristics='"1-2"' # random, orthogonal network path
 
 for AS in $AS_choices;
 do
