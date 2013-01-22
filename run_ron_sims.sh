@@ -15,6 +15,7 @@ if [ "$1" == "test" -o "$1" == "debug" ]
 then
     verbose=1
     testing=1
+    parallel=0
 fi
 
 if [ "$1" == "debug" ]
@@ -118,7 +119,12 @@ do
 	fi
 	
     # MUST use eval, or waf parses things strangely and tries to use the ron program's args...
-	eval $command &
+	if [ "$parallel" ]
+	then
+	    eval $command &
+	else
+	    eval $command
+	fi
 	#echo $command
 #quit after first run if argument is 'test'
 	if [ $testing ];
