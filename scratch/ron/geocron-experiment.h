@@ -65,6 +65,7 @@ public:
   uint32_t maxNDevs;
   uint32_t contactAttempts;
   uint32_t nruns;
+  uint32_t start_run_number;
 
 private:
   bool IsDisasterNode (Ptr<Node> node);
