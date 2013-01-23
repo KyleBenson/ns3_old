@@ -1,7 +1,14 @@
 #!/bin/bash
 
+# config vars
 verbosity_level=1
-nprocs=8
+runs=20
+start=40 # which run number to start on
+nprocs=4
+
+################################
+## ARGS
+
 if [ $nprocs -gt 1 ]
 then
     parallel=1
@@ -35,10 +42,11 @@ else
 #AS_choices='1239' # 3356 2914' #sprint#Level 3, Verio, Sprintlink
     AS_choices='3356' 
 #6461' # 1755 3967' #smaller ones
-fi  
+fi
+
+######## MAIN
 
 #set number of runs for each spawned process if we run more than one proc
-runs=40
 if [ $parallel ]
 then
     remainder=$((runs%nprocs))
@@ -67,7 +75,6 @@ heuristics='"1-2"' # random, orthogonal network path
 
 for AS in $AS_choices;
 do
-    start=0
     for runs in $nruns;
     do
     #out_dir=ron_output/$pfail/$AS/$disaster/`if [ "$local_overlays" == '0' ]; then echo external; else echo internal; fi;`
