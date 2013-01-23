@@ -138,5 +138,22 @@ do
 	then
 	    exit
 	fi
+
+        # collect PIDs so we can wait on them                                                                                                                                                                                                                        
+        pids="$pids $!"
     done
 done
+
+################################
+## Done spawning processes
+# wait for them to complete
+# if they are there
+if [ $parallel ]
+then
+    for pid in $pids
+    do
+	wait $pid
+    done
+fi
+
+touch done-waiting-pids.blah
