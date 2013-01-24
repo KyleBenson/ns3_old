@@ -2,8 +2,8 @@
 
 # config vars
 verbosity_level=1
-runs=20
-start=40 # which run number to start on
+runs=14
+start=16 # which run number to start on
 nprocs=4
 
 ################################
@@ -156,4 +156,4 @@ then
     done
 fi
 
-touch done-waiting-pids.blah
+date '+%s' > done-waiting-pids.blah
