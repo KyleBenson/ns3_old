@@ -340,7 +340,6 @@ GeocronExperiment::SetTraceFile (std::string newTraceFile)
 void
 GeocronExperiment::AutoSetTraceFile ()
 {
-  std::cout << "got here" <<std::endl;
   boost::filesystem::path newTraceFile ("ron_output");
   newTraceFile /= boost::filesystem::path(topologyFile).stem ();
   newTraceFile /= boost::algorithm::replace_all_copy (currLocation, " ", "_");
@@ -547,6 +546,7 @@ GeocronExperiment::Run ()
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
   NS_LOG_UNCOND ("Starting simulation on map file " << topologyFile << ": " << std::endl
+                 << nodes.GetN () << " total nodes" << std::endl
                  << overlayPeers->GetN () << " total overlay nodes" << std::endl
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
                  << std::endl << "Failure probability: " << currFprob << std::endl

@@ -1,7 +1,14 @@
 #!/bin/bash
 
+# config vars
 verbosity_level=1
-nprocs=8
+runs=20
+start=40 # which run number to start on
+nprocs=4
+
+################################
+## ARGS
+
 if [ $nprocs -gt 1 ]
 then
     parallel=1
@@ -15,6 +22,7 @@ if [ "$1" == "test" -o "$1" == "debug" ]
 then
     verbose=1
     testing=1
+    parallel=0
 fi
 
 if [ "$1" == "debug" ]
@@ -34,10 +42,11 @@ else
 #AS_choices='1239' # 3356 2914' #sprint#Level 3, Verio, Sprintlink
     AS_choices='3356' 
 #6461' # 1755 3967' #smaller ones
-fi  
+fi
+
+######## MAIN
 
 #set number of runs for each spawned process if we run more than one proc
-runs=40
 if [ $parallel ]
 then
     remainder=$((runs%nprocs))
@@ -66,7 +75,6 @@ heuristics='"1-2"' # random, orthogonal network path
 
 for AS in $AS_choices;
 do
-    start=0
     for runs in $nruns;
     do
     #out_dir=ron_output/$pfail/$AS/$disaster/`if [ "$local_overlays" == '0' ]; then echo external; else echo internal; fi;`
@@ -118,12 +126,34 @@ do
 	fi
 	
     # MUST use eval, or waf parses things strangely and tries to use the ron program's args...
-	eval $command &
+	if [ "$parallel" ]
+	then
+	    eval $command &
+	else
+	    eval $command
+	fi
 	#echo $command
 #quit after first run if argument is 'test'
 	if [ $testing ];
 	then
 	    exit
 	fi
+
+        # collect PIDs so we can wait on them                                                                                                                                                                                                                        
+        pids="$pids $!"
     done
 done
+
+################################
+## Done spawning processes
+# wait for them to complete
+# if they are there
+if [ $parallel ]
+then
+    for pid in $pids
+    do
+	wait $pid
+    done
+fi
+
+touch done-waiting-pids.blah
