@@ -1,2 +1,2 @@
-#!/usr/bin/
+#!/bin/bash
 ls ron_output/*/*/*/*

@@ -455,16 +455,14 @@ GeocronExperiment::Run ()
        node != nodes.End (); node++)
     {
       // Fail nodes within the disaster region with some probability
-      if (random.GetValue () < currFprob and
-          disasterNodes[currLocation].count ((*node)->GetId ()) != 0)
+      if (random.GetValue () < currFprob and IsDisasterNode (*node))
         {
           failNodes.Add (*node);
           NS_LOG_LOGIC ("Node " << (*node)->GetId () << " will fail.");
         }
       
       // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
-      //else if (!IsDisasterNode (*node))
-      if ((*node)->GetNDevices () > maxNDevs)
+      else if ((*node)->GetNDevices () > maxNDevs and !IsDisasterNode (*node))
         serverNodeCandidates.Add (*node);
     }
 
@@ -529,11 +527,19 @@ GeocronExperiment::Run ()
   //////////////////////////////////////////////////////////////////////
 
 
-  // Fail the links that were chosen
+  // Fail the links that were chosen with given probability
+  Ipv4InterfaceContainer ifacesToKill;
   for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
        iface != potentialIfacesToKill[currLocation].End (); iface++)
     {
-      FailIpv4 (iface->first, iface->second);
+      if (random.GetValue () < currFprob)
+        ifacesToKill.Add (*iface);
+    }
+
+  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
+       iface != ifacesToKill.End (); iface++)
+    {
+        FailIpv4 (iface->first, iface->second);
     }
 
   // Fail the nodes that were chosen
@@ -551,7 +557,7 @@ GeocronExperiment::Run ()
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
                  << std::endl << "Failure probability: " << currFprob << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
-                 << potentialIfacesToKill[currLocation].GetN () / 2 << " links failed");
+                 << ifacesToKill.GetN () / 2 << " links failed");
 
   Simulator::Stop (simulationLength);
   Simulator::Run ();
@@ -560,8 +566,8 @@ GeocronExperiment::Run ()
   NS_LOG_INFO ("Next simulation run...");
 
   // Unfail the links that were chosen
-  for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
-       iface != potentialIfacesToKill[currLocation].End (); iface++)
+  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
+       iface != ifacesToKill.End (); iface++)
     {
       UnfailIpv4 (iface->first, iface->second);
     }

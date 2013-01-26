@@ -323,7 +323,10 @@ class TraceRun:
     def getUtility(self):
         if not self.utility:
             utilities = [n.getUtility() for n in self.nodes.values() if n.getUtility() is not None]
-            self.utility = float(sum(utilities))/len(utilities)
+            if len(utilities) == 0: #avoid division by 0
+                self.utilitiy = 0.0
+            else:
+                self.utility = float(sum(utilities))/len(utilities)
         return self.utility
 
 class TraceGroup:

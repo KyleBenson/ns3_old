@@ -2,9 +2,9 @@
 
 # config vars
 verbosity_level=1
-runs=20
-start=40 # which run number to start on
-nprocs=4
+runs=100
+start=0 # which run number to start on
+nprocs=8
 
 ################################
 ## ARGS
@@ -45,6 +45,18 @@ else
 fi
 
 ######## MAIN
+
+## Set trap for Ctrl-C to kill all processes
+function kill_children {
+    for pid in $pids
+    do
+	kill -9 $pid
+    done
+    echo "exiting..."
+    exit
+}
+
+trap kill_children SIGINT SIGTERM SIGHUP
 
 #set number of runs for each spawned process if we run more than one proc
 if [ $parallel ]
@@ -136,25 +148,18 @@ do
 #quit after first run if argument is 'test'
 	if [ $testing ];
 	then
-	    exit
+	    break
+	    #exit
 	fi
 
         # collect PIDs so we can wait on them                                                                                                                                                                                                                        
         pids="$pids $!"
     done
+    if [ $testing ];
+    then
+	break
+    fi
 done
-
-
-## Set trap for Ctrl-C to kill all processes
-function kill_children {
-    for pid in $pids
-    do
-	kill -9 $pid
-    done
-    exit
-}
-
-trap kill_children SIGINT SIGTERM SIGHUP
 
 ################################
 ## Done spawning processes
