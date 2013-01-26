@@ -2,9 +2,9 @@
 
 # config vars
 verbosity_level=1
-runs=40
+runs=10
 start=0 # which run number to start on
-nprocs=8
+nprocs=2
 
 ################################
 ## ARGS
@@ -143,6 +143,18 @@ do
         pids="$pids $!"
     done
 done
+
+
+## Set trap for Ctrl-C to kill all processes
+function kill_children {
+    for pid in $pids
+    do
+	kill -9 $pid
+    done
+    exit
+}
+
+trap kill_children SIGINT SIGTERM SIGHUP
 
 ################################
 ## Done spawning processes
