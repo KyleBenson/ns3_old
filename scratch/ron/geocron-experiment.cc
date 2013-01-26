@@ -77,7 +77,7 @@ GeocronExperiment::NextFailureProbability ()
 bool
 GeocronExperiment::IsDisasterNode (Ptr<Node> node)
 {
-  return disasterNodes[currLocation].count ((node)->GetId ()) == 0;
+  return disasterNodes[currLocation].count ((node)->GetId ());
 }
 
 
@@ -496,7 +496,7 @@ GeocronExperiment::Run ()
 
   ////////////////////////////////////////////////////////////////////////////////
   //////////      Update client apps with new params                  ////////////
-  ////////////////////////////////////////////////////////////////////////////////
+   ////////////////////////////////////////////////////////////////////////////////
 
   for (ApplicationContainer::Iterator app = clientApps.Begin ();
        app != clientApps.End (); app++)
