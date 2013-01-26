@@ -2,9 +2,9 @@
 
 # config vars
 verbosity_level=1
-runs=10
-start=0 # which run number to start on
-nprocs=2
+runs=20
+start=40 # which run number to start on
+nprocs=4
 
 ################################
 ## ARGS
