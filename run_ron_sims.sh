@@ -40,7 +40,7 @@ then
     AS_choices=$2
 else
 #AS_choices='1239' # 3356 2914' #sprint#Level 3, Verio, Sprintlink
-    AS_choices='3356' 
+    AS_choices='3356 1239'
 #6461' # 1755 3967' #smaller ones
 fi
 
@@ -76,13 +76,13 @@ then
     
 fi
 
-fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6-0.7-0.8"'
+fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6-0.7"'
 disasters[1755]='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
 disasters[3967]='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
 disasters[6461]='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
-disasters[3356]='"New_York,_NY"' #-Miami,_FL-Los_Angeles,_CA"'
+disasters[3356]='"New_York,_NY-Los_Angeles,_CA"' #Miami,_FL-
 disasters[2914]='"New_York,_NY-New_Orleans,_LA-Irvine,_CA"'
-disasters[1239]='"New_York,_NY"' #Washington,_DC-Dallas,_TX"'
+disasters[1239]='"New_York,_NY-Dallas,_TX"' #Washington,_DC
 heuristics='"1-2"' # random, orthogonal network path
 
 for AS in $AS_choices;

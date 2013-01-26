@@ -52,20 +52,22 @@ def ParseArgs():
 
     # Graph types to build
     parser.add_argument('--time', '-t', action='store_true',
-                        help='show graph of total ACKs received over time')
+                        help='show graph of cumulative ACKs received over time')
 
     parser.add_argument('--congestion', '-c', action='store_true',
                         help='graph number of packets sent for each group')
 
     parser.add_argument('--improvement', '-i', action='store_true',
                         help='graph percent improvement over not using an overlay for each file or group')
-    parser.add_argument('--utility', '-u',# nargs='?', const='fprob',
-                        help='''Graph the computed utility metric value of each group vs. failure probabilitythe (optionally) specified x-axis argument (default=%(default)s).
-Current options are:
-  fprob''')
+
+    parser.add_argument('--utility', '-u', action='store_true',# nargs='?', const='fprob',
+                        help='''Graph the computed utility metric value of each group vs. failure probability''')
+    ''' the (optionally) specified x-axis argument (default=%(default)s).
+    Current options are:
+    fprob'''
 
 
-    # Graph output modifiers
+    # Graph parameters
     parser.add_argument('--average', '-a', action='store_true',
                         help='average together all files or groups instead of comparing them \
     (files within a group are always averaged unless --separate is specified) \
@@ -77,6 +79,11 @@ CURRENTLY NOT IMPLEMENTED*')
     parser.add_argument('--resolution', type=float,
                         help='Time resolution (in seconds) for time-based graphs.')
 
+    parser.add_argument('--non_ron', '-nr', action='store_true',
+                        help='''Add line to show the non-RON (regular network) case where appropriate in graphs.''')
+
+
+    # Graph output modifiers
     parser.add_argument('--no_save', '-ns', action='store_true',
                         help='Don\'t save the graphs automatically.')
 
@@ -598,9 +605,29 @@ if __name__ == '__main__':
     nextTitleIdx = 0
 
     if args.time:
+        '''Cumulative number of ACKs at each time step'''
         markers = 'x.*+do^s1_|'
         for i,g in enumerate(traceGroups):
             plt.plot(*cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes())), label=g.name, marker=markers[i%len(markers)])
+
+        # If requested, plot the ACKs for the non-RON case, which is just a horizontal line of the number of direct ACKs
+        if args.non_ron:
+            #Assume they all have same fprob
+            #TODO: don't
+            
+            # Average all the groups' nDirectAcks (after normalizing them) and plot that
+            nDirectAcks = 0
+            for g in traceGroups:
+                nDirectAcks += g.getNDirectAcks()/g.getNNodes()
+
+            nDirectAcks = nDirectAcks/float(len(traceGroups))
+
+            #max_x=max([max(g.getAckTimes()[0]) for g in traceGroups])
+            #TODO: figure out why xmax/xmin don't work...
+            #plt.axhline(y=nDirectAcks, 
+            ackTimes = traceGroups[0].getAckTimes()[0]
+            plt.plot(ackTimes, [nDirectAcks]*len(ackTimes), label='without RON', marker=markers[len(traceGroups)%len(markers)], color='r')
+
         try:
             plt.title(" ".join(((args.prepend_title[nextTitleIdx if len(args.prepend_title) > 1 else 0]
                                  if args.prepend_title else ''),
@@ -613,9 +640,9 @@ if __name__ == '__main__':
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
         nextTitleIdx += 1
-        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
+        plt.xlabel("Time (seconds)") # (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Normalized Count")
-        plt.legend()
+        plt.legend(loc=4) #set legend location to bottom right
         adjustXAxis(plt)
         #ax.Axes.autoscale_view() #need instance
 
@@ -687,6 +714,7 @@ if __name__ == '__main__':
             plt.show()
 
     if args.congestion:
+        '''Number of connections attempted at each time step'''
         markers = 'x.*+do^s1_|'
         for i,g in enumerate(traceGroups):
             plt.plot(*normalizedTimes(g.getNNodes(), g.getSendTimes()), label=g.name, marker=markers[i%len(markers)])
@@ -701,7 +729,7 @@ if __name__ == '__main__':
             print "You must specify the same number of titles, prepend_titles, and append_titles, or else give "\
                 "just 1 to apply to all plots (not all args must be specified, just make sure the ones you use match up)."
             exit(2)
-        plt.xlabel("Time (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
+        plt.xlabel("Time (seconds)") #resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
         plt.ylabel("Normalized Count")
         plt.legend()
         adjustXAxis(plt)
@@ -710,6 +738,7 @@ if __name__ == '__main__':
             plt.show()
 
     if args.improvement:
+        '''Bar graph of improvement over non-RON'''
         colors = 'rgbycmkw'
         for i,g in enumerate(traceGroups):
             plt.bar(i, percentImprovement(g.getNAcks(), g.getNDirectAcks()), label=g.name, color=colors[i % len(colors)])
