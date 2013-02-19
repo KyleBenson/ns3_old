@@ -13,8 +13,13 @@ from os import system
 default_runs=100
 default_start=0 # num to start run IDs on
 default_nprocs=8
-default_as_choices=['3356',
-                    '1239'
+default_as_choices=['3356', #level3
+                    '1239', #sprintlink
+                    #'2914', #verio
+                    #smaller ones
+                    #'6461',
+                    #'1755',
+                    #'3967',
                     ]
 default_heuristics=['1',
                     '2'
@@ -26,14 +31,15 @@ default_fprobs=["0.1",
                 "0.5",
                 "0.6"
                 ]
-disasters = {}
-disasters['1755']='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
-disasters['3967']='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
-disasters['6461']='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
-disasters['3356']='"New_York,_NY-Los_Angeles,_CA"' #Miami,_FL-
-disasters['2914']='"New_York,_NY-New_Orleans,_LA-Irvine,_CA"'
-disasters['1239']='"New_York,_NY-Dallas,_TX"' #Washington,_DC
+default_disasters = {}
+default_disasters['1755']='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
+default_disasters['3967']='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
+default_disasters['6461']='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
+default_disasters['3356']='"New_York,_NY-Los_Angeles,_CA"' #Miami,_FL-
+default_disasters['2914']='"New_York,_NY-New_Orleans,_LA-Irvine,_CA"'
+default_disasters['1239']='"New_York,_NY-Dallas,_TX"' #Washington,_DC
 default_verbosity_level=1
+
 def parse_args(args):
 ## DEFAULTS
 ##################################################################################
@@ -53,7 +59,7 @@ def parse_args(args):
     # Simulation parameters
     parser.add_argument('--as', nargs='+', default=default_as_choices,
                         help='''choose the AS topologies for the simulations''',dest='topologies')
-    parser.add_argument('--disasters', type=str, nargs='*',
+    parser.add_argument('--disasters', type=str, nargs='*', default=default_disasters,
                         help='''disaster locations to apply to ALL AS choices (cities currently) (default depends on AS)''')
     parser.add_argument('--fprobs', '-f', type=str, nargs='*',
                         default=default_fprobs,
@@ -83,17 +89,33 @@ def parse_args(args):
                         help='''print the system command to be executed then exit''')
     parser.add_argument('--test', '-t', action="store_true",
                         help='''simulator will only run once in a single process, then exit''')
+    parser.add_argument('--no-email', '-ne', action="store_true", dest='no_email',
+                        help='''simulator will only run once in a single process, then exit''')
 
     args = parser.parse_args(args)
     return args
 
 def makecmds(args):
     if args.test:
-        args.runs = 1
-        args.nprocs = 1
-        args.heuristics = args.heuristics[0]
-        args.topologies = args.topologies[0]
-        args.fprobs = args.fprobs[0]
+        if args.verbose is None:
+            args.verbose = default_verbosity_level
+        if args.runs == default_runs:
+            args.runs = 1
+        if args.nprocs == default_nprocs:
+            args.nprocs = 1
+        if args.heuristics == default_heuristics:
+            args.heuristics = args.heuristics[:1]
+        #args.topologies = args.topologies[:1]
+        if args.topologies == default_as_choices:
+            args.topologies = ['1755'] #small topology
+            if args.disasters == default_disasters:
+                print('blah')
+                args.disasters = ['Milan,_Italy'] #only 9 nodes
+        if args.fprobs == default_fprobs:
+            args.fprobs = args.fprobs[:1]
+
+    if args.show_cmd:
+        args.verbose = default_verbosity_level
 
     # convert commands to pass to geocron-simulator
     fprobs = '"%s"' % '-'.join(args.fprobs)
@@ -102,7 +124,7 @@ def makecmds(args):
     # determine # procs for each topology
     procs_per_topology = 1
     remainder_procs_per_topology = 0
-    if args.nprocs < len(args.topologies):
+    if args.nprocs < len(args.topologies) and not (args.debug):
         print("WARNING: more topology files specified than number of processes to be run. "
               "Exit and re-run with correct parameters to avoid creating too many processes")
     else:
@@ -134,9 +156,15 @@ def makecmds(args):
                 cmd += "gdb --args "
             cmd += r'%s '
 
+            # individual parameters
+            if args.disasters != default_disasters:
+                disasters = ('"%s"' % '-'.join(args.disasters))
+            else:
+                disasters = default_disasters[topology]
+            cmd += '--disaster=%s ' % disasters
+
             cmd += '--fail_prob=%s ' % fprobs
             cmd += '--file=rocketfuel/maps/%s.cch ' % topology
-            cmd += '--disaster=%s ' % (args.disasters if args.disasters else disasters[topology])
             cmd += '--runs=%i ' % nruns
             cmd += '--start_run=%i ' % startnum
             cmd += '--heuristic=%s ' % heuristics
@@ -168,17 +196,18 @@ if __name__ == "__main__":
     children = []
     for cmd in makecmds(args):
     
-        if args.show_cmd or args.verbose or args.test:
+        if args.verbose:
             print(cmd)
         if args.show_cmd:
             exit(0)
 
-        children.append(subprocess.Popen(cmd))
+        children.append(subprocess.Popen(cmd, shell=True))
         
     def __sigint_handler(sig, frame):
         '''Called when user presses Ctrl-C to kill whole process.  Kills all children.'''
         for c in children:
-            c.termintate()
+            c.terminate()
+        #subprocess.call('pkill ron') #seems to not need this currently?
         exit(1)
 
     signal.signal(signal.SIGINT, __sigint_handler)
@@ -187,4 +216,6 @@ if __name__ == "__main__":
     for c in children:
         c.wait()
 
-    #TODO: email when finished
+    if not args.no_email:
+        subprocess.call('ssmtp kyle.edward.benson@gmail.com < done_sims.email', shell=True)
+        #TODO: add stuff to email: time, 
