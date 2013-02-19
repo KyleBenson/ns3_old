@@ -2,7 +2,7 @@
 
 # config vars
 verbosity_level=1
-runs=100
+runs=500
 start=0 # which run number to start on
 nprocs=8
 
@@ -40,7 +40,7 @@ then
     AS_choices=$2
 else
 #AS_choices='1239' # 3356 2914' #sprint#Level 3, Verio, Sprintlink
-    AS_choices='3356 1239'
+    AS_choices='3356' # 1239
 #6461' # 1755 3967' #smaller ones
 fi
 
@@ -48,8 +48,12 @@ fi
 
 ## Set trap for Ctrl-C to kill all processes
 function kill_children {
+    # we just have to do this line for now...
+    pkill ron
+
     for pid in $pids
     do
+	echo "killing $pid..."
 	kill -9 $pid
     done
     echo "exiting..."
@@ -76,14 +80,17 @@ then
     
 fi
 
-fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6-0.7"'
+fail_probs='"0.5-0.4-0.3-0.2-0.1-0.0"'
+#fail_probs='"0.1-0.2-0.3-0.4-0.5-0.6-0.7"'
+#fail_probs='"0.9-0.8-0.0"' #for testing IID-ness of sims
 disasters[1755]='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
 disasters[3967]='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
 disasters[6461]='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
-disasters[3356]='"New_York,_NY-Los_Angeles,_CA"' #Miami,_FL-
+disasters[3356]='"Los_Angeles,_CA-New_York,_NY"' #Miami,_FL-
+#disasters[3356]='"Miami,_FL-New_York,_NY-"'
 disasters[2914]='"New_York,_NY-New_Orleans,_LA-Irvine,_CA"'
 disasters[1239]='"New_York,_NY-Dallas,_TX"' #Washington,_DC
-heuristics='"1-2"' # random, orthogonal network path
+heuristics='"2-1"' # random, orthogonal network path
 
 for AS in $AS_choices;
 do
@@ -165,12 +172,24 @@ done
 ## Done spawning processes
 # wait for them to complete
 # if they are there
+date > waiting-pids.time
 if [ $parallel ]
 then
+    ## TODO: fix this, it doesn't work!!!!!!!!!!!!!!!!!!!!
+    ## First, we need to add the PIDs of the actual programs (we only got the bash scripts)
+    #NAME=`basename "${BASH_SOURCE[0]}"`/build/scratch/ron/ron
+    NEW_PIDS=`ps -o pid -C ron | tail -n +2`
+
+    for pid in $NEW_PIDS
+    do
+	pids="$pids $pid"
+    done
+
     for pid in $pids
     do
 	wait $pid
     done
 fi
 
-date '+%s' > done-waiting-pids.blah
+date > done-waiting-pids.time
+ssmtp kyle.edward.benson@gmail.com < done_sims.email

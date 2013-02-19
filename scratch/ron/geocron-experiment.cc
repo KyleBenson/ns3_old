@@ -495,23 +495,25 @@ GeocronExperiment::Run ()
   ////////////////////////////////////////////////////////////////////////////////
   //////////      Update client apps with new params                  ////////////
    ////////////////////////////////////////////////////////////////////////////////
-
+  int nReportingNodes = 0;
   for (ApplicationContainer::Iterator app = clientApps.Begin ();
        app != clientApps.End (); app++)
     {
       Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
 
-      //TODO: different heuristics
-      Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
-      // Must set heuristic first so that source will be set and heuristic can make its heap
-      ronClient->SetHeuristic (heuristic);
-      heuristic->SetPeerTable (overlayPeers);
-      ronClient->SetRemotePeer (serverPeer);
-
       if (!IsDisasterNode ((*app)->GetNode ())) //report_disaster && 
         ronClient->SetAttribute ("MaxPackets", UintegerValue (0));
       else
-        ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
+        {
+          //TODO: different heuristics
+          Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
+          // Must set heuristic first so that source will be set and heuristic can make its heap
+          ronClient->SetHeuristic (heuristic);
+          ronClient->SetRemotePeer (serverPeer);
+          heuristic->SetPeerTable (overlayPeers);
+          ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
+          nReportingNodes++;
+        }
     }
 
   clientApps.Start (Seconds (2.0));
@@ -555,6 +557,7 @@ GeocronExperiment::Run ()
                  << nodes.GetN () << " total nodes" << std::endl
                  << overlayPeers->GetN () << " total overlay nodes" << std::endl
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
+                 << nReportingNodes << " overlay nodes in " << currLocation << std::endl
                  << std::endl << "Failure probability: " << currFprob << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
                  << ifacesToKill.GetN () / 2 << " links failed");

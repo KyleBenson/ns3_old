@@ -608,7 +608,8 @@ if __name__ == '__main__':
         '''Cumulative number of ACKs at each time step'''
         markers = 'x.*+do^s1_|'
         for i,g in enumerate(traceGroups):
-            plt.plot(*cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes())), label=g.name, marker=markers[i%len(markers)])
+            #plt.plot(*cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes())), label=g.name, marker=markers[i%len(markers)])
+            plt.plot(*cumulative(g.getAckTimes()), label=g.name, marker=markers[i%len(markers)]) #not normalyized
 
         # If requested, plot the ACKs for the non-RON case, which is just a horizontal line of the number of direct ACKs
         if args.non_ron:
