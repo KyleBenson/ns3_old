@@ -161,7 +161,7 @@ def makecmds(args):
 # Main
 if __name__ == "__main__":
     
-    import sys, subprocess
+    import sys, subprocess, signal
 
     args = parse_args(sys.argv[1:])
 
@@ -174,10 +174,17 @@ if __name__ == "__main__":
             exit(0)
 
         children.append(subprocess.Popen(cmd))
-            
+        
+    def __sigint_handler(sig, frame):
+        '''Called when user presses Ctrl-C to kill whole process.  Kills all children.'''
+        for c in children:
+            c.termintate()
+        exit(1)
+
+    signal.signal(signal.SIGINT, __sigint_handler)
+
     # wait for children
     for c in children:
         c.wait()
 
-    #TODO: trap ctrl-c
     #TODO: email when finished
