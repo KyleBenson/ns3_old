@@ -77,7 +77,9 @@ CURRENTLY NOT IMPLEMENTED*')
                         help='don\'t average together the runs within a directory: put them each in a separate group.')
 
     parser.add_argument('--resolution', type=float,
-                        help='Time resolution (in seconds) for time-based graphs.')
+                        help='Time resolution (in seconds) for time-based graphs. '
+                        'NOTE: Using too fine of a resolution makes the graphs look ugly as the first data point tends'
+                        ' to be VERY small since few nodes get those very early ACKs from a nearby server.')
 
     parser.add_argument('--non_ron', '-nr', action='store_true',
                         help='''Add line to show the non-RON (regular network) case where appropriate in graphs.''')
@@ -223,7 +225,7 @@ class TraceRun:
     DIRECT_ACK_INDEX = 3
     TIME_INDEX = 6
 
-    TIME_RESOLUTION = 0.1 #In seconds
+    TIME_RESOLUTION = 0.01 #In seconds
 
     def __init__(self,filename):
         self.nodes = {}
@@ -608,6 +610,8 @@ if __name__ == '__main__':
         '''Cumulative number of ACKs at each time step'''
         markers = 'x.*+do^s1_|'
         for i,g in enumerate(traceGroups):
+            stuff=cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes()))
+            print "%s is %s" % (g.name, stuff[1])
             plt.plot(*cumulative(normalizedTimes(g.getNNodes(), g.getAckTimes())), label=g.name, marker=markers[i%len(markers)])
             #plt.plot(*cumulative(g.getAckTimes()), label=g.name, marker=markers[i%len(markers)]) #not normalyized
 

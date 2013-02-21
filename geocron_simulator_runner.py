@@ -110,7 +110,6 @@ def makecmds(args):
         if args.topologies == default_as_choices:
             args.topologies = ['1755'] #small topology
             if args.disasters == default_disasters:
-                print('blah')
                 args.disasters = ['Milan,_Italy'] #only 9 nodes
         if args.fprobs is default_fprobs:
             args.fprobs = args.fprobs[:1]
