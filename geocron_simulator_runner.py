@@ -101,9 +101,9 @@ def makecmds(args):
             args.verbose = default_verbosity_level
         if args.runs is default_runs:
             args.runs = 1
-        if args.nprocs == default_nprocs:
+        if args.nprocs is default_nprocs:
             args.nprocs = 1
-        if args.heuristics == default_heuristics:
+        if args.heuristics is default_heuristics:
             args.heuristics = args.heuristics[:1]
         #args.topologies = args.topologies[:1]
         if args.topologies == default_as_choices:
@@ -111,7 +111,7 @@ def makecmds(args):
             if args.disasters == default_disasters:
                 print('blah')
                 args.disasters = ['Milan,_Italy'] #only 9 nodes
-        if args.fprobs == default_fprobs:
+        if args.fprobs is default_fprobs:
             args.fprobs = args.fprobs[:1]
 
     if args.show_cmd:

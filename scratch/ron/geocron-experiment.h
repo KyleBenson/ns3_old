@@ -68,8 +68,8 @@ public:
   uint32_t start_run_number;
 
 private:
-  /** Gets the next server after adding it to the simulation. */
-  Ptr<RonPeerEntry> GetServer ();
+  /** Sets the next server for the simulation. */
+  void SetNextServer ();
   void ApplyFailureModel ();
   void UnapplyFailureModel ();
   bool IsDisasterNode (Ptr<Node> node);
@@ -85,6 +85,7 @@ private:
   NodeContainer nodes;
   ApplicationContainer clientApps;
   Ptr<RonPeerTable> overlayPeers;
+  Ptr<RonPeerEntry> serverPeer;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
   std::map<std::string,Vector> locations;

@@ -304,6 +304,9 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       newClient->SetAttribute ("MaxPackets", UintegerValue (0)); //explicitly enable sensor reporting when disaster area set
       newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper?? or some p2p overlay algorithm? or the table itself? give out a callback function with that nodes peers?
     }
+  
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (appStopTime);
 }
 
 
@@ -389,27 +392,30 @@ GeocronExperiment::AutoSetTraceFile ()
 void
 GeocronExperiment::RunAllScenarios ()
 {
+  SeedManager::SetSeed(std::time (NULL));
   int runSeed = 0;
   for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
        disasterLocation != disasterLocations->end (); disasterLocation++)
     {
-      SetDisasterLocation (*disasterLocation);
+      SetDisasterLocation (*disasterLocation); 
       for (std::vector<double>::iterator fprob = failureProbabilities->begin ();
            fprob != failureProbabilities->end (); fprob++)
         {
           SetFailureProbability (*fprob);
-          for (std::vector<int>::iterator heuristic = heuristics->begin ();
-               heuristic != heuristics->end (); heuristic++)
+          for (currRun = 0; currRun < nruns; currRun++)
             {
-              currHeuristic = (RonPathHeuristic::Heuristic)*heuristic;
-              SeedManager::SetSeed(std::time (NULL));
-
-              for (currRun = 0; currRun < nruns; currRun++)
+              // We want to compare each heuristic to each other for each configuration of failures
+              ApplyFailureModel ();
+              SetNextServer ();
+              for (std::vector<int>::iterator heuristic = heuristics->begin ();
+                   heuristic != heuristics->end (); heuristic++)
                 {
+                  currHeuristic = (RonPathHeuristic::Heuristic)*heuristic;
                   SeedManager::SetRun(runSeed++);
                   AutoSetTraceFile ();
                   Run ();
                 }
+              UnapplyFailureModel ();
             }
         }
     }
@@ -501,11 +507,15 @@ GeocronExperiment::UnapplyFailureModel () {
     {
       UnfailNode (*node, appStopTime);
     }
+
+
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (appStopTime);
 }
 
 
-Ptr<RonPeerEntry>
-GeocronExperiment::GetServer () {
+void
+GeocronExperiment::SetNextServer () {
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates[currLocation].GetN () << " server provider candidates.");
 
   Ptr<Node> serverNode = (serverNodeCandidates[currLocation].GetN () ?
@@ -522,53 +532,39 @@ GeocronExperiment::GetServer () {
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (appStopTime);
 
-  return Create<RonPeerEntry> (serverNode);
+  serverPeer = Create<RonPeerEntry> (serverNode);
 }
 
 
 void
 GeocronExperiment::Run ()
 {
-  Ptr<RonPeerEntry> serverPeer = GetServer();
-
-  NS_LOG_INFO ("Done Installing applications...");
+  // Set some parameters for this run
+  for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
+       nodeItr != disasterNodes[currLocation].end (); nodeItr++)
+    /*  for (ApplicationContainer::Iterator app = disasterNodes[currLocation].Begin ();
+        app != clientApps.End (); app++)*/
+    {
+      for (uint32_t i = 0; i < nodeItr->second->GetNApplications (); i++) {
+        Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
+        //if (ronClient == NULL)
+        //continue;
+        //TODO: different heuristics
+        Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
+        // Must set heuristic first so that source will be set and heuristic can make its heap
+        ronClient->SetHeuristic (heuristic);
+        ronClient->SetRemotePeer (serverPeer);
+        heuristic->SetPeerTable (overlayPeers);
+        ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
+      }
+    }
 
   //NS_LOG_INFO ("Populating routing tables; please be patient it takes a while...");
   //Ipv4GlobalRoutingHelper::PopulateRoutingTables ();
 
   //NS_LOG_INFO ("Done populating routing tables!");
   
-
-  ////////////////////////////////////////////////////////////////////////////////
-  //////////      Update client apps with new params                  ////////////
-  ////////////////////////////////////////////////////////////////////////////////
-  int nReportingNodes = 0;
-  for (ApplicationContainer::Iterator app = clientApps.Begin ();
-       app != clientApps.End (); app++)
-    {
-      Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
-
-      if (!IsDisasterNode ((*app)->GetNode ())) //report_disaster && 
-        ronClient->SetAttribute ("MaxPackets", UintegerValue (0));
-      else
-        {
-          //TODO: different heuristics
-          Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
-          // Must set heuristic first so that source will be set and heuristic can make its heap
-          ronClient->SetHeuristic (heuristic);
-          ronClient->SetRemotePeer (serverPeer);
-          heuristic->SetPeerTable (overlayPeers);
-          ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
-          nReportingNodes++;
-        }
-    }
-
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (appStopTime);  
-
   ConnectAppTraces ();
-
-  ApplyFailureModel();
 
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
@@ -576,7 +572,7 @@ GeocronExperiment::Run ()
                  << nodes.GetN () << " total nodes" << std::endl
                  << overlayPeers->GetN () << " total overlay nodes" << std::endl
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
-                 << nReportingNodes << " overlay nodes in " << currLocation << std::endl
+                 //TODO: get size from table <<  << " overlay nodes in " << currLocation << std::endl
                  << std::endl << "Failure probability: " << currFprob << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
                  << ifacesToKill.GetN () / 2 << " links failed");
@@ -586,8 +582,6 @@ GeocronExperiment::Run ()
   Simulator::Destroy ();
 
   NS_LOG_INFO ("Next simulation run...");
-
-  UnapplyFailureModel ();
 
   //serverNode->GetObject<Ipv4NixVectorRouting> ()->FlushGlobalNixRoutingCache ();
   
