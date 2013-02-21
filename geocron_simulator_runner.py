@@ -97,6 +97,7 @@ def parse_args(args):
 
 def makecmds(args):
     if args.test:
+        args.no_email = True
         if args.verbose is None:
             args.verbose = default_verbosity_level
         if args.runs is default_runs:
