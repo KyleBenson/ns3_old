@@ -99,7 +99,7 @@ def makecmds(args):
     if args.test:
         if args.verbose is None:
             args.verbose = default_verbosity_level
-        if args.runs == default_runs:
+        if args.runs is default_runs:
             args.runs = 1
         if args.nprocs == default_nprocs:
             args.nprocs = 1

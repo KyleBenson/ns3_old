@@ -223,6 +223,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     mobility.Install (both_nodes);
 
     // If the node is in a disaster region, add it to the corresponding list
+    // Also add potential servers (randomly chosen from outside that disaster region)
     for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
          disasterLocation != disasterLocations->end (); disasterLocation++)
       {
@@ -230,10 +231,16 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
           {
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
           }
+        // this check made each time 1 link added, so if the node reaches our min-degree it should be added ONCE
+        else if (from_node->GetNDevices () == maxNDevs + 1)
+          serverNodeCandidates[*disasterLocation].Add (from_node);
+
         if (toLocation == *disasterLocation)
           {
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
           }
+        else if (to_node->GetNDevices () == maxNDevs + 1)
+          serverNodeCandidates[*disasterLocation].Add (to_node);
 
         // Failure model: if either endpoint is in the disaster location,
         // add it to the list of potential ifaces to kill
@@ -245,7 +252,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
             potentialIfacesToKill[*disasterLocation].Add(new_interfaces.Get (1));
           }
       }
-  }
+  } //end link iteration
 
   NS_LOG_INFO ("Topology finished.  Choosing & installing clients.");
 
@@ -255,6 +262,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
        node != nodes.End (); node++)
     {
       // Sanity check that a node has some actual links, otherwise remove it from the simulation
+      // this happened with some disconnected Rocketfuel models and made null pointers
       if ((*node)->GetNDevices () <= 1)
         {
           NS_LOG_INFO ("Node " << (*node)->GetId () << " has no links!");
@@ -269,7 +277,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       if (!maxNDevs or (*node)->GetNDevices () <= maxNDevs) 
         {
           overlayNodes.Add (*node);
-
+          overlayPeers->AddPeer (*node);
           // OLD SILLY HEURISTIC  $$$$//
           // Only add address of overlay if we're contacting local peers and it is one,
           // or if it's outside of the local region
@@ -280,7 +288,6 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
         }
     }
       
-
   RonClientHelper ronClient (Ipv4Address (), 9);
   ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
   ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
@@ -291,19 +298,13 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   for (NodeContainer::Iterator node = overlayNodes.Begin ();
        node != overlayNodes.End (); node++)
     {
-      overlayPeers->AddPeer (*node);
-    }
-
-  for (NodeContainer::Iterator node = overlayNodes.Begin ();
-       node != overlayNodes.End (); node++)
-    {
       ApplicationContainer newApp = ronClient.Install (*node);
       clientApps.Add (newApp);
       Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
-      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper??
+      newClient->SetAttribute ("MaxPackets", UintegerValue (0)); //explicitly enable sensor reporting when disaster area set
+      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper?? or some p2p overlay algorithm? or the table itself? give out a callback function with that nodes peers?
     }
 }
-
 
 
 void
@@ -388,6 +389,7 @@ GeocronExperiment::AutoSetTraceFile ()
 void
 GeocronExperiment::RunAllScenarios ()
 {
+  int runSeed = 0;
   for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
        disasterLocation != disasterLocations->end (); disasterLocation++)
     {
@@ -404,7 +406,7 @@ GeocronExperiment::RunAllScenarios ()
 
               for (currRun = 0; currRun < nruns; currRun++)
                 {
-                  SeedManager::SetRun(currRun);
+                  SeedManager::SetRun(runSeed++);
                   AutoSetTraceFile ();
                   Run ();
                 }
@@ -439,38 +441,76 @@ GeocronExperiment::ConnectAppTraces ()
 }
 
 
+//////////////////////////////////////////////////////////////////////
+/////************************************************************/////
+////////////////        APPLY FAILURE MODEL         //////////////////
+/////************************************************************/////
+//////////////////////////////////////////////////////////////////////
+/**   Fail the links that were chosen with given probability */
 void
-GeocronExperiment::Run ()
-{
-  // choose server //
-  // Random variable for determining if links fail during the disaster
-  UniformVariable random;
-  
-  NS_LOG_INFO ("Choosing server and failed nodes.");
+GeocronExperiment::ApplyFailureModel () {
+  NS_LOG_INFO ("Applying failure model.");
 
-  NodeContainer failNodes;
-  NodeContainer serverNodeCandidates;
-
-  for (NodeContainer::Iterator node = nodes.Begin ();
-       node != nodes.End (); node++)
+  // Keep track of these and unfail them later
+  failNodes = NodeContainer ();
+  for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
+       nodeItr != disasterNodes[currLocation].end (); nodeItr++)
     {
+      Ptr<Node> node = nodeItr->second;
       // Fail nodes within the disaster region with some probability
-      if (random.GetValue () < currFprob and IsDisasterNode (*node))
+      if (random.GetValue () < currFprob)
         {
-          failNodes.Add (*node);
-          NS_LOG_LOGIC ("Node " << (*node)->GetId () << " will fail.");
+          failNodes.Add (node);
+          NS_LOG_LOGIC ("Node " << (node)->GetId () << " will fail.");
         }
-      
-      // We'll randomly choose the server from outside of the disaster region (could be several for nodes to choose from).
-      else if ((*node)->GetNDevices () > maxNDevs and !IsDisasterNode (*node))
-        serverNodeCandidates.Add (*node);
+    }
+  for (NodeContainer::Iterator node = failNodes.Begin ();
+       node != failNodes.End (); node++)
+    {
+      FailNode (*node);
     }
 
-  NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates.GetN () << " server provider candidates.");
+  // Same with these
+  ifacesToKill = Ipv4InterfaceContainer ();
+  for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
+       iface != potentialIfacesToKill[currLocation].End (); iface++)
+    {
+      if (random.GetValue () < currFprob)
+        ifacesToKill.Add (*iface);
+    }
+  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
+       iface != ifacesToKill.End (); iface++)
+    {
+        FailIpv4 (iface->first, iface->second);
+    }
+}
 
-  Ptr<Node> serverNode = (serverNodeCandidates.GetN () ?
-                          serverNodeCandidates.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)) :
-                          nodes.Get (random.GetInteger (0, serverNodeCandidates.GetN () - 1)));
+
+void
+GeocronExperiment::UnapplyFailureModel () {
+  // Unfail the links that were chosen
+  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
+       iface != ifacesToKill.End (); iface++)
+    {
+      UnfailIpv4 (iface->first, iface->second);
+    }
+
+  // Unfail the nodes that were chosen
+  for (NodeContainer::Iterator node = failNodes.Begin ();
+       node != failNodes.End (); node++)
+    {
+      UnfailNode (*node, appStopTime);
+    }
+}
+
+
+Ptr<RonPeerEntry>
+GeocronExperiment::GetServer () {
+  NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates[currLocation].GetN () << " server provider candidates.");
+
+  Ptr<Node> serverNode = (serverNodeCandidates[currLocation].GetN () ?
+                          serverNodeCandidates[currLocation].Get (random.GetInteger (0, serverNodeCandidates[currLocation].GetN () - 1)) :
+                          nodes.Get (random.GetInteger (0, serverNodeCandidates[currLocation].GetN () - 1)));
   Ipv4Address serverAddress = GetNodeAddress (serverNode);
 
   NS_LOG_INFO ("Server is at: " << serverAddress);
@@ -481,8 +521,15 @@ GeocronExperiment::Run ()
   ApplicationContainer serverApps = ronServer.Install (serverNode);
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (appStopTime);
-  
-  Ptr<RonPeerEntry> serverPeer = Create<RonPeerEntry> (serverNode);
+
+  return Create<RonPeerEntry> (serverNode);
+}
+
+
+void
+GeocronExperiment::Run ()
+{
+  Ptr<RonPeerEntry> serverPeer = GetServer();
 
   NS_LOG_INFO ("Done Installing applications...");
 
@@ -494,7 +541,7 @@ GeocronExperiment::Run ()
 
   ////////////////////////////////////////////////////////////////////////////////
   //////////      Update client apps with new params                  ////////////
-   ////////////////////////////////////////////////////////////////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
   int nReportingNodes = 0;
   for (ApplicationContainer::Iterator app = clientApps.Begin ();
        app != clientApps.End (); app++)
@@ -521,35 +568,7 @@ GeocronExperiment::Run ()
 
   ConnectAppTraces ();
 
-
-  //////////////////////////////////////////////////////////////////////
-  /////************************************************************/////
-  ////////////////        APPLY FAILURE MODEL         //////////////////
-  /////************************************************************/////
-  //////////////////////////////////////////////////////////////////////
-
-
-  // Fail the links that were chosen with given probability
-  Ipv4InterfaceContainer ifacesToKill;
-  for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
-       iface != potentialIfacesToKill[currLocation].End (); iface++)
-    {
-      if (random.GetValue () < currFprob)
-        ifacesToKill.Add (*iface);
-    }
-
-  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
-       iface != ifacesToKill.End (); iface++)
-    {
-        FailIpv4 (iface->first, iface->second);
-    }
-
-  // Fail the nodes that were chosen
-  for (NodeContainer::Iterator node = failNodes.Begin ();
-       node != failNodes.End (); node++)
-    {
-      FailNode (*node);
-    }
+  ApplyFailureModel();
 
   // pointToPoint.EnablePcap("rocketfuel-example",router_devices.Get(0),true);
 
@@ -568,20 +587,8 @@ GeocronExperiment::Run ()
 
   NS_LOG_INFO ("Next simulation run...");
 
-  // Unfail the links that were chosen
-  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
-       iface != ifacesToKill.End (); iface++)
-    {
-      UnfailIpv4 (iface->first, iface->second);
-    }
+  UnapplyFailureModel ();
 
-  // Unfail the nodes that were chosen
-  for (NodeContainer::Iterator node = failNodes.Begin ();
-       node != failNodes.End (); node++)
-    {
-      UnfailNode (*node, appStopTime);
-    }
-  
   //serverNode->GetObject<Ipv4NixVectorRouting> ()->FlushGlobalNixRoutingCache ();
   
   // reset apps

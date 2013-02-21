@@ -68,6 +68,10 @@ public:
   uint32_t start_run_number;
 
 private:
+  /** Gets the next server after adding it to the simulation. */
+  Ptr<RonPeerEntry> GetServer ();
+  void ApplyFailureModel ();
+  void UnapplyFailureModel ();
   bool IsDisasterNode (Ptr<Node> node);
   void AutoSetTraceFile ();
 
@@ -88,9 +92,17 @@ private:
   std::string traceFile;
   Time appStopTime;
 
-  // These maps hold nodes and ifaces of interest for the associated disaster region
+  // Random variable for determining if links fail during the disaster
+  UniformVariable random;
+
+  // These maps, indexed by disaster location name, hold nodes and ifaces of interest for the associated disaster region
   std::map<std::string, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
   std::map<std::string, std::map<uint32_t, Ptr <Node> > > disasterNodes;
+  std::map<std::string, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later
+
+  // Keep track of failed nodes/links to unfail them in between runs
+  Ipv4InterfaceContainer ifacesToKill;
+  NodeContainer failNodes;
 };
 } //namespace ns3
 #endif //GEOCRON_EXPERIMENT_H
