@@ -29,16 +29,17 @@ namespace ns3 {
 
 /** This class represents a heuristic for choosing overlay paths.  Derived classes must override the ComparePeers
     function to implement the actual heuristic logic. */
-class RonPathHeuristic : public SimpleRefCount<RonPathHeuristic>
+class RonPathHeuristic : public Object
 {
 public:
+  static TypeId GetTypeId (void);
+
   enum Heuristic
     {
       RANDOM = 0,
       ORTHOGONAL = 1
     };
 
-  static Ptr<RonPathHeuristic> CreateHeuristic (Heuristic heuristic);
   virtual ~RonPathHeuristic ();
 
   RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);

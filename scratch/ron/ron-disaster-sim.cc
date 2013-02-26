@@ -41,7 +41,7 @@ main (int argc, char *argv[])
   std::string fail_prob = "0.3";
   uint32_t maxNDevs = 2; //all nodes have at least a loopback interface device!!!
   bool report_disaster = true;
-  std::string heuristic = "0 1 2";
+  std::string heuristic = "0-1-2";
   std::string filename = "rocketfuel/maps/3356.cch";
   std::string latencyFile = "";
   std::string locationFile = "";

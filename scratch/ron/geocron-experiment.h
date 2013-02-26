@@ -56,7 +56,7 @@ public:
   void NextHeuristic ();
   void NextDisasterLocation ();
   void NextFailureProbability ();
-  std::vector<int> * heuristics;
+  std::vector<Ptr<ObjectFactory> > * heuristics;
   std::vector<std::string> * disasterLocations;
   std::vector<double> * failureProbabilities;
   //TODO: timeouts, max retries, etc.
@@ -75,7 +75,8 @@ private:
   bool IsDisasterNode (Ptr<Node> node);
   void AutoSetTraceFile ();
 
-  RonPathHeuristic::Heuristic currHeuristic;
+  /** A factory to generate the current heuristic */
+  Ptr<ObjectFactory> currHeuristic;
   std::string currLocation;
   double currFprob;
   uint32_t currRun; //keep at 32 as it's used as a string later

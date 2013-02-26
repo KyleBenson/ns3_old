@@ -30,7 +30,6 @@ GeocronExperiment::GeocronExperiment ()
   simulationLength = Seconds (10.0);
   overlayPeers = Create<RonPeerTable> ();
 
-  currHeuristic = (RonPathHeuristic::Heuristic)0;
   currLocation = "";
   currFprob = 0.0;
   currRun = 0;
@@ -407,10 +406,9 @@ GeocronExperiment::RunAllScenarios ()
               // We want to compare each heuristic to each other for each configuration of failures
               ApplyFailureModel ();
               SetNextServer ();
-              for (std::vector<int>::iterator heuristic = heuristics->begin ();
-                   heuristic != heuristics->end (); heuristic++)
+              for (int h = 0; h < heuristics.size (); h++)
                 {
-                  currHeuristic = (RonPathHeuristic::Heuristic)*heuristic;
+                  currHeuristic = heuristics.at (h);
                   SeedManager::SetRun(runSeed++);
                   AutoSetTraceFile ();
                   Run ();
@@ -550,7 +548,7 @@ GeocronExperiment::Run ()
         //if (ronClient == NULL)
         //continue;
         //TODO: different heuristics
-        Ptr<RonPathHeuristic> heuristic = RonPathHeuristic::CreateHeuristic (currHeuristic);
+        Ptr<RonPathHeuristic> heuristic = currHeuristic.Create ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
         ronClient->SetHeuristic (heuristic);
         ronClient->SetRemotePeer (serverPeer);

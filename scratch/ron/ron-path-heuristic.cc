@@ -100,17 +100,15 @@ OrthogonalRonPathHeuristic::ComparePeers (Ptr<RonPeerEntry> destination, RonPeer
 ////////////////////////////////////////////////////////////////////////////////
 
 
-
-Ptr<RonPathHeuristic>
-RonPathHeuristic::CreateHeuristic (Heuristic heuristic)
+TypeId
+RonPathHeuristic::GetTypeId (void)
 {
-  switch (heuristic)
-    {
-    case ORTHOGONAL:
-      return Create<OrthogonalRonPathHeuristic> ();
-    default: //RANDOM
-      return Create<RandomRonPathHeuristic> ();
-    };
+  static TypeId tid = TypeId ("ns3::RonPathHeuristic")
+    .SetParent<Object> ()
+    .SetGroupName ("RonPathHeuristics")
+    //.AddConstructor<RonServer> ()
+  ;
+  return tid;
 }
 
 
