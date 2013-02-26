@@ -1,0 +1,4 @@
+build
+ns3
+*.pyc
+*.o
