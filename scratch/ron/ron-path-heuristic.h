@@ -34,12 +34,6 @@ class RonPathHeuristic : public Object
 public:
   static TypeId GetTypeId (void);
 
-  enum Heuristic
-    {
-      RANDOM = 0,
-      ORTHOGONAL = 1
-    };
-
   virtual ~RonPathHeuristic ();
 
   RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
@@ -47,6 +41,9 @@ public:
   void SetPeerTable (Ptr<RonPeerTable> table);
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
   Ptr<RonPeerEntry> GetSourcePeer ();
+
+  virtual std::string GetSummaryName ();
+  virtual void SetSummaryName (std::string newSummary);
 
   class NoValidPeerException : public std::exception
   {
@@ -62,6 +59,7 @@ protected:
   Ptr<RonPeerTable> peers;
   UniformVariable random; //for random decisions
   Ptr<RonPeerEntry> m_source;
+  std::string m_summaryName;
 
   /** Returns true if peer1 has 'higher priority' than peer2, false otherwise.*/
   virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;

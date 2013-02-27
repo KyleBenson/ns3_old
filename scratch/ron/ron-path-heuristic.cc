@@ -95,6 +95,17 @@ OrthogonalRonPathHeuristic::ComparePeers (Ptr<RonPeerEntry> destination, RonPeer
 }
 
 
+TypeId
+RandomRonPathHeuristic::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::RandomRonPathHeuristic")
+    .SetParent<RonPathHeuristic> ()
+    .SetGroupName ("RonPathHeuristics")
+    ;
+  return tid;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //////////$$$$$$$$$$     Class definitions         $$$$$$$$$$///////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +116,10 @@ RonPathHeuristic::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RonPathHeuristic")
     .SetParent<Object> ()
-    .SetGroupName ("RonPathHeuristics")
+    .AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
+                   StringValue ("base"),
+                   MakeStringAccessor (&RonPathHeuristic::SetSummaryName, &RonPathHeuristic::GetSummaryName),
+                   MakeStringChecker<std::string> ())
     //.AddConstructor<RonServer> ()
   ;
   return tid;
@@ -163,6 +177,20 @@ Ptr<RonPeerEntry>
 RonPathHeuristic::GetSourcePeer ()
 {
   return m_source;
+}
+
+
+std::string
+RonPathHeuristic::GetSummaryName ()
+{
+  return summaryName;
+}
+
+
+void
+RonPathHeuristic::SetSummaryName (std::string newSummary)
+{
+  summaryName = newSummary;
 }
 
 

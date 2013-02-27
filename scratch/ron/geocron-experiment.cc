@@ -49,7 +49,6 @@ GeocronExperiment::SetTimeout (Time newTimeout)
 void
 GeocronExperiment::NextHeuristic ()
 {
-  return;
   //heuristicIdx++;
 }
 
@@ -347,21 +346,19 @@ GeocronExperiment::AutoSetTraceFile ()
   newTraceFile /= boost::filesystem::path(topologyFile).stem ();
   newTraceFile /= boost::algorithm::replace_all_copy (currLocation, " ", "_");
 
+  // round the fprob to 1 decimal place
   std::ostringstream fprob;
   std::setprecision (1);
   fprob << currFprob;
   newTraceFile /= fprob.str ();
   //newTraceFile /= boost::lexical_cast<std::string> (currFprob);
-  //newTraceFile /=  (currHeuristic);
-  switch (currHeuristic)
-    {
-    case RonPathHeuristic::ORTHOGONAL:
-      newTraceFile /= "orthogonal";
-      break;
-    default:
-      //case RonPathHeuristic::RANDOM:
-      newTraceFile /= ("random");
-    }
+
+  // extract unique filename from heuristic to summarize parameters, aggregations, etc.
+  TypeId::AttributeInformation info;
+  NS_ASSERT (currHeuristic->GetTypeId ().LookupAttributeByName ("SummaryName", info));
+  StringValue summary;
+  info.checker->Check (summary);
+  newTraceFile /= summary.Get ();
 
   // set output number if start_run_number is specified
   uint32_t outnum = currRun;

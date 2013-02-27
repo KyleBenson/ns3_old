@@ -97,6 +97,24 @@ main (int argc, char *argv[])
       disasterLocations->push_back (correctedToken);
     }
 
+  // keep a map of nicknames to TypeIds
+  std::map<std::string, TypeId> heuristicMap;
+
+  /* Here we need to find all of the available RonPathHeuristic derived classes.
+     ns-3's TypeId system makes this easier to do. */
+  TypeId rph = RonPathHeuristic::GetTypeId ();
+  for (int i = 0; i < TypeId::GetRegisteredN (); i++)
+    {
+      TypeId tid = TypeId::GetRegistered (i);
+      if (tid.IsChildOf (rph))
+        {
+          //get short name from typeid
+          
+          heuristicMap[shortName] = tid;
+        }
+    }
+
+  // create factories for the heuristics requested by args
   std::vector<int> * heuristics = new std::vector<int> ();
   tokens = tokenizer(heuristic, sep);
   for (tokenizer::iterator tokIter = tokens.begin();
