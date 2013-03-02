@@ -571,6 +571,21 @@ TypeId::SetAttributeInitialValue(uint32_t i,
   return true;
 }
 
+bool
+TypeId::SetAttributeInitialValue(std::string attributeName,
+                                 Ptr<const AttributeValue> initialValue)
+{
+  for (uint32_t j = 0; j < GetAttributeN (); j++)
+    {
+      struct TypeId::AttributeInformation tmp = GetAttribute(j);
+      if (tmp.name == attributeName)
+        {
+          return SetAttributeInitialValue (j, initialValue);
+        }
+    }
+  return false;
+}
+
 
 Callback<ObjectBase *> 
 TypeId::GetConstructor (void) const
