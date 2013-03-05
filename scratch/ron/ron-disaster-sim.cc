@@ -102,25 +102,35 @@ main (int argc, char *argv[])
 
   /* Here we need to find all of the available RonPathHeuristic derived classes.
      ns-3's TypeId system makes this easier to do. */
-  TypeId rph = RonPathHeuristic::GetTypeId ();
-  for (int i = 0; i < TypeId::GetRegisteredN (); i++)
+  for (uint32_t i = 0; i < TypeId::GetRegisteredN (); i++)
     {
       TypeId tid = TypeId::GetRegistered (i);
-      if (tid.IsChildOf (rph))
+      if (!tid.GetGroupName ().compare ("RonPathHeuristics"))
+      //if (tid.IsChildOf (RonPathHeuristic::GetTypeId ()))
         {
           //get short name from typeid
-          
-          heuristicMap[shortName] = tid;
+          TypeId::AttributeInformation info;
+          NS_ASSERT (tid.LookupAttributeByName ("ShortName", &info));
+          StringValue name = *(DynamicCast<const StringValue> (info.initialValue));
+          //info.checker->Check (name);
+          heuristicMap[(std::string)name.Get ()] = tid;
+          std::cout << name.Get() <<std::endl; 
         }
     }
 
   // create factories for the heuristics requested by args
-  std::vector<int> * heuristics = new std::vector<int> ();
+  std::vector<ObjectFactory*> * heuristics = new std::vector<ObjectFactory*> ();
   tokens = tokenizer(heuristic, sep);
   for (tokenizer::iterator tokIter = tokens.begin();
        tokIter != tokens.end(); ++tokIter)
     {
-      heuristics->push_back (boost::lexical_cast<int> (*tokIter));
+      std::cout << *tokIter <<std::endl; 
+      if (heuristicMap.count ((std::string)(*tokIter)))
+        {
+          ObjectFactory * fact = new ObjectFactory ();
+          fact->SetTypeId (heuristicMap[*tokIter]);
+          heuristics->push_back (fact);
+        }
     }
 
   ////////////////////////////////////////////////////////////////////////////////

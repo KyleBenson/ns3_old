@@ -42,9 +42,6 @@ public:
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
   Ptr<RonPeerEntry> GetSourcePeer ();
 
-  virtual std::string GetSummaryName ();
-  virtual void SetSummaryName (std::string newSummary);
-
   class NoValidPeerException : public std::exception
   {
   public:
@@ -60,6 +57,7 @@ protected:
   UniformVariable random; //for random decisions
   Ptr<RonPeerEntry> m_source;
   std::string m_summaryName;
+  std::string m_shortName;
 
   /** Returns true if peer1 has 'higher priority' than peer2, false otherwise.*/
   virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;
@@ -71,12 +69,20 @@ private:
 
 class RandomRonPathHeuristic : public RonPathHeuristic
 {
+public:
+  RandomRonPathHeuristic ();
+  static TypeId GetTypeId (void);
+private:
   virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
 };
 
 
 class OrthogonalRonPathHeuristic : public RonPathHeuristic
 {
+public:
+  OrthogonalRonPathHeuristic ();
+  static TypeId GetTypeId (void);
+private:
   virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
 };
 

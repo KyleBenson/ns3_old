@@ -37,7 +37,7 @@ public:
   RonPeerEntry (Ptr<Node> node);
   
   //Ron Attributes
-  int id;
+  uint32_t id;
   Ipv4Address address;
   Ptr<Node> node;
   Time lastContact;

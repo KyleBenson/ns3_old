@@ -95,36 +95,91 @@ OrthogonalRonPathHeuristic::ComparePeers (Ptr<RonPeerEntry> destination, RonPeer
 }
 
 
-TypeId
-RandomRonPathHeuristic::GetTypeId (void)
-{
-  static TypeId tid = TypeId ("ns3::RandomRonPathHeuristic")
-    .SetParent<RonPathHeuristic> ()
-    .SetGroupName ("RonPathHeuristics")
-    ;
-  return tid;
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //////////$$$$$$$$$$     Class definitions         $$$$$$$$$$///////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+NS_OBJECT_ENSURE_REGISTERED (RonPathHeuristic);
 
 TypeId
 RonPathHeuristic::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RonPathHeuristic")
     .SetParent<Object> ()
-    .AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
+    /*.AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
                    StringValue ("base"),
-                   MakeStringAccessor (&RonPathHeuristic::SetSummaryName, &RonPathHeuristic::GetSummaryName),
-                   MakeStringChecker<std::string> ())
-    //.AddConstructor<RonServer> ()
+                   MakeStringAccessor (&RonPathHeuristic::m_summaryName),
+                   MakeStringChecker ())
+    .AddAttribute ("ShortName", "Short name that only captures the name of the heuristic",
+                   StringValue ("base"),
+                   MakeStringAccessor (&RonPathHeuristic::m_shortName),
+                   MakeStringChecker ())*/
   ;
   return tid;
 }
+///############
+NS_OBJECT_ENSURE_REGISTERED (OrthogonalRonPathHeuristic);
 
+OrthogonalRonPathHeuristic::OrthogonalRonPathHeuristic ()
+{
+  //todo
+}
+
+
+TypeId
+OrthogonalRonPathHeuristic::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::OrthogonalRonPathHeuristic")
+    .AddConstructor<OrthogonalRonPathHeuristic> ()
+    .SetParent<RonPathHeuristic> ()
+    .SetGroupName ("RonPathHeuristics")
+    .AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
+                   StringValue ("ortho"),
+                   MakeStringAccessor (&OrthogonalRonPathHeuristic::m_summaryName),
+                   MakeStringChecker ())
+    .AddAttribute ("ShortName", "Short name that only captures the name of the heuristic",
+                   StringValue ("ortho"),
+                   MakeStringAccessor (&OrthogonalRonPathHeuristic::m_shortName),
+                   MakeStringChecker ())
+    ;
+  //tid.SetAttributeInitialValue ("ShortName", Create<StringValue> ("ortho"));
+  //tid.SetAttributeInitialValue ("SummaryName", Create<StringValue> ("ortho"));
+
+  return tid;
+}
+
+NS_OBJECT_ENSURE_REGISTERED (RandomRonPathHeuristic);
+
+RandomRonPathHeuristic::RandomRonPathHeuristic ()
+{
+  //todo
+}
+
+
+TypeId
+RandomRonPathHeuristic::GetTypeId (void)
+{
+  static TypeId tid = TypeId ("ns3::RandomRonPathHeuristic")
+    .AddConstructor<RandomRonPathHeuristic> ()
+    .SetParent<RonPathHeuristic> ()
+    .SetGroupName ("RonPathHeuristics")
+    .AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
+                   StringValue ("rand"),
+                   MakeStringAccessor (&RandomRonPathHeuristic::m_summaryName),
+                   MakeStringChecker ())
+    .AddAttribute ("ShortName", "Short name that only captures the name of the heuristic",
+                   StringValue ("rand"),
+                   MakeStringAccessor (&RandomRonPathHeuristic::m_shortName),
+                   MakeStringChecker ())
+    ;
+
+  //NS_ASSERT (tid.SetAttributeInitialValue ("ShortName", Create<StringValue> ("rand")));
+  //tid.SetAttributeInitialValue ("SummaryName", Create<StringValue> ("rand"));
+
+  return tid;
+}
+
+///############
 
 RonPathHeuristic::~RonPathHeuristic ()
 {} //required to keep gcc from complaining
@@ -180,20 +235,6 @@ RonPathHeuristic::GetSourcePeer ()
 }
 
 
-std::string
-RonPathHeuristic::GetSummaryName ()
-{
-  return summaryName;
-}
-
-
-void
-RonPathHeuristic::SetSummaryName (std::string newSummary)
-{
-  summaryName = newSummary;
-}
-
-
 boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)>
 //void *
 RonPathHeuristic::GetPeerComparator (Ptr<RonPeerEntry> destination /* = NULL*/)
@@ -205,6 +246,7 @@ RonPathHeuristic::GetPeerComparator (Ptr<RonPeerEntry> destination /* = NULL*/)
 bool
 RonPathHeuristic::SameRegion (RonPeerEntry peer1, RonPeerEntry peer2)
 {
+  //TODO: actually define regions to be more than a coordinate
   Vector3D loc1 = peer1.location;
   Vector3D loc2 = peer2.location;
   return loc1.x == loc2.x and loc1.y == loc2.y;

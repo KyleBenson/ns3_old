@@ -21,8 +21,8 @@ default_as_choices=['3356', #level3
                     #'1755',
                     #'3967',
                     ]
-default_heuristics=['1',
-                    '2'
+default_heuristics=['rand',
+                    'ortho'
                     ]
 default_fprobs=["0.1",
                 "0.2",
@@ -71,7 +71,7 @@ def parse_args(args):
     parser.add_argument('--runs', '-r', nargs='?',default=default_runs, type=int,
                         help='''number of times to run simulation for each set of parameters (default=%(default)s)''')
     parser.add_argument('--nprocs', '-n', nargs='?', action='store', type=int,
-                        const=default_nprocs, default=1,
+                        const=1, default=default_nprocs,
                         help='''number of parallel ns-3 instances to run  (default=%(default)s if flag unspecified, %(const)s if flag specified)''')
     parser.add_argument('--start', '-s', type=int, action='store',
                         default=default_start,
@@ -130,6 +130,8 @@ def makecmds(args):
     else:
         procs_per_topology = args.nprocs/len(args.topologies)
         remainder_procs_per_topology = args.nprocs % len(args.topologies)
+        if args.verbose:
+            print("Running %i procs for each of %i topologies" % (procs_per_topology, len(args.topologies)))
 
     # build a command for each proc, or each topology if its more
     for topology in args.topologies:

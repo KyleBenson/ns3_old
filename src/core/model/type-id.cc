@@ -578,6 +578,7 @@ TypeId::SetAttributeInitialValue(std::string attributeName,
   for (uint32_t j = 0; j < GetAttributeN (); j++)
     {
       struct TypeId::AttributeInformation tmp = GetAttribute(j);
+      std::cout << tmp.name<<std::endl;
       if (tmp.name == attributeName)
         {
           return SetAttributeInitialValue (j, initialValue);

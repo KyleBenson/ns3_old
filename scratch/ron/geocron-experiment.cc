@@ -355,7 +355,7 @@ GeocronExperiment::AutoSetTraceFile ()
 
   // extract unique filename from heuristic to summarize parameters, aggregations, etc.
   TypeId::AttributeInformation info;
-  NS_ASSERT (currHeuristic->GetTypeId ().LookupAttributeByName ("SummaryName", info));
+  NS_ASSERT (currHeuristic->GetTypeId ().LookupAttributeByName ("SummaryName", &info));
   StringValue summary;
   info.checker->Check (summary);
   newTraceFile /= summary.Get ();
@@ -403,9 +403,9 @@ GeocronExperiment::RunAllScenarios ()
               // We want to compare each heuristic to each other for each configuration of failures
               ApplyFailureModel ();
               SetNextServer ();
-              for (int h = 0; h < heuristics.size (); h++)
+              for (uint32_t h = 0; h < heuristics->size (); h++)
                 {
-                  currHeuristic = heuristics.at (h);
+                  currHeuristic = heuristics->at (h);
                   SeedManager::SetRun(runSeed++);
                   AutoSetTraceFile ();
                   Run ();
@@ -545,7 +545,7 @@ GeocronExperiment::Run ()
         //if (ronClient == NULL)
         //continue;
         //TODO: different heuristics
-        Ptr<RonPathHeuristic> heuristic = currHeuristic.Create ();
+        Ptr<RonPathHeuristic> heuristic = currHeuristic->Create<RonPathHeuristic> ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
         ronClient->SetHeuristic (heuristic);
         ronClient->SetRemotePeer (serverPeer);
