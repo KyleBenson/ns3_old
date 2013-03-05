@@ -41,28 +41,28 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
 int
 RonPeerTable::GetN ()
 {
-  return peers.size ();
+  return m_peers.size ();
 }
 
 
-RonPeerEntry
-RonPeerTable::AddPeer (RonPeerEntry entry)
+Ptr<RonPeerEntry>
+RonPeerTable::AddPeer (Ptr<RonPeerEntry> entry)
 {
-  if (peers.count (entry.id) != 0)
+  if (m_peers.count (entry->id) != 0)
     {
-      RonPeerEntry temp = (*(peers.find (entry.id))).second;
-      peers[entry.id] = entry;
+      Ptr<RonPeerEntry> temp = (*(m_peers.find (entry->id))).second;
+      m_peers[entry->id] = entry;
       return temp;
     }
   else
-    return peers[entry.id] = entry;
+    return m_peers[entry->id] = entry;
 }
 
 
-RonPeerEntry
+Ptr<RonPeerEntry>
 RonPeerTable::AddPeer (Ptr<Node> node)
 {
-  RonPeerEntry newEntry (node);
+  Ptr<RonPeerEntry> newEntry = Create<RonPeerEntry> (node);
   return AddPeer (newEntry);
 }
 
@@ -71,9 +71,9 @@ bool
 RonPeerTable::RemovePeer (int id)
 {
   bool retValue = false;
-  if (peers.count (id))
+  if (m_peers.count (id))
     retValue = true;
-  peers.erase (peers.find (id));
+  m_peers.erase (m_peers.find (id));
   return retValue;
 }
 
@@ -81,8 +81,8 @@ RonPeerTable::RemovePeer (int id)
 Ptr<RonPeerEntry>
 RonPeerTable::GetPeer (int id)
 {
-  if (peers.count (id))
-    return Create<RonPeerEntry> ((*(peers.find (id))).second);
+  if (m_peers.count (id))
+    return  ((*(m_peers.find (id))).second);
   else
     return NULL;
 }
@@ -91,21 +91,21 @@ RonPeerTable::GetPeer (int id)
 bool
 RonPeerTable::IsInTable (int id)
 {
-  return peers.count (id);
+  return m_peers.count (id);
 }
 
 
 bool
 RonPeerTable::IsInTable (Iterator itr)
 {
-  return IsInTable ((*itr).id);
+  return IsInTable ((*itr)->id);
 }
 
 
 RonPeerTable::Iterator
 RonPeerTable::Begin ()
 {
-  return boost::begin (boost::adaptors::values (peers));
+  return boost::begin (boost::adaptors::values (m_peers));
 /*template<typename T1, typename T2> T2& take_second(const std::pair<T1, T2> &a_pair)
 {
   return a_pair.second;
@@ -117,5 +117,5 @@ boost::make_transform_iterator(a_map.begin(), take_second<int, string>),*/
 RonPeerTable::Iterator
 RonPeerTable::End ()
 {
-  return boost::end (boost::adaptors::values (peers));
+  return boost::end (boost::adaptors::values (m_peers));
 }

@@ -59,12 +59,6 @@ public:
   virtual ~RonClient ();
 
   /**
-   * \param ip destination ipv4 address
-   * \param port destination port
-   */
-  void SetRemote (Ipv4Address ip, uint16_t port);
-
-  /**
    * Set the data size of the packet (the number of bytes that are sent as data
    * to the server).  The contents of the data are set to unspecified (don't
    * care) by this call.
@@ -141,7 +135,19 @@ public:
    * \param peers Smart Pointer to the RonPeerTable to be used.
    */
   void SetPeerTable (Ptr<RonPeerTable> peers);
-  void SetRemotePeer (Ptr<RonPeerEntry> peer);
+  /**
+   * Use the specified server peer list for this client.
+   * Useful for sharing them among several clients to save memory.
+   *
+   * \param peers Smart Pointer to the RonPeerTable to be used.
+   */
+  void SetServerPeerTable (Ptr<RonPeerTable> peers);
+  /**
+   * Add the specified host to the list of potential servers
+   * to contact.
+   * \param peer Smart Pointer to peer to be added
+   */
+  void AddServerPeer (Ptr<RonPeerEntry> peer);
   void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
   Ipv4Address GetAddress () const;
@@ -179,7 +185,6 @@ private:
   //Address m_local;
 
   uint32_t m_sent;
-  Ipv4Address m_servAddress;
   Ipv4Address m_address;
   Ptr<Socket> m_socket;
   uint16_t m_port;
@@ -188,7 +193,7 @@ private:
   int m_nextPeer;
 
   Ptr<RonPeerTable> m_peers;
-  Ptr<RonPeerEntry> m_serverPeer;
+  Ptr<RonPeerTable> m_serverPeers;
   Ptr<RonPathHeuristic> m_heuristic;
 
   /// Callbacks for tracing

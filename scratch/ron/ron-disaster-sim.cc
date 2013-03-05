@@ -57,7 +57,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("trace_acks", "Whether to print traces when a client receives an ACK from the server", trace_acks);
   cmd.AddValue ("trace_forwards", "Whether to print traces when a client forwards a packet", trace_forwards);
   cmd.AddValue ("trace_sends", "Whether to print traces when a client sends a packet initially", trace_sends);
-  cmd.AddValue ("verbose", "Whether to print verbose log info (1=INFO, 2=LOGIC)", verbose);
+  cmd.AddValue ("verbose", "Whether to print verbose log info (1=INFO, 2=LOGIC, 3=FUNCTION)", verbose);
   cmd.AddValue ("disaster", "Where the disaster(s) (and subsequent failures) is(are) to occur "
                 "(use underscores for spaces so the command line parser will actually work)", disaster_location);
   cmd.AddValue ("fail_prob", "Probability(s) that a link in the disaster region will fail", fail_prob);
@@ -114,7 +114,6 @@ main (int argc, char *argv[])
           StringValue name = *(DynamicCast<const StringValue> (info.initialValue));
           //info.checker->Check (name);
           heuristicMap[(std::string)name.Get ()] = tid;
-          std::cout << name.Get() <<std::endl; 
         }
     }
 
@@ -145,6 +144,7 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
       LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_INFO);
       //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
 
       //LogComponentEnable ("DefaultSimulatorImpl", LOG_LEVEL_LOGIC);
@@ -158,7 +158,8 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
+      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_LOGIC);
+      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
 
@@ -168,8 +169,9 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonClientServerHelper", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonHeader", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_FUNCTION);
+      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_FUNCTION);
+      //LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
+      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_FUNCTION);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
     }
 

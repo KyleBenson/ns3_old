@@ -20,6 +20,7 @@
 #define RON_PATH_HEURISTIC_H
 
 #include "ron-peer-table.h"
+#include "ns3/core-module.h"
 #include "boost/function.hpp"
 #include <vector>
 
@@ -38,6 +39,7 @@ public:
 
   RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
   Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
+  void AddHeuristic (Ptr<RonPathHeuristic> other);
   void SetPeerTable (Ptr<RonPeerTable> table);
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
   Ptr<RonPeerEntry> GetSourcePeer ();
@@ -52,19 +54,29 @@ public:
   };
 
 protected:
-  std::vector<RonPeerEntry> peerHeap;
-  Ptr<RonPeerTable> peers;
+  /** Sets the estimated likelihood of reaching the specified peer */
+  void SetLikelihood (Ptr<RonPeerEntry> peer, double lh);
+
+  Ptr<RonPeerTable> m_peers;
   UniformVariable random; //for random decisions
   Ptr<RonPeerEntry> m_source;
   std::string m_summaryName;
   std::string m_shortName;
+  double m_weight;
+  std::map<Ptr<RonPeerEntry>, double> m_likelihoods;
+  std::list<Ptr<RonPeerEntry> > m_peersAttempted;
+  std::list<Ptr<RonPathHeuristic> > m_aggregateHeuristics;
 
-  /** Returns true if peer1 has 'higher priority' than peer2, false otherwise.*/
-  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2) = 0;
-  virtual bool SameRegion (RonPeerEntry peer1, RonPeerEntry peer2);
+  /** Set the estimated likelihood of reaching the destination through each peer. */
+  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination) = 0;
+  bool m_updatedOnce;
+  void ClearLikelihoods ();
+  virtual bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
 
 private:
-  boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
+  /** May only need to assign likelihoods once.
+      Set this to true to avoid clearing LHs after each newly chosen peer. */
+  //boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
 };
 
 class RandomRonPathHeuristic : public RonPathHeuristic
@@ -73,7 +85,7 @@ public:
   RandomRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
-  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
+  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
 };
 
 
@@ -83,7 +95,8 @@ public:
   OrthogonalRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
-  virtual bool ComparePeers (Ptr<RonPeerEntry> destination, RonPeerEntry peer1, RonPeerEntry peer2);
+  bool updatedOnce; //only need to assign random probs once
+  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
 };
 
 } //namespace

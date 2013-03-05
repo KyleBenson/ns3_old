@@ -286,7 +286,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
         }
     }
       
-  RonClientHelper ronClient (Ipv4Address (), 9);
+  RonClientHelper ronClient (9);
   ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
   ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
   ronClient.SetAttribute ("Timeout", TimeValue (timeout));
@@ -402,7 +402,7 @@ GeocronExperiment::RunAllScenarios ()
             {
               // We want to compare each heuristic to each other for each configuration of failures
               ApplyFailureModel ();
-              SetNextServer ();
+              SetNextServers ();
               for (uint32_t h = 0; h < heuristics->size (); h++)
                 {
                   currHeuristic = heuristics->at (h);
@@ -510,15 +510,12 @@ GeocronExperiment::UnapplyFailureModel () {
 
 
 void
-GeocronExperiment::SetNextServer () {
+GeocronExperiment::SetNextServers () {
   NS_LOG_LOGIC ("Choosing from " << serverNodeCandidates[currLocation].GetN () << " server provider candidates.");
 
   Ptr<Node> serverNode = (serverNodeCandidates[currLocation].GetN () ?
                           serverNodeCandidates[currLocation].Get (random.GetInteger (0, serverNodeCandidates[currLocation].GetN () - 1)) :
                           nodes.Get (random.GetInteger (0, serverNodeCandidates[currLocation].GetN () - 1)));
-  Ipv4Address serverAddress = GetNodeAddress (serverNode);
-
-  NS_LOG_INFO ("Server is at: " << serverAddress);
 
   //Application
   RonServerHelper ronServer (9);
@@ -527,7 +524,8 @@ GeocronExperiment::SetNextServer () {
   serverApps.Start (Seconds (1.0));
   serverApps.Stop (appStopTime);
 
-  serverPeer = Create<RonPeerEntry> (serverNode);
+  serverPeers = Create<RonPeerTable> ();
+  serverPeers->AddPeer (serverNode);
 }
 
 
@@ -548,7 +546,7 @@ GeocronExperiment::Run ()
         Ptr<RonPathHeuristic> heuristic = currHeuristic->Create<RonPathHeuristic> ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
         ronClient->SetHeuristic (heuristic);
-        ronClient->SetRemotePeer (serverPeer);
+        ronClient->SetServerPeerTable (serverPeers);
         heuristic->SetPeerTable (overlayPeers);
         ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
       }

@@ -69,7 +69,7 @@ public:
 
 private:
   /** Sets the next server for the simulation. */
-  void SetNextServer ();
+  void SetNextServers ();
   void ApplyFailureModel ();
   void UnapplyFailureModel ();
   bool IsDisasterNode (Ptr<Node> node);
@@ -86,7 +86,7 @@ private:
   NodeContainer nodes;
   ApplicationContainer clientApps;
   Ptr<RonPeerTable> overlayPeers;
-  Ptr<RonPeerEntry> serverPeer;
+  Ptr<RonPeerTable> serverPeers;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
   std::map<std::string,Vector> locations;

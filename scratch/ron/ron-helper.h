@@ -103,10 +103,9 @@ public:
    * Create RonClientHelper which will make life easier for people trying
    * to set up simulations with echos.
    *
-   * \param ip The IP address of the remote RON server
    * \param serverPort The port number of the RON
    */
-  RonClientHelper (Ipv4Address ip, uint16_t port);
+  RonClientHelper (uint16_t port);
 
   /**
    * Record an attribute to be set in each Application after it is is created.

@@ -51,7 +51,7 @@ public:
 class RonPeerTable : public SimpleRefCount<RonPeerTable>
 {
  private:
-  typedef std::map<int, RonPeerEntry> underlyingMapType;
+  typedef std::map<int, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::range_detail::select_second_mutable_range<underlyingMapType> underlyingIterator;
  public:
   typedef boost::range_iterator<underlyingIterator>::type Iterator;
@@ -59,12 +59,12 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
   int GetN ();
 
   /** Returns old entry if it existed, else new one. */
-  RonPeerEntry AddPeer (RonPeerEntry entry);
+  Ptr<RonPeerEntry> AddPeer (Ptr<RonPeerEntry> entry);
   /** Returns old entry if it existed, else new one. */
-  RonPeerEntry AddPeer (Ptr<Node> node);
+  Ptr<RonPeerEntry> AddPeer (Ptr<Node> node);
   /** Returns true if entry existed. */
   bool RemovePeer (int id);
-  /** Returns iterator to requested entry. Use IsInTable to verify its prescence in the table. */
+  /** Returns requested entry, NULL if unavailable. Use IsInTable to verify its prescence in the table. */
   Ptr<RonPeerEntry> GetPeer (int id);
   bool IsInTable (int id);
   bool IsInTable (Iterator itr);
@@ -73,7 +73,7 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
   Iterator End ();
 
  private:
-  std::map<int, RonPeerEntry> peers;
+  underlyingMapType m_peers;
 };
 
 } //namespace

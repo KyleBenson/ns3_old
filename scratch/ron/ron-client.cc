@@ -52,11 +52,6 @@ RonClient::GetTypeId (void)
                    UintegerValue (9),
                    MakeUintegerAccessor (&RonClient::m_port),
                    MakeUintegerChecker<uint16_t> ())
-    .AddAttribute ("RemoteAddress", 
-                   "The destination Ipv4Address of the outbound packets",
-                   Ipv4AddressValue (),
-                   MakeIpv4AddressAccessor (&RonClient::m_servAddress),
-                   MakeIpv4AddressChecker ())
     .AddAttribute ("Timeout", "Time to wait for a reply before trying to resend or send along an overlay node.",
                    TimeValue (Seconds (3)),
                    MakeTimeAccessor (&RonClient::m_timeout),
@@ -134,13 +129,6 @@ RonClient::~RonClient()
   m_dataSize = 0;
 }
 
-void 
-RonClient::SetRemote (Ipv4Address ip, uint16_t port)
-{
-  m_servAddress = ip;
-  //m_port = port; //should already be set
-}
-
 void
 RonClient::DoDispose (void)
 {
@@ -187,6 +175,7 @@ RonClient::StartApplication (void)
     }
 
   // Use the address of the first non-loopback device on the node for our address
+  //TODO: properly bootstrap from the server
   if (m_address.Get () == 0)
     {
       m_address = GetNode ()->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
@@ -369,16 +358,19 @@ RonClient::Send (bool viaOverlay)
       p = Create<Packet> (m_size);
     }
 
+  //TODO: handle choosing from multiple servers
+  Ptr<RonPeerEntry> serverPeer = *(m_serverPeers->Begin ());
+
   // add RON header to packet
   RonHeader head;
 
-  // If forwarding thru overlay, just pick a peer at random from those available
+  // If forwarding thru overlay, use heuristic to pick a peer from those available
   if (viaOverlay)
     {
       Ipv4Address intermediary;
       try
         {
-          intermediary = m_heuristic->GetNextPeerAddress (m_serverPeer);//m_peers[random.GetInteger (0, m_peers.size () - 1)];
+          intermediary = m_heuristic->GetNextPeerAddress (serverPeer);
         }
       catch (RonPathHeuristic::NoValidPeerException& e)
         {
@@ -388,10 +380,10 @@ RonClient::Send (bool viaOverlay)
         }
 
       //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
-      head = RonHeader (m_servAddress, intermediary);
+      head = RonHeader (serverPeer->address, intermediary);
     }
   else
-    head = RonHeader (m_servAddress);
+    head = RonHeader (serverPeer->address);
 
   head.SetSeq (m_sent);
   head.SetOrigin (m_address);
@@ -511,10 +503,17 @@ RonClient::SetPeerTable (Ptr<RonPeerTable> peers)
 
 
 void
-RonClient::SetRemotePeer (Ptr<RonPeerEntry> peer)
+RonClient::SetServerPeerTable (Ptr<RonPeerTable> peers)
 {
-  m_serverPeer = peer;
-  m_servAddress = peer->address;
+  m_serverPeers = peers;
+}
+
+
+void
+RonClient::AddServerPeer (Ptr<RonPeerEntry> peer)
+{
+  m_serverPeers->AddPeer (peer);
+  //m_servAddress = peer->address;
 }
 
 

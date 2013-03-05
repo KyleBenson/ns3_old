@@ -112,11 +112,12 @@ def makecmds(args):
         if args.topologies == default_as_choices:
             args.topologies = ['1755'] #small topology
             if args.disasters == default_disasters:
-                args.disasters = ['Milan,_Italy'] #only 9 nodes
+                #args.disasters = ['Milan,_Italy'] #only 9 nodes
+                args.disasters = ['London,_UnitedKingdom'] #46 nodes
         if args.fprobs is default_fprobs:
             args.fprobs = args.fprobs[:1]
 
-    if args.show_cmd:
+    if args.show_cmd and args.verbose is None:
         args.verbose = default_verbosity_level
 
     # convert commands to pass to geocron-simulator

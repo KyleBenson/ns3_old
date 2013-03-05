@@ -88,10 +88,9 @@ RonServerHelper::InstallPriv (Ptr<Node> node) const
   //////********************************************//////////////
   //////********************************************//////////////
 
-RonClientHelper::RonClientHelper (Ipv4Address address, uint16_t port)
+RonClientHelper::RonClientHelper (uint16_t port)
 {
   m_factory.SetTypeId (RonClient::GetTypeId ());
-  SetAttribute ("RemoteAddress", Ipv4AddressValue (address));
   SetAttribute ("Port", UintegerValue (port));
 }
 
