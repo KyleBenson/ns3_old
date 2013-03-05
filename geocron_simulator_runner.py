@@ -59,6 +59,8 @@ def parse_args(args):
     # Simulation parameters
     parser.add_argument('--as', nargs='+', default=default_as_choices,
                         help='''choose the AS topologies for the simulations''',dest='topologies')
+    parser.add_argument('--topology-type', '--topo', default="rocketfuel",
+                        help='''choose how to read/generate topology (currently only rocketfuel)''')
     parser.add_argument('--disasters', type=str, nargs='*', default=default_disasters,
                         help='''disaster locations to apply to ALL AS choices (cities currently) (default depends on AS)''')
     parser.add_argument('--fprobs', '-f', type=str, nargs='*',
