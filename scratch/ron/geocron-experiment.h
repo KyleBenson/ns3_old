@@ -33,6 +33,9 @@
 
 namespace ns3 {
 
+//forward declaration to allow helper functions' use
+class RonPeerTable;
+
 class GeocronExperiment {
 public:
   GeocronExperiment ();
@@ -56,6 +59,19 @@ public:
   void NextHeuristic ();
   void NextDisasterLocation ();
   void NextFailureProbability ();
+
+  static Ipv4Address GetNodeAddress (Ptr<Node> node)
+  {
+    return (Ipv4Address)node->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
+    // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+  }
+
+
+  //these rely on the Vector following
+  Vector GetLocation (Ptr<Node> node);
+  bool HasLocation (Ptr<Node> node);
+  Vector NO_LOCATION_VECTOR;
+
   std::vector<ObjectFactory*> * heuristics;
   std::vector<std::string> * disasterLocations;
   std::vector<double> * failureProbabilities;

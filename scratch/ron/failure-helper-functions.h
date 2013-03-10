@@ -8,12 +8,9 @@
 #define FAILURE_HELPER_FUNCTIONS_H
 
 namespace ns3 {
-
   void FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface);
   void UnfailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface);
   void FailNode (Ptr<Node> node);
   void UnfailNode (Ptr<Node> node, Time appStopTime);
-  Ipv4Address GetNodeAddress (Ptr<Node> node);
-
 } //namespace ns3
 #endif //FAILURE_HELPER_FUNCTIONS_H

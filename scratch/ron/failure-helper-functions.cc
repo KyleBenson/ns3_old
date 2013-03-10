@@ -6,12 +6,6 @@
 
 namespace ns3 {
 
-Ipv4Address GetNodeAddress (Ptr<Node> node)
-{
-  return (Ipv4Address)node->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
-  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-}
-
 // Fail links by turning off the net devices at each end
 void FailIpv4 (Ptr<Ipv4> ipv4, uint32_t iface)
 {

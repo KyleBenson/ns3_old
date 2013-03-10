@@ -24,7 +24,7 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
   //NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
 
-GeocronExperiment::GeocronExperiment ()
+GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
 {
   appStopTime = Time (Seconds (30.0));
   simulationLength = Seconds (10.0);
@@ -172,8 +172,6 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     std::string fromLocation = iter->GetAttribute ("From Location");
     std::string toLocation = iter->GetAttribute ("To Location");
 
-    //NS_LOG_INFO ("Link from " << fromLocation << " to " << toLocation);
-
     // Set latency for this link if we loaded that information
     if (latencies.size())
       {
@@ -212,12 +210,14 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector fromPosition = locations.count ((std::string)fromLocation)  ? (locations.find (fromLocation))->second : Vector (0.0, 0.0, 0.0);
-    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : Vector (0.0, 0.0, 0.0);
+    Vector fromPosition = locations.count ((std::string)fromLocation)  ? (locations.find (fromLocation))->second : NO_LOCATION_VECTOR;
+    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : NO_LOCATION_VECTOR;
     positionAllocator->Add (fromPosition);
     positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
+
+    NS_LOG_DEBUG ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
 
     // If the node is in a disaster region, add it to the corresponding list
     // Also add potential servers (randomly chosen from outside that disaster region)
@@ -229,15 +229,19 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
           }
         // this check made each time 1 link added, so if the node reaches our min-degree it should be added ONCE
-        else if (from_node->GetNDevices () == maxNDevs + 1)
-          serverNodeCandidates[*disasterLocation].Add (from_node);
+        else if (from_node->GetNDevices () == maxNDevs + 1 and HasLocation (from_node))
+          {
+            serverNodeCandidates[*disasterLocation].Add (from_node);
+          }
 
         if (toLocation == *disasterLocation)
           {
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
           }
-        else if (to_node->GetNDevices () == maxNDevs + 1)
-          serverNodeCandidates[*disasterLocation].Add (to_node);
+        else if (to_node->GetNDevices () == maxNDevs + 1 and HasLocation (to_node))
+          {
+            serverNodeCandidates[*disasterLocation].Add (to_node);
+          }
 
         // Failure model: if either endpoint is in the disaster location,
         // add it to the list of potential ifaces to kill
@@ -248,6 +252,14 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
             potentialIfacesToKill[*disasterLocation].Add(new_interfaces.Get (0));
             potentialIfacesToKill[*disasterLocation].Add(new_interfaces.Get (1));
           }
+
+        // Used for debugging to make sure locations are being found properly
+        #ifdef NS3_LOG_ENABLE
+        if (!HasLocation (to_node)){
+          NS_LOG_DEBUG ("Node " << to_node->GetId () << " has no position at location " << toLocation);}
+        if (!HasLocation (from_node)){
+          NS_LOG_DEBUG ("Node " << from_node->GetId () << " has no position at location " << fromLocation);}
+        #endif
       }
   } //end link iteration
 
@@ -262,7 +274,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       // this happened with some disconnected Rocketfuel models and made null pointers
       if ((*node)->GetNDevices () <= 1)
         {
-          NS_LOG_INFO ("Node " << (*node)->GetId () << " has no links!");
+          NS_LOG_LOGIC ("Node " << (*node)->GetId () << " has no links!");
           //node.erase ();
           disasterNodes[currLocation].erase ((*node)->GetId ());
           continue;
@@ -531,6 +543,7 @@ GeocronExperiment::SetNextServers () {
 void
 GeocronExperiment::Run ()
 {
+  int numDisasterPeers = 0;
   // Set some parameters for this run
   for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
        nodeItr != disasterNodes[currLocation].end (); nodeItr++)
@@ -539,8 +552,8 @@ GeocronExperiment::Run ()
     {
       for (uint32_t i = 0; i < nodeItr->second->GetNApplications (); i++) {
         Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
-        //if (ronClient == NULL)
-        //continue;
+        if (ronClient == NULL)
+          continue;
         //TODO: different heuristics
         Ptr<RonPathHeuristic> heuristic = currHeuristic->Create<RonPathHeuristic> ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
@@ -548,6 +561,7 @@ GeocronExperiment::Run ()
         ronClient->SetServerPeerTable (serverPeers);
         heuristic->SetPeerTable (overlayPeers);
         ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
+        numDisasterPeers++;
       }
     }
 
@@ -564,7 +578,7 @@ GeocronExperiment::Run ()
                  << nodes.GetN () << " total nodes" << std::endl
                  << overlayPeers->GetN () << " total overlay nodes" << std::endl
                  << disasterNodes[currLocation].size () << " nodes in " << currLocation << " total" << std::endl
-                 //TODO: get size from table <<  << " overlay nodes in " << currLocation << std::endl
+                 << numDisasterPeers << " overlay nodes in " << currLocation << std::endl //TODO: get size from table
                  << std::endl << "Failure probability: " << currFprob << std::endl
                  << failNodes.GetN () << " nodes failed" << std::endl
                  << ifacesToKill.GetN () / 2 << " links failed");
@@ -584,6 +598,33 @@ GeocronExperiment::Run ()
       Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
       ronClient->Reset ();
     }
+}
+
+//////////////////////////////////////////////////////////////////////
+//////////////////// Helper functions ////////////////////////////////
+//////////////////////////////////////////////////////////////////////
+
+Vector
+GeocronExperiment::GetLocation (Ptr<Node> node)
+{
+  return node->GetObject<MobilityModel> ()->GetPosition ();
+}
+
+
+bool
+GeocronExperiment::HasLocation (Ptr<Node> node)
+{
+  Ptr<MobilityModel> mob = node->GetObject<MobilityModel> ();
+  if (mob == NULL)
+    {
+      NS_LOG_UNCOND ("Node " << node->GetId () << " has no MobilityModel!");
+      return false;
+    }
+  if (mob->GetPosition () == NO_LOCATION_VECTOR)
+    {
+      return false;
+    }
+  return true;
 }
     /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
 

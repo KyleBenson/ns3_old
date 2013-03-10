@@ -57,7 +57,6 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
       for (RonPeerTable::Iterator peer = m_peers->Begin ();
            peer != m_peers->End (); peer++)
         {
-
           // don't bother solving if peer is within the source or destination's region
           if (SameRegion (m_source, *peer) or SameRegion (destination, *peer))
             {
@@ -82,32 +81,35 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
 
           // compute angles with law of cosines
           double c_ang = acos ((ac_dist * ac_dist + bc_dist * bc_dist - ab_dist * ab_dist) /
-                               (2 * ac_dist * bc_dist));
+                               (2.0 * ac_dist * bc_dist));
 
           // compute bc angles for finding the perpendicular distance
           double a_ang = acos ((ac_dist * ac_dist + ab_dist * ab_dist - bc_dist * bc_dist) /
-                               (2 * ac_dist * ab_dist));
+                               (2.0 * ac_dist * ab_dist));
 
           // find perpendicular distances using law of sines
           double perpDist = ac_dist * sin (a_ang);
 
           // ideal distance is when c is located halfway between a and b,
           // which would make an isosceles triangle, so legs are easy to compute
-          double ac_ideal_dist = sqrt ((ab_dist * ab_dist) / 2);
-          double ideal_dist = sqrt (ac_ideal_dist * ac_ideal_dist - ab_dist * ab_dist / 4);
+          double half_ab_dist = 0.5*ab_dist;
+          double ac_ideal_dist = sqrt (2.0) * half_ab_dist;
+          double ideal_dist = sqrt (ac_ideal_dist * ac_ideal_dist - half_ab_dist * half_ab_dist);
   
           // find 'normalized (0<=e<=1) percent error' from ideals
           //-exp ensures 0<=e<=1 and further penalizes deviations from the ideal
-          std::cout << "ideal_dist=" << ideal_dist <<std::endl;
-          std::cout << "c_ang=" << c_ang <<std::endl;
-          double ang_err = exp(-1*abs((c_ang - orthogonal) / orthogonal));
-          double dist_err = exp(-1*abs((perpDist - ideal_dist) / ideal_dist));
+          // std::cout << "ideal_dist=" << ideal_dist <<std::endl;
+          // std::cout << "c_ang=" << c_ang <<std::endl;
+          // double ang_err = exp(-1*abs((c_ang - orthogonal) / orthogonal));
+          // double dist_err = exp(-1*abs((perpDist - ideal_dist) / ideal_dist));
+          double ang_err = (abs((c_ang - orthogonal) / orthogonal));
+          double dist_err = (abs((perpDist - ideal_dist) / ideal_dist));
 
-          std::cout << "ang_err=" << ang_err <<std::endl;
+          // std::cout << "ang_err=" << ang_err <<std::endl;
 
-          double newLikelihood = (ang_err + dist_err)/2;
+          double newLikelihood = (ang_err + dist_err);
           SetLikelihood (*peer, newLikelihood);
-          std::cout << "LH=" << newLikelihood <<std::endl;
+          // std::cout << "LH=" << newLikelihood <<std::endl;
           //TODO: weight one error over another?
         }
       m_updatedOnce = true;

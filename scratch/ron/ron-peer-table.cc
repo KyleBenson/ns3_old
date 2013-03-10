@@ -18,6 +18,7 @@
 
 #include "ron-peer-table.h"
 #include "failure-helper-functions.h"
+#include "geocron-experiment.h"
 
 #include <boost/range/functions.hpp>
 
@@ -29,7 +30,7 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
   {
     this->node = node;
     id = node-> GetId ();
-    address = GetNodeAddress (node);
+    address = GeocronExperiment::GetNodeAddress (node);
     lastContact = Simulator::Now ();
     
     Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
