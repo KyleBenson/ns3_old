@@ -110,10 +110,9 @@ def makecmds(args):
             args.heuristics = args.heuristics[:1]
         #args.topologies = args.topologies[:1]
         if args.topologies == default_as_choices:
-            args.topologies = ['1755'] #small topology
+            args.topologies = ['3356'] #small topology in US
             if args.disasters == default_disasters:
-                #args.disasters = ['Milan,_Italy'] #only 9 nodes
-                args.disasters = ['London,_UnitedKingdom'] #46 nodes
+                args.disasters = ['Orlando,_FL'] #25 nodes
         if args.fprobs is default_fprobs:
             args.fprobs = args.fprobs[:1]
 
@@ -197,6 +196,10 @@ if __name__ == "__main__":
     import sys, subprocess, signal
 
     args = parse_args(sys.argv[1:])
+
+    #first, run waf build
+    if subprocess.call("./waf build", shell=True) == 1:
+        exit(1) #error building
 
     children = []
     for cmd in makecmds(args):

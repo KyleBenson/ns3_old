@@ -28,6 +28,23 @@ namespace ns3 {
 
 //TODO: enum for choosing which heuristic?
 
+/** This class provides a simple iterable container for storing the path of peer entries. */
+class OverlayPath : public SimpleRefCount<OverlayPath>
+{
+private:
+  typedef std::list<Ptr<RonPeerEntry> > underlyingContainer;
+  underlyingContainer m_path;
+public:
+  typedef underlyingContainer::iterator Iterator;
+  OverlayPath(Ptr<RonPeerEntry> peer);
+
+  void AddPeer (Ptr<RonPeerEntry> peer);
+  //TODO: void InsertPeer ChangePeerAt?
+
+  Iterator Begin ();
+  Iterator End ();
+};
+
 /** This class represents a heuristic for choosing overlay paths.  Derived classes must override the ComparePeers
     function to implement the actual heuristic logic. */
 class RonPathHeuristic : public Object
@@ -37,8 +54,7 @@ public:
 
   virtual ~RonPathHeuristic ();
 
-  RonPeerEntry GetNextPeer (Ptr<RonPeerEntry> destination);
-  Ipv4Address GetNextPeerAddress (Ptr<RonPeerEntry> destination);
+  Ptr<OverlayPath> GetNextPath (Ptr<RonPeerEntry> destination);
   void AddHeuristic (Ptr<RonPathHeuristic> other);
   void SetPeerTable (Ptr<RonPeerTable> table);
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
@@ -57,6 +73,15 @@ protected:
   /** Sets the estimated likelihood of reaching the specified peer */
   void SetLikelihood (Ptr<RonPeerEntry> peer, double lh);
 
+  /** Set the estimated likelihood of reaching the destination through each peer. */
+  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination) = 0;
+  virtual void ClearLikelihoods ();
+  virtual void ClearLikelihood (Ptr<RonPeerEntry> destination);
+  virtual bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
+
+  /** May only need to assign likelihoods once.
+      Set this to true to avoid clearing LHs after each newly chosen peer. */
+  bool m_updatedOnce;
   Ptr<RonPeerTable> m_peers;
   UniformVariable random; //for random decisions
   Ptr<RonPeerEntry> m_source;
@@ -67,15 +92,6 @@ protected:
   std::list<Ptr<RonPeerEntry> > m_peersAttempted;
   std::list<Ptr<RonPathHeuristic> > m_aggregateHeuristics;
 
-  /** Set the estimated likelihood of reaching the destination through each peer. */
-  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination) = 0;
-  bool m_updatedOnce;
-  void ClearLikelihoods ();
-  virtual bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
-
-private:
-  /** May only need to assign likelihoods once.
-      Set this to true to avoid clearing LHs after each newly chosen peer. */
   //boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
 };
 

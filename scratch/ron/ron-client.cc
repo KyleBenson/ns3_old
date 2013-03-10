@@ -367,20 +367,26 @@ RonClient::Send (bool viaOverlay)
   // If forwarding thru overlay, use heuristic to pick a peer from those available
   if (viaOverlay)
     {
-      Ipv4Address intermediary;
       try
         {
-          intermediary = m_heuristic->GetNextPeerAddress (serverPeer);
+          Ptr<OverlayPath> overlayPeerChoices = m_heuristic->GetNextPath (serverPeer);
+          head = RonHeader (serverPeer->address);
+
+          //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
+          Ipv4Address intermediary;
+          for (OverlayPath::Iterator itr = overlayPeerChoices->Begin ();
+               itr != overlayPeerChoices->End (); itr++)
+            {
+               head.AddDest ((*itr)->address);
+            }
         }
       catch (RonPathHeuristic::NoValidPeerException& e)
         {
-          NS_LOG_DEBUG (e.what ());
+          NS_LOG_LOGIC ("Node " << GetNode ()->GetId () << " has no more overlay peers to choose.");
+          //NS_LOG_DEBUG (e.what ());
           CancelEvents ();
           return;
         }
-
-      //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
-      head = RonHeader (serverPeer->address, intermediary);
     }
   else
     head = RonHeader (serverPeer->address);

@@ -119,7 +119,7 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
           lon = boost::lexical_cast<double> (parts[2]);
 
           //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
-          locations[loc] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
+          locations[(std::string)loc] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
         }
     }
 }
@@ -209,11 +209,10 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     Ipv4InterfaceContainer new_interfaces = address.Assign (new_devs);
     //router_interfaces.Add(new_interfaces);
     address.NewNetwork();
-
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : Vector (0.0, 0.0, 0.0);
+    Vector fromPosition = locations.count ((std::string)fromLocation)  ? (locations.find (fromLocation))->second : Vector (0.0, 0.0, 0.0);
     Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : Vector (0.0, 0.0, 0.0);
     positionAllocator->Add (fromPosition);
     positionAllocator->Add (toPosition);

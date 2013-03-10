@@ -42,7 +42,7 @@ RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
   else
     {
       //only need to update last attempted peer
-      SetLikelihood (m_peersAttempted.back (), 0.0);
+      ClearLikelihood (m_peersAttempted.back ());
     }
 }
 
@@ -60,7 +60,11 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
 
           // don't bother solving if peer is within the source or destination's region
           if (SameRegion (m_source, *peer) or SameRegion (destination, *peer))
-            SetLikelihood (*peer, 0.0);
+            {
+              //std::cout << "Ignoring peer at location (" << (*peer)->location.x << "," << (*peer)->location.y << ")" <<std::endl;
+              ClearLikelihood (*peer);
+              continue;
+            }
 
           double pi = 3.14159265;
           double orthogonal = pi/2.0;
@@ -94,10 +98,16 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
   
           // find 'normalized (0<=e<=1) percent error' from ideals
           //-exp ensures 0<=e<=1 and further penalizes deviations from the ideal
-          double ang_err = -exp (abs ((c_ang - orthogonal) / orthogonal));
-          double dist_err = -exp (abs ((perpDist - ideal_dist) / ideal_dist));
+          std::cout << "ideal_dist=" << ideal_dist <<std::endl;
+          std::cout << "c_ang=" << c_ang <<std::endl;
+          double ang_err = exp(-1*abs((c_ang - orthogonal) / orthogonal));
+          double dist_err = exp(-1*abs((perpDist - ideal_dist) / ideal_dist));
 
-          SetLikelihood (*peer, ang_err + dist_err);
+          std::cout << "ang_err=" << ang_err <<std::endl;
+
+          double newLikelihood = (ang_err + dist_err)/2;
+          SetLikelihood (*peer, newLikelihood);
+          std::cout << "LH=" << newLikelihood <<std::endl;
           //TODO: weight one error over another?
         }
       m_updatedOnce = true;
@@ -105,7 +115,7 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
   else
     {
       //only need to update last attempted peer
-      SetLikelihood (m_peersAttempted.back (), 0.0);
+      ClearLikelihood (m_peersAttempted.back ());
     }
 }
 
@@ -206,16 +216,13 @@ RonPathHeuristic::~RonPathHeuristic ()
 {} //required to keep gcc from complaining
 
 
-RonPeerEntry
-RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
+Ptr<OverlayPath>
+RonPathHeuristic::GetNextPath (Ptr<RonPeerEntry> destination)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer before using the heuristic!");
   NS_ASSERT_MSG (destination, "You must specify a valid server to use the heuristic!");
 
   //TODO: multiple servers
-
-  //TODO: handle this error
-  //throw NoValidPeerException();
 
   if (!m_updatedOnce)
     ClearLikelihoods ();
@@ -226,6 +233,7 @@ RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
 
   //find the peer with highest likelihood
   //TODO: cache up to MaxAttempts of them
+  //TODO: check for valid size
   std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();
   Ptr<RonPeerEntry> bestPeer = probs->first;
   double bestLikelihood = probs->second;
@@ -238,14 +246,12 @@ RonPathHeuristic::GetNextPeer (Ptr<RonPeerEntry> destination)
         }
     }
   m_peersAttempted.push_back (bestPeer);
-  return *bestPeer;
-}
+  
+  if (bestLikelihood == 0.0)
+    throw NoValidPeerException();
 
-
-Ipv4Address
-RonPathHeuristic::GetNextPeerAddress (Ptr<RonPeerEntry> destination)
-{
-  return GetNextPeer (destination).address;
+  return Create<OverlayPath> (bestPeer);
+  //TODO: implement multiple overlay peers along path
 }
 
 
@@ -273,6 +279,7 @@ RonPathHeuristic::SetSourcePeer (Ptr<RonPeerEntry> peer)
 void
 RonPathHeuristic::SetLikelihood (Ptr<RonPeerEntry> peer, double lh)
 {
+  //NS_ASSERT (0.0 <= lh and lh <= 1.0);
   NS_LOG_LOGIC ("Peer " << peer->id << " has LH " << lh);
   //m_peers.SetLikelihood (peer, 
   m_likelihoods[peer] += lh*m_weight;
@@ -280,12 +287,34 @@ RonPathHeuristic::SetLikelihood (Ptr<RonPeerEntry> peer, double lh)
 
 
 void
+RonPathHeuristic::ClearLikelihood (Ptr<RonPeerEntry> peer)
+{
+  NS_ASSERT_MSG (m_likelihoods.count (peer), "Peer not present in table!");
+  NS_LOG_LOGIC ("Peer " << peer->id << "'s LH cleared to 0");
+  m_likelihoods[peer] = 0.0;
+}
+
+
+void
 RonPathHeuristic::ClearLikelihoods ()
 {
-  std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();
-  for (; probs != m_likelihoods.end (); probs++)
+  if (m_likelihoods.size () != m_peers->GetN ())
     {
-      probs->second = 0.0;
+      m_likelihoods.clear ();
+      for (RonPeerTable::Iterator peers = m_peers->Begin ();
+           peers != m_peers->End (); peers++)
+        {
+          m_likelihoods[(*peers)] = 0.0;
+        }
+    }
+
+  else
+    {
+      std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();
+      for (; probs != m_likelihoods.end (); probs++)
+        {
+          probs->second = 0.0;
+        }
     }
 }
 
@@ -313,3 +342,34 @@ RonPathHeuristic::SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
   Vector3D loc2 = peer2->location;
   return loc1.x == loc2.x and loc1.y == loc2.y;
 }
+
+
+//////////////////////////////  OverlayPath  //////////////////////////////
+
+
+OverlayPath::OverlayPath(Ptr<RonPeerEntry> peer)
+{
+  AddPeer (peer);
+}
+
+
+void 
+OverlayPath::AddPeer (Ptr<RonPeerEntry> peer)
+{
+  m_path.push_back (peer);
+}
+
+
+OverlayPath::Iterator
+OverlayPath::Begin ()
+{
+  return m_path.begin();
+}
+
+
+OverlayPath::Iterator
+OverlayPath::End ()
+{
+  return m_path.end();
+}
+

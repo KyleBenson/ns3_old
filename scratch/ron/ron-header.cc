@@ -198,6 +198,8 @@ void
 RonHeader::AddDest (Ipv4Address addr)
 {
   NS_LOG_FUNCTION (addr);
+  if (!m_forward)
+    m_forward = true;
 
   uint32_t next = addr.Get ();
   uint32_t *buff = new uint32_t[++m_nIps];

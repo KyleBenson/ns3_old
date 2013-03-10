@@ -123,7 +123,7 @@ main (int argc, char *argv[])
   for (tokenizer::iterator tokIter = tokens.begin();
        tokIter != tokens.end(); ++tokIter)
     {
-      std::cout << *tokIter <<std::endl; 
+      //std::cout << *tokIter <<std::endl; 
       if (heuristicMap.count ((std::string)(*tokIter)))
         {
           ObjectFactory * fact = new ObjectFactory ();
@@ -159,11 +159,19 @@ main (int argc, char *argv[])
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
       LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_LOGIC);
+
+      //for some stupid reason, enabling logic also enables function...
+      LogComponentDisable ("GeocronExperiment", LOG_LEVEL_FUNCTION);
+      LogComponentDisable ("RonClientApplication", LOG_LEVEL_FUNCTION);
+      LogComponentDisable ("RonServerApplication", LOG_LEVEL_FUNCTION);
+      LogComponentDisable ("RonHeader", LOG_LEVEL_FUNCTION);
+      LogComponentDisable ("RonPathHeuristic", LOG_LEVEL_FUNCTION);
+
       //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
 
-  else if (verbose == 3)
+  /*  else if (verbose == 3)
      {
       LogComponentEnable ("RonClientApplication", LOG_LEVEL_FUNCTION);
       LogComponentEnable ("RonServerApplication", LOG_LEVEL_FUNCTION);
@@ -173,7 +181,7 @@ main (int argc, char *argv[])
       //LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
       //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_FUNCTION);
       //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
-    }
+      }*/
 
   ////////////////////////////////////////////////////////////////////////////////
   //////////       Create experiment and set parameters   ////////////////////////
@@ -185,9 +193,9 @@ main (int argc, char *argv[])
   exp.failureProbabilities = failureProbabilities;
   exp.SetTimeout (Seconds (timeout));
 
+  exp.ReadLocationFile (locationFile);
   exp.ReadTopology (filename);
   exp.ReadLatencyFile (latencyFile);
-  exp.ReadLocationFile (locationFile);
   //exp.SetTraceFile (traceFile);
   exp.RunAllScenarios ();
 

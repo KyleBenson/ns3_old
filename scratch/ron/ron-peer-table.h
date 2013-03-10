@@ -56,7 +56,7 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
  public:
   typedef boost::range_iterator<underlyingIterator>::type Iterator;
 
-  int GetN ();
+  uint32_t GetN ();
 
   /** Returns old entry if it existed, else new one. */
   Ptr<RonPeerEntry> AddPeer (Ptr<RonPeerEntry> entry);
