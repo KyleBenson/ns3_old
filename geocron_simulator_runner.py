@@ -79,6 +79,10 @@ def parse_args(args):
                         default=default_start,
                         help='''unique ID number to start runs on  (default=%(default)s). Useful for running parallel instances.''')
 
+    # Control waf/build
+    parser.add_argument('--optimized', '-o', action="store_true",
+                        help='''Configure waf in optimized mode before building.''')
+
     # Control UI
     parser.add_argument('--debug', '-d', action="store_true",
                         help='''run simulator through GDB''')
@@ -87,6 +91,11 @@ def parse_args(args):
     parser.add_argument('--verbose', '-v', nargs='?',
                         default=default_verbosity_level, type=int,
                         help='''run with verbose printing (default=%(default)s when no arg given)''')
+    parser.add_argument('--log', '-l', nargs='+',
+                        help='''Specify ns-3 logging components to enable through waf.'''
+                        '''Example: RonClientApplication[=func|warn|prefix_[node|time|func|level]]'''
+                        '''(prefix_ not necessary, defaults to all/*)'''
+                        '''remember quotes when using pipe symbol''')
     parser.add_argument('--show-cmd', '-c', action="store_true", dest="show_cmd", default=False,
                         help='''print the system command to be executed then exit''')
     parser.add_argument('--test', '-t', action="store_true",
@@ -95,9 +104,8 @@ def parse_args(args):
                         help='''simulator will only run once in a single process, then exit''')
 
     args = parser.parse_args(args)
-    return args
 
-def makecmds(args):
+    #set default values for when quickly testing
     if args.test:
         args.no_email = True
         if args.verbose is None:
@@ -119,6 +127,9 @@ def makecmds(args):
     if args.show_cmd and args.verbose is None:
         args.verbose = default_verbosity_level
 
+    return args
+
+def makecmds(args):
     # convert commands to pass to geocron-simulator
     fprobs = '"%s"' % '-'.join(args.fprobs)
     heuristics = '"%s"' % '-'.join(args.heuristics)
@@ -183,6 +194,7 @@ def makecmds(args):
             if args.verbose:
                 cmd += ' --verbose=%i' % args.verbose
             cmd += "'" #terminate command template (non-waf args)
+
             if args.visualize:
                 cmd += ' --visualize'
 
@@ -193,12 +205,18 @@ def makecmds(args):
 # Main
 if __name__ == "__main__":
     
-    import sys, subprocess, signal
+    import sys, os, subprocess, signal
 
     args = parse_args(sys.argv[1:])
 
-    #first, run waf build
-    if subprocess.call("./waf build", shell=True) == 1:
+    if args.log:
+        os.environ['NS_LOG'] = ':'.join(args.log)
+
+    if args.optimized:
+        subprocess.call("./waf -d optimized configure")
+
+    # run waf build if we're using multiple processes
+    if args.nprocs > 1 and subprocess.call("./waf build", shell=True) == 1:
         exit(1) #error building
 
     children = []
@@ -227,3 +245,9 @@ if __name__ == "__main__":
     if not args.no_email:
         subprocess.call('ssmtp kyle.edward.benson@gmail.com < done_sims.email', shell=True)
         #TODO: add stuff to email: time, 
+
+    if args.optimized:
+        subprocess.call("./waf configure --enable-examples --enable-tests")
+
+    if args.log:
+        del os.environ['NS_LOG']
