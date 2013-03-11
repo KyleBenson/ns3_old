@@ -67,6 +67,6 @@ RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
   else
     {
       //only need to update last attempted peer
-      ClearLikelihood (m_peersAttempted.back ());
+      ZeroLikelihood (m_peersAttempted.back ());
     }
 }

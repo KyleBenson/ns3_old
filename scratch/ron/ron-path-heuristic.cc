@@ -63,7 +63,7 @@ RonPathHeuristic::GetNextPath (Ptr<RonPeerEntry> destination)
   //TODO: multiple servers
 
   if (!m_updatedOnce)
-    ClearLikelihoods ();
+    ZeroLikelihoods ();
   UpdateLikelihoods (destination);
   for (std::list<Ptr<RonPathHeuristic> >::iterator others = m_aggregateHeuristics.begin ();
        others != m_aggregateHeuristics.end (); others++)
@@ -125,7 +125,7 @@ RonPathHeuristic::SetLikelihood (Ptr<RonPeerEntry> peer, double lh)
 
 
 void
-RonPathHeuristic::ClearLikelihood (Ptr<RonPeerEntry> peer)
+RonPathHeuristic::ZeroLikelihood (Ptr<RonPeerEntry> peer)
 {
   NS_ASSERT_MSG (m_likelihoods.count (peer), "Peer not present in table!");
   NS_LOG_LOGIC ("Peer " << peer->id << "'s LH cleared to 0");
@@ -134,18 +134,18 @@ RonPathHeuristic::ClearLikelihood (Ptr<RonPeerEntry> peer)
 
 
 void
-RonPathHeuristic::ClearLikelihoods ()
+RonPathHeuristic::ZeroLikelihoods ()
 {
+  // can there actually be likelihoods without peers?
   if (m_likelihoods.size () != m_peers->GetN ())
     {
       m_likelihoods.clear ();
-      for (RonPeerTable::Iterator peers = m_peers->Begin ();
-           peers != m_peers->End (); peers++)
+      for (RonPeerTable::Iterator peer = m_peers->Begin ();
+           peer != m_peers->End (); peer++)
         {
-          m_likelihoods[(*peers)] = 0.0;
+          ZeroLikelihood (*peer);
         }
     }
-
   else
     {
       std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();

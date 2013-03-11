@@ -65,7 +65,7 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
           if (SameRegion (m_source, *peer) or SameRegion (destination, *peer))
             {
               //std::cout << "Ignoring peer at location (" << (*peer)->location.x << "," << (*peer)->location.y << ")" <<std::endl;
-              ClearLikelihood (*peer);
+              ZeroLikelihood (*peer);
               continue;
             }
 
@@ -121,6 +121,6 @@ OrthogonalRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
   else
     {
       //only need to update last attempted peer
-      ClearLikelihood (m_peersAttempted.back ());
+      ZeroLikelihood (m_peersAttempted.back ());
     }
 }

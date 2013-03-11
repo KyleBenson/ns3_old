@@ -75,8 +75,8 @@ protected:
 
   /** Set the estimated likelihood of reaching the destination through each peer. */
   virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination) = 0;
-  virtual void ClearLikelihoods ();
-  virtual void ClearLikelihood (Ptr<RonPeerEntry> destination);
+  virtual void ZeroLikelihoods ();
+  virtual void ZeroLikelihood (Ptr<RonPeerEntry> destination);
   virtual bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
 
   /** May only need to assign likelihoods once.
