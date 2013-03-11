@@ -34,17 +34,8 @@
 namespace ns3 {
 
 // Some useful HELPER FUNCTIONS
-
-Ipv4Address GetNodeAddress(Ptr<Node> node)
-{
-  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
-  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-}
-
-uint32_t GetNodeDegree(Ptr<Node> node)
-{
-  return node->GetNDevices() - 1; //assumes PPP links
-}
+Ipv4Address GetNodeAddress(Ptr<Node> node);
+uint32_t GetNodeDegree(Ptr<Node> node);
 
 //forward declaration to allow helper functions' use
 class RonPeerTable;

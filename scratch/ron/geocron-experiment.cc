@@ -222,13 +222,21 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
 
-    //creating these entries will cache them by aggregating them to the nodes
-    Ptr<RonPeerEntry> fromPeer = CreateObject<RonPeerEntry> (from_node);
-    Ptr<RonPeerEntry> toPeer = CreateObject<RonPeerEntry> (to_node);
-    fromPeer->region = fromLocation;
-    toPeer->region = toLocation;
-    from_node->AggregateObject (fromPeer);
-    to_node->AggregateObject (toPeer);
+    //aggregate RonPeerEntries to Nodes if we haven't already
+    Ptr<RonPeerEntry> fromPeer = from_node->GetObject<RonPeerEntry> ();
+    if (!fromPeer)
+      {
+        fromPeer = CreateObject<RonPeerEntry> (from_node);
+        fromPeer->region = fromLocation;
+        from_node->AggregateObject (fromPeer);
+      }
+    Ptr<RonPeerEntry> toPeer = to_node->GetObject<RonPeerEntry> ();
+    if (!toPeer)
+      {
+        toPeer = CreateObject<RonPeerEntry> (to_node);
+        toPeer->region = toLocation;
+        to_node->AggregateObject (toPeer);
+      }
     
     NS_LOG_DEBUG ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
 
@@ -281,10 +289,10 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   //
   // invariant: if the group of smallest degree nodes were removed from the list,
   // its size would be < nServerChoices
-  typedef boost::heap::priority_queue<std::pair<uint32_t/*degree*/, Ptr<Node> > > DegreePriorityQueue;
+  typedef std::pair<uint32_t/*degree*/, Ptr<Node> > DegreeType;
+  typedef boost::heap::priority_queue<DegreeType, boost::heap::compare<std::greater<DegreeType> > > DegreePriorityQueue;
   DegreePriorityQueue potentialServerNodeCandidates;
   uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
-  bool recalculateLowest = false;
 
   NodeContainer overlayNodes;
   for (NodeContainer::Iterator node = nodes.Begin ();
@@ -313,32 +321,45 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       else if (degree > maxNDevs and HasLocation (*node))
         {
           //add potential server
-          if (degree >= lowDegree)
+          if (degree >= lowDegree or potentialServerNodeCandidates.size () < nServerChoices)
             potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, *node));
+          else
+            continue;
+
+          //base condition to set lowDegree the 1st time
+          if (!lowDegree)
+            lowDegree = degree;
 
           if (degree == lowDegree)
             nLowestDegreeNodes++;
           else if (degree < lowDegree)
-            lowDegree = degree; recalculateLowest = true;
+            {
+              lowDegree = degree;
+              nLowestDegreeNodes = 1;
+            }
 
           //remove group of lowest degree nodes if it's okay to do so
           if (potentialServerNodeCandidates.size () - nLowestDegreeNodes >= nServerChoices)
             {
-                while (potentialServerNodeCandidates.top ().first == lowDegree)
-                  {
-                    potentialServerNodeCandidates.pop ();
-                  }
-              lowDegree = GetNodeDegree (potentialServerNodeCandidates.top ().second);
-              recalculateLowest = true;
-            }
+              #ifdef NS3_LOG_ENABLE
+              uint32_t nThrownAway = 0;
+              #endif
+              while (potentialServerNodeCandidates.top ().first == lowDegree)
+                {
+                  potentialServerNodeCandidates.pop ();
+                  #ifdef NS3_LOG_ENABLE
+                  nThrownAway++;
+                  #endif
+                }
+              NS_LOG_DEBUG ("Throwing away " << nThrownAway << " vertices of degree " << lowDegree);
 
-          // recalculate nLowestDegreeNodes
-          if (recalculateLowest)
-            {
+              // recalculate nLowestDegreeNodes
+              lowDegree = GetNodeDegree (potentialServerNodeCandidates.top ().second);
               nLowestDegreeNodes = 0;
               for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
                    itr != potentialServerNodeCandidates.end () and (itr)->first == lowDegree; itr++)
                 nLowestDegreeNodes++;
+              NS_LOG_DEBUG (nLowestDegreeNodes << " nodes have new lowest degree = " << lowDegree);
             }
         }
     }
@@ -364,9 +385,11 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   clientApps.Stop (appStopTime);
 
   // Now cache the actual choices of server nodes for each disaster region
+  NS_LOG_DEBUG (potentialServerNodeCandidates.size () << " total potentialServerNodeCandidates.");
   for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
        itr != potentialServerNodeCandidates.end (); itr++)
     {
+      NS_LOG_DEBUG ("Node " << itr->second->GetId () << " has degree " << GetNodeDegree (itr->second));
       Ptr<Node> serverCandidate = itr->second;
       Location loc = serverCandidate->GetObject<RonPeerEntry> ()->region;
 
@@ -687,6 +710,20 @@ GeocronExperiment::HasLocation (Ptr<Node> node)
     }
   return true;
 }
+
+namespace ns3 {
+//global helper functions must be in ns3 namespace
+Ipv4Address GetNodeAddress(Ptr<Node> node)
+{
+  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
+  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+}
+
+uint32_t GetNodeDegree(Ptr<Node> node)
+{
+  return node->GetNDevices() - 1; //assumes PPP links
+}
+}//ns3
     /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
 
 
