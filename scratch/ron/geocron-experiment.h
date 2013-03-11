@@ -31,18 +31,20 @@
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
 
+namespace ns3 {
+
 // Some useful HELPER FUNCTIONS
 
-#define GetNodeAddress (node) \
-  (\
-   ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal())) \
-  )
-    // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+Ipv4Address GetNodeAddress(Ptr<Node> node)
+{
+  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
+  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+}
 
-#define GetNodeDegree (node) \
-  (node->GetNDevices() - 1) //assumes PPP links
-
-namespace ns3 {
+uint32_t GetNodeDegree(Ptr<Node> node)
+{
+  return node->GetNDevices() - 1; //assumes PPP links
+}
 
 //forward declaration to allow helper functions' use
 class RonPeerTable;

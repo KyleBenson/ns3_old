@@ -284,7 +284,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   typedef boost::heap::priority_queue<std::pair<uint32_t/*degree*/, Ptr<Node> > > DegreePriorityQueue;
   DegreePriorityQueue potentialServerNodeCandidates;
   uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
-  bool reCalculateLowest = false;
+  bool recalculateLowest = false;
 
   NodeContainer overlayNodes;
   for (NodeContainer::Iterator node = nodes.Begin ();
@@ -310,31 +310,30 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
           overlayPeers->AddPeer (*node);
         }
 
-      else if (degree > maxNDevs and HasLocation (from_node))
+      else if (degree > maxNDevs and HasLocation (*node))
         {
           //add potential server
           if (degree >= lowDegree)
-            potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, from_node));
+            potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, *node));
 
           if (degree == lowDegree)
             nLowestDegreeNodes++;
           else if (degree < lowDegree)
-            lowDegree = degree; reCalculateLowest = true;
+            lowDegree = degree; recalculateLowest = true;
 
-          //remove group of lowest degree nodes if it's okay
+          //remove group of lowest degree nodes if it's okay to do so
           if (potentialServerNodeCandidates.size () - nLowestDegreeNodes >= nServerChoices)
             {
-              uint32_t lowDegree = 
                 while (potentialServerNodeCandidates.top ().first == lowDegree)
                   {
-                    potentialServerNodeCandidates.pop ().second;
+                    potentialServerNodeCandidates.pop ();
                   }
-              lowDegree = GetNodeDegree (potentialServerNodeCandidates.pop ().second);
-              recalculatelowest = true;
+              lowDegree = GetNodeDegree (potentialServerNodeCandidates.top ().second);
+              recalculateLowest = true;
             }
 
           // recalculate nLowestDegreeNodes
-          if (recalculatelowest)
+          if (recalculateLowest)
             {
               nLowestDegreeNodes = 0;
               for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();

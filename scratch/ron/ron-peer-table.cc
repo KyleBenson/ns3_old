@@ -38,6 +38,16 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
     location = mobility->GetPosition ();
 }
 
+TypeId
+RonPeerEntry::GetTypeId ()
+{
+  static TypeId tid = TypeId ("ns3::RonPeerEntry")
+    .SetParent<Object> ()
+    .AddConstructor<RonPeerEntry> ()
+  ;
+  return tid;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 
 uint32_t

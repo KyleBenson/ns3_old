@@ -32,11 +32,13 @@
 
 namespace ns3 {
 
-class RonPeerEntry : public SimpleRefCount<RonPeerEntry>
+/** We make this an objects so that we can aggregate one to each node. */
+class RonPeerEntry : public Object
 {
 public:
   RonPeerEntry ();
   RonPeerEntry (Ptr<Node> node);
+  static TypeId GetTypeId ();
   
   //Ron Attributes
   uint32_t id;
