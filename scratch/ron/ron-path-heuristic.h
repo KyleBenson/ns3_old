@@ -94,26 +94,5 @@ protected:
 
   //boost::function<bool (RonPeerEntry peer1, RonPeerEntry peer2)> GetPeerComparator (Ptr<RonPeerEntry> destination = NULL);
 };
-
-class RandomRonPathHeuristic : public RonPathHeuristic
-{
-public:
-  RandomRonPathHeuristic ();
-  static TypeId GetTypeId (void);
-private:
-  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
-};
-
-
-class OrthogonalRonPathHeuristic : public RonPathHeuristic
-{
-public:
-  OrthogonalRonPathHeuristic ();
-  static TypeId GetTypeId (void);
-private:
-  bool updatedOnce; //only need to assign random probs once
-  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
-};
-
 } //namespace
 #endif //RON_PATH_HEURISTIC_H
