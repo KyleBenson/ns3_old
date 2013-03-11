@@ -18,11 +18,11 @@
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
 
-/* REMOVE THESE INCLUDES WHEN MOVED OUT OF SCRATCH DIRECTORY!!!!!!!!!!! */
 #include "ron-header.h"
 #include "ron-helper.h"
 #include "ron-client.h"
 #include "ron-server.h"
+#include "region.h"
 
 #include <iostream>
 #include <sstream>
@@ -30,6 +30,17 @@
 
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
+
+// Some useful HELPER FUNCTIONS
+
+#define GetNodeAddress (node) \
+  (\
+   ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal())) \
+  )
+    // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+
+#define GetNodeDegree (node) \
+  (node->GetNDevices() - 1) //assumes PPP links
 
 namespace ns3 {
 
@@ -53,19 +64,12 @@ public:
   void SetTraceFile (std::string newTraceFile);
   void ConnectAppTraces ();
   
-  void SetDisasterLocation (std::string newDisasterLocation);
+  void SetDisasterLocation (Location newDisasterLocation);
   void SetFailureProbability (double newFailureProbability);
   //void SetHeuristic (newHeuristic);
   void NextHeuristic ();
   void NextDisasterLocation ();
   void NextFailureProbability ();
-
-  static Ipv4Address GetNodeAddress (Ptr<Node> node)
-  {
-    return (Ipv4Address)node->GetObject<Ipv4> ()->GetAddress (1,0).GetLocal ();
-    // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-  }
-
 
   //these rely on the Vector following
   Vector GetLocation (Ptr<Node> node);
@@ -73,7 +77,7 @@ public:
   Vector NO_LOCATION_VECTOR;
 
   std::vector<ObjectFactory*> * heuristics;
-  std::vector<std::string> * disasterLocations;
+  std::vector<Location> * disasterLocations;
   std::vector<double> * failureProbabilities;
   //TODO: timeouts, max retries, etc.
 
@@ -93,7 +97,7 @@ private:
 
   /** A factory to generate the current heuristic */
   ObjectFactory* currHeuristic;
-  std::string currLocation;
+  Location currLocation;
   double currFprob;
   uint32_t currRun; //keep at 32 as it's used as a string later
   Time timeout;
@@ -105,7 +109,7 @@ private:
   Ptr<RonPeerTable> serverPeers;
   std::map<std::string,std::string> latencies;
   std::string topologyFile;
-  std::map<std::string,Vector> locations;
+  std::map<Location,Vector> locations; //to actual position mapping
 
   std::string traceFile;
   Time appStopTime;
@@ -114,9 +118,11 @@ private:
   UniformVariable random;
 
   // These maps, indexed by disaster location name, hold nodes and ifaces of interest for the associated disaster region
-  std::map<std::string, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
-  std::map<std::string, std::map<uint32_t, Ptr <Node> > > disasterNodes;
-  std::map<std::string, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later
+  std::map<Location, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
+  std::map<Location, std::map<uint32_t, Ptr <Node> > > disasterNodes;
+  std::map<Location, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later
+  /** Number of nodes to collect as potential server choices. */
+  uint32_t nServerChoices;
 
   // Keep track of failed nodes/links to unfail them in between runs
   Ipv4InterfaceContainer ifacesToKill;

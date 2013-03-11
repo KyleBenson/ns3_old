@@ -27,17 +27,18 @@ using namespace ns3;
 RonPeerEntry::RonPeerEntry () {}
 
 RonPeerEntry::RonPeerEntry (Ptr<Node> node)
-  {
+{
     this->node = node;
     id = node-> GetId ();
-    address = GeocronExperiment::GetNodeAddress (node);
+    address = GetNodeAddress(node);
     lastContact = Simulator::Now ();
     
     Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
     NS_ASSERT_MSG (mobility != NULL, "Geocron nodes need MobilityModels for determining locations!");    
     location = mobility->GetPosition ();
-  }
+}
 
+////////////////////////////////////////////////////////////////////////////////
 
 uint32_t
 RonPeerTable::GetN ()

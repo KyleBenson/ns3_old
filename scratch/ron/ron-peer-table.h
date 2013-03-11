@@ -23,6 +23,8 @@
 #include "ns3/core-module.h"
 #include "ns3/mobility-module.h"
 
+#include "region.h"
+
 #include <boost/range/adaptor/map.hpp>
 #include <map>
 
@@ -45,6 +47,7 @@ public:
 
   //Geocron Attributes
   Vector location;
+  Location region;
   //TODO: failures reported counter / timer
 };  
 

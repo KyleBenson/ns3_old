@@ -13,7 +13,8 @@
 #include <boost/algorithm/string/replace.hpp>
 #include <boost/algorithm/string/split.hpp>
 #include <boost/algorithm/string/classification.hpp>
-
+#include <boost/heap/priority_queue.hpp>
+ 
 #include <sstream>
 #include <iomanip>
 #include <fstream>
@@ -30,12 +31,16 @@ GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
   simulationLength = Seconds (10.0);
   overlayPeers = Create<RonPeerTable> ();
 
+  maxNDevs = 1;
+  //cmd.AddValue ("install_stubs", "If not 0, install RON client only on stub nodes (have <= specified links - 1 (for loopback dev))", maxNDevs);
+
   currLocation = "";
   currFprob = 0.0;
   currRun = 0;
   contactAttempts = 10;
   traceFile = "";
   nruns = 1;
+  nServerChoices = 10;
 }
 
 
@@ -119,7 +124,7 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
           lon = boost::lexical_cast<double> (parts[2]);
 
           //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
-          locations[(std::string)loc] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
+          locations[Location(loc)] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
         }
     }
 }
@@ -169,8 +174,8 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
 
   for (TopologyReader::ConstLinksIterator iter = topo_reader.LinksBegin();
        iter != topo_reader.LinksEnd(); iter++) {
-    std::string fromLocation = iter->GetAttribute ("From Location");
-    std::string toLocation = iter->GetAttribute ("To Location");
+    Location fromLocation = iter->GetAttribute ("From Location");
+    Location toLocation = iter->GetAttribute ("To Location");
 
     // Set latency for this link if we loaded that information
     if (latencies.size())
@@ -210,37 +215,36 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector fromPosition = locations.count ((std::string)fromLocation)  ? (locations.find (fromLocation))->second : NO_LOCATION_VECTOR;
+    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : NO_LOCATION_VECTOR;
     Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : NO_LOCATION_VECTOR;
     positionAllocator->Add (fromPosition);
     positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
 
+    //creating these entries will cache them by aggregating them to the nodes
+    Ptr<RonPeerEntry> fromPeer = CreateObject<RonPeerEntry> (from_node);
+    Ptr<RonPeerEntry> toPeer = CreateObject<RonPeerEntry> (to_node);
+    fromPeer->region = fromLocation;
+    toPeer->region = toLocation;
+    from_node->AggregateObject (fromPeer);
+    to_node->AggregateObject (toPeer);
+    
     NS_LOG_DEBUG ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
 
     // If the node is in a disaster region, add it to the corresponding list
-    // Also add potential servers (randomly chosen from outside that disaster region)
-    for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
+    // Also add potential servers (randomly chosen from node's with well-defined locations that lie outside that disaster region)
+    for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
          disasterLocation != disasterLocations->end (); disasterLocation++)
       {
         if (fromLocation == *disasterLocation)
           {
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
           }
-        // this check made each time 1 link added, so if the node reaches our min-degree it should be added ONCE
-        else if (from_node->GetNDevices () == maxNDevs + 1 and HasLocation (from_node))
-          {
-            serverNodeCandidates[*disasterLocation].Add (from_node);
-          }
-
+ 
         if (toLocation == *disasterLocation)
           {
             disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
-          }
-        else if (to_node->GetNDevices () == maxNDevs + 1 and HasLocation (to_node))
-          {
-            serverNodeCandidates[*disasterLocation].Add (to_node);
           }
 
         // Failure model: if either endpoint is in the disaster location,
@@ -263,16 +267,33 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       }
   } //end link iteration
 
+
+  ////////////////////////////////////////////////////////////////////////////////
+
+
   NS_LOG_INFO ("Topology finished.  Choosing & installing clients.");
 
-  NodeContainer overlayNodes;
+  // We want to narrow down the number of server choices by picking about nServerChoices of the highest-degree
+  // nodes.  We want at least nServerChoices of them, but will allow more so as not to include some of degree d
+  // but exclude others of degree d.
+  //
+  // So we keep an ordered list of nodes and keep track of the sums
+  //
+  // invariant: if the group of smallest degree nodes were removed from the list,
+  // its size would be < nServerChoices
+  typedef boost::heap::priority_queue<std::pair<uint32_t/*degree*/, Ptr<Node> > > DegreePriorityQueue;
+  DegreePriorityQueue potentialServerNodeCandidates;
+  uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
+  bool reCalculateLowest = false;
 
+  NodeContainer overlayNodes;
   for (NodeContainer::Iterator node = nodes.Begin ();
        node != nodes.End (); node++)
     {
+      uint32_t degree = GetNodeDegree (*node);
       // Sanity check that a node has some actual links, otherwise remove it from the simulation
       // this happened with some disconnected Rocketfuel models and made null pointers
-      if ((*node)->GetNDevices () <= 1)
+      if (degree <= 0)
         {
           NS_LOG_LOGIC ("Node " << (*node)->GetId () << " has no links!");
           //node.erase ();
@@ -283,20 +304,46 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
       // We may only install the overlay application on clients attached to stub networks,
       // so we just choose the stub network nodes here
       // (note that all nodes have a loopback device)
-      if (!maxNDevs or (*node)->GetNDevices () <= maxNDevs) 
+      if (!maxNDevs or degree <= maxNDevs) 
         {
           overlayNodes.Add (*node);
           overlayPeers->AddPeer (*node);
-          // OLD SILLY HEURISTIC  $$$$//
-          // Only add address of overlay if we're contacting local peers and it is one,
-          // or if it's outside of the local region
-          //if ((disasterNodes[currLocation].count ((*node)->GetId ()) != 0) or
-          // TODO: this is a bug, only works if choosing external nodes only.  If use_local_overlays is true,
-          // all overlay nodes will become candidates
-          //(!use_local_overlays and disasterNodes[currLocation].count ((*node)->GetId ()) == 0))
+        }
+
+      else if (degree > maxNDevs and HasLocation (from_node))
+        {
+          //add potential server
+          if (degree >= lowDegree)
+            potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, from_node));
+
+          if (degree == lowDegree)
+            nLowestDegreeNodes++;
+          else if (degree < lowDegree)
+            lowDegree = degree; reCalculateLowest = true;
+
+          //remove group of lowest degree nodes if it's okay
+          if (potentialServerNodeCandidates.size () - nLowestDegreeNodes >= nServerChoices)
+            {
+              uint32_t lowDegree = 
+                while (potentialServerNodeCandidates.top ().first == lowDegree)
+                  {
+                    potentialServerNodeCandidates.pop ().second;
+                  }
+              lowDegree = GetNodeDegree (potentialServerNodeCandidates.pop ().second);
+              recalculatelowest = true;
+            }
+
+          // recalculate nLowestDegreeNodes
+          if (recalculatelowest)
+            {
+              nLowestDegreeNodes = 0;
+              for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
+                   itr != potentialServerNodeCandidates.end () and (itr)->first == lowDegree; itr++)
+                nLowestDegreeNodes++;
+            }
         }
     }
-      
+  
   RonClientHelper ronClient (9);
   ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
   ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
@@ -316,11 +363,26 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
   
   clientApps.Start (Seconds (2.0));
   clientApps.Stop (appStopTime);
+
+  // Now cache the actual choices of server nodes for each disaster region
+  for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
+       itr != potentialServerNodeCandidates.end (); itr++)
+    {
+      Ptr<Node> serverCandidate = itr->second;
+      Location loc = serverCandidate->GetObject<RonPeerEntry> ()->region;
+
+      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
+           disasterLocation != disasterLocations->end (); disasterLocation++)
+        {
+          if (*disasterLocation != loc)
+            serverNodeCandidates[*disasterLocation].Add (serverCandidate);
+        }
+    }
 }
 
 
 void
-GeocronExperiment::SetDisasterLocation (std::string newDisasterLocation)
+GeocronExperiment::SetDisasterLocation (Location newDisasterLocation)
 {
   currLocation = newDisasterLocation;
 }
@@ -401,7 +463,7 @@ GeocronExperiment::RunAllScenarios ()
 {
   SeedManager::SetSeed(std::time (NULL));
   int runSeed = 0;
-  for (std::vector<std::string>::iterator disasterLocation = disasterLocations->begin ();
+  for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
        disasterLocation != disasterLocations->end (); disasterLocation++)
     {
       SetDisasterLocation (*disasterLocation); 
