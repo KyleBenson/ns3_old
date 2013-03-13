@@ -551,6 +551,7 @@ RonClient::GetPathFromHeader (const RonHeader head) const
     {
       path->AddPeer (m_peers->GetPeerByAddress ((Ipv4Address)*itr));
     }
+  path->AddPeer (m_peers->GetPeerByAddress ((Ipv4Address)head.GetFinalDest ()));
   return path;
 }
 

@@ -39,6 +39,8 @@ public:
   RonPeerEntry ();
   RonPeerEntry (Ptr<Node> node);
   static TypeId GetTypeId ();
+
+  bool operator== (const RonPeerEntry rhs);
   
   //Ron Attributes
   uint32_t id;

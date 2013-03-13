@@ -25,11 +25,17 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("RonPathHeuristic");
 NS_OBJECT_ENSURE_REGISTERED (RonPathHeuristic);
 
+RonPathHeuristic::RonPathHeuristic ()
+{
+  m_masterLikelihoods = NULL;
+}
+
 TypeId
 RonPathHeuristic::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RonPathHeuristic")
     .SetParent<Object> ()
+    .AddConstructor<RonPathHeuristic> ()
     .AddAttribute ("Weight", "Value by which the likelihood this heuristic assigns is weighted.",
                    DoubleValue (1.0),
                    MakeDoubleAccessor (&RonPathHeuristic::m_weight),
@@ -51,25 +57,23 @@ RonPathHeuristic::GetTypeId (void)
 }
 
 RonPathHeuristic::~RonPathHeuristic ()
-{} //required to keep gcc from complaining
+{
+  if (m_masterLikelihoods != NULL)
+    delete m_masterLikelihoods;
+} //required to keep gcc from complaining
 
 
 void
-RonPathHeuristic::PreUpdateLikelihoods (Ptr<RonPeerEntry> destination)
+RonPathHeuristic::MakeTopLevel ()
 {
-
+  m_topLevel = true;
+  if (m_masterLikelihoods == NULL)
+    m_masterLikelihoods = new MasterPathLikelihoodTable ();
 }
 
 
 void
-RonPathHeuristic::DoPreUpdateLikelihoods (Ptr<RonPeerEntry> destination)
-{
-
-}
-
-
-void
-RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
+RandomRonPathHeuristic::UpdateLikelihoods (PeerDestination destination)
 {
   //update us first, then the other aggregate heuristics (if any)
   DoUpdateLikelihoods (destination);
@@ -80,34 +84,29 @@ RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
 
 
 void
-RandomRonPathHeuristic::DoUpdateLikelihoods (Ptr<RonPeerEntry> destination)
+RandomRonPathHeuristic::DoUpdateLikelihoods (PeerDestination destination)
 {
-  if (!m_updatedOnce)
-    {
+  if (!m_updatedOnce)    {
       for (RonPeerTable::Iterator peer = m_peers->Begin ();
            peer != m_peers->End (); peer++)
         SetLikelihood (*peer, GetLikelihood (*peer, destination));
       m_updatedOnce = true;
     }
-  // only update likelihood of last attempted peer once we've cached the others
-  else
-    {
-      ZeroLikelihood (m_peersAttempted.back ());
-    }
 }
 
 
 Ptr<OverlayPath>
-RonPathHeuristic::GetBestPath (Ptr<RonPeerEntry> destination)
+RonPathHeuristic::GetBestPath (PeerDestination destination)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer before using the heuristic!");
   NS_ASSERT_MSG (destination, "You must specify a valid server to use the heuristic!");
 
   //TODO: multiple servers
 
-  //ensure likelihoods initialized
-  if (!m_updatedOnce)
-    ZeroLikelihoods ();
+  //if (!m_updatedOnce)
+  if (m_likelihoods[destination]TODO: build paths
+      virtual EnsurePathsBuilt
+    
 
   //find the peer with highest likelihood
   //TODO: cache up to MaxAttempts of them
@@ -117,6 +116,7 @@ RonPathHeuristic::GetBestPath (Ptr<RonPeerEntry> destination)
   double bestLikelihood = probs->second;
   for (; probs != m_likelihoods.end (); probs++)
     {
+    TODO: sum up likelihoods
       if (probs->second > bestLikelihood)
         {
           bestPeer = probs->first;
@@ -159,6 +159,7 @@ RonPathHeuristic::DoNotifyAck (Ptr<OverlayPath> path, Time time)
       SetLikelihood (*peer, 1);
     }
   //TODO: record partial path ACKs
+  //TODO: record parents (Markov chain)
 }
 
 
@@ -178,7 +179,7 @@ void
 RonPathHeuristic::DoNotifyTimeout (Ptr<OverlayPath> path, Time time)
 {
   //TODO: handle partial path ACKs
-  SetLikelihood (*(path->Begin ()), 0);
+  SetLikelihood (*path, 0);
 }
 
 
@@ -191,6 +192,22 @@ void
 RonPathHeuristic::AddHeuristic (Ptr<RonPathHeuristic> other)
 {
   m_aggregateHeuristics.push_back (other);
+
+  //give new heuristic likelihoods for current paths
+  for (MasterPathLikelihoodTable tables = m_masterLikelihoods.begin ();
+       tables != m_masterLikelihoods.end (); tables++)
+    {
+      SinglePathLikelihoodInnerTable newTable = other->m_likelihoods[tables->first];
+      for (PathLikelihoodTable::iterator pathLh = tables->second.begin ();
+           pathLh != tables->end (); pathLh++)
+        {
+          OverlayPath path = pathLh->first;
+          Likelihood lh = pathLh->second;
+          lh.push_back (0.0);
+          double * newLh = &(lh.back ());
+          newTable[path] = newLh;
+        }
+    }
 }
 
 
@@ -209,15 +226,15 @@ RonPathHeuristic::SetSourcePeer (Ptr<RonPeerEntry> peer)
 
 
 void
-RonPathHeuristic::SetLikelihood (Ptr<RonPeerEntry> peer, double lh)
+RonPathHeuristic::SetLikelihood (PeerDestination dest, Ptr<OverlayPath> path, double lh)
 {
   //NS_ASSERT (0.0 <= lh and lh <= 1.0);
   NS_LOG_LOGIC ("Peer " << peer->id << " has LH " << lh);
   //m_peers.SetLikelihood (peer, 
-  m_likelihoods[peer] += lh*m_weight;
+  *(m_likelihoods[dest][path]) = lh*m_weight;
 }
 
-
+/*
 void
 RonPathHeuristic::ZeroLikelihood (Ptr<RonPeerEntry> peer)
 {
@@ -225,8 +242,8 @@ RonPathHeuristic::ZeroLikelihood (Ptr<RonPeerEntry> peer)
   NS_LOG_LOGIC ("Peer " << peer->id << "'s LH cleared to 0");
   m_likelihoods[peer] = 0.0;
 }
-
-
+*/
+   /*
 void
 RonPathHeuristic::ZeroLikelihoods ()
 {
@@ -249,7 +266,7 @@ RonPathHeuristic::ZeroLikelihoods ()
         }
     }
 }
-
+   */
 
 Ptr<RonPeerEntry>
 RonPathHeuristic::GetSourcePeer ()

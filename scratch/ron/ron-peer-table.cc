@@ -48,6 +48,14 @@ RonPeerEntry::GetTypeId ()
   return tid;
 }
 
+
+bool
+RonPeerEntry::operator== (const RonPeerEntry rhs)
+{
+  return id == rhs.id;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 
 uint32_t
