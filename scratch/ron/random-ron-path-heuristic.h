@@ -29,7 +29,7 @@ public:
   RandomRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
-  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
+  virtual double GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination);
 };
 } //namespace
 #endif //RANDOM_RON_PATH_HEURISTIC_H

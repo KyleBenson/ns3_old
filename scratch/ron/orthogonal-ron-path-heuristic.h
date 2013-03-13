@@ -29,8 +29,7 @@ public:
   OrthogonalRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
-  bool updatedOnce; //only need to assign random probs once
-  virtual void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
+  virtual double GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination);
 };
 
 } //namespace

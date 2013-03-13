@@ -180,7 +180,7 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     // Set latency for this link if we loaded that information
     if (latencies.size())
       {
-        std::map<std::string, std::string>::iterator latency = latencies.find (fromLocation + " -> " + toLocation);
+        LatenciesMap::iterator latency = latencies.find (fromLocation + " -> " + toLocation);
         //if (iter->GetAttributeFailSafe ("Latency", latency))
         
         if (latency != latencies.end())

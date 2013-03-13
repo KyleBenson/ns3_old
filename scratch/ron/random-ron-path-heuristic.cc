@@ -52,21 +52,8 @@ RandomRonPathHeuristic::GetTypeId (void)
 }
 
 
-void
-RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
+double
+RandomRonPathHeuristic::GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination)
 {
-  //only need to assign random probs once,
-  //but should set them to 0 if we failed to reach a peer
-  if (!m_updatedOnce)
-    {
-      for (RonPeerTable::Iterator peer = m_peers->Begin ();
-           peer != m_peers->End (); peer++)
-        SetLikelihood (*peer, random.GetValue ());
-      m_updatedOnce = true;
-    }
-  else
-    {
-      //only need to update last attempted peer
-      ZeroLikelihood (m_peersAttempted.back ());
-    }
+  return random.GetValue ();
 }

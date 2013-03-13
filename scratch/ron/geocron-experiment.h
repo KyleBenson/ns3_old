@@ -28,6 +28,8 @@
 #include <sstream>
 #include <map>
 
+// prefer boost's map when not iterating as it's a hash map
+#include "boost/unordered_map.hpp" 
 #include "boost/filesystem.hpp"
 #include "boost/lexical_cast.hpp"
 
@@ -100,9 +102,11 @@ private:
   ApplicationContainer clientApps;
   Ptr<RonPeerTable> overlayPeers;
   Ptr<RonPeerTable> serverPeers;
-  std::map<std::string,std::string> latencies;
   std::string topologyFile;
-  std::map<Location,Vector> locations; //to actual position mapping
+  boost::unordered_map<Location,Vector> locations; //to actual position mapping
+
+  typedef boost::unordered_map<std::string,std::string> LatenciesMap;
+  LatenciesMap latencies;
 
   std::string traceFile;
   Time appStopTime;
@@ -111,9 +115,9 @@ private:
   UniformVariable random;
 
   // These maps, indexed by disaster location name, hold nodes and ifaces of interest for the associated disaster region
-  std::map<Location, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
-  std::map<Location, std::map<uint32_t, Ptr <Node> > > disasterNodes;
-  std::map<Location, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later
+  boost::unordered_map<Location, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
+  std::map<Location, std::map<uint32_t, Ptr <Node> > > disasterNodes; //both random access AND iteration hmmm...
+  std::map<Location, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later (1 entry per disaster location)
   /** Number of nodes to collect as potential server choices. */
   uint32_t nServerChoices;
 

@@ -362,22 +362,24 @@ RonClient::Send (bool viaOverlay)
   Ptr<RonPeerEntry> serverPeer = *(m_serverPeers->Begin ());
 
   // add RON header to packet
-  RonHeader head;
+  Ptr<RonHeader> head = Create<RonHeader> ();
+  uint32_t seq = m_sent;
+  Ptr<OverlayPath> overlayPeerChoices;
 
   // If forwarding thru overlay, use heuristic to pick a peer from those available
   if (viaOverlay)
     {
       try
         {
-          Ptr<OverlayPath> overlayPeerChoices = m_heuristic->GetNextPath (serverPeer);
-          head = RonHeader (serverPeer->address);
+          overlayPeerChoices = m_heuristic->GetBestPath (serverPeer);
+          head = Create<RonHeader> (serverPeer->address);
 
           //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
           Ipv4Address intermediary;
           for (OverlayPath::Iterator itr = overlayPeerChoices->Begin ();
                itr != overlayPeerChoices->End (); itr++)
             {
-               head.AddDest ((*itr)->address);
+               head->AddDest ((*itr)->address);
             }
         }
       catch (RonPathHeuristic::NoValidPeerException& e)
@@ -389,17 +391,18 @@ RonClient::Send (bool viaOverlay)
         }
     }
   else
-    head = RonHeader (serverPeer->address);
+    head->SetDestination (serverPeer->address);
 
-  head.SetSeq (m_sent);
-  head.SetOrigin (m_address);
+  head->SetSeq (seq);
+  head->SetOrigin (m_address);
   p->AddHeader (head);
 
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
   m_sendTrace (p, GetNode ()->GetId ());
-  m_socket->SendTo (p, 0, InetSocketAddress(head.GetNextDest (), m_port));
-  ScheduleTimeout (m_sent++);
+  m_socket->SendTo (p, 0, InetSocketAddress(head->GetNextDest (), m_port));
+  ScheduleTimeout (head);
+  m_sent++;
 
   //NS_LOG_INFO ("Sent " << m_size << " bytes to " << m_servAddress);
 
@@ -428,7 +431,7 @@ RonClient::HandleRead (Ptr<Socket> socket)
           packet->PeekHeader (head);
 
           // If the packet is for us, process the ACK
-          if (head.GetFinalDest () == head.GetNextDest ())
+          if (head->GetFinalDest () == head->GetNextDest ())
             {
               ProcessAck (packet, source);
             }
@@ -437,6 +440,9 @@ RonClient::HandleRead (Ptr<Socket> socket)
           else
             {
               ForwardPacket (packet, source);
+              //TODO: ACK the partial path
+              //TODO: update last-contacted info
+              //TODO: possibly look at other branches
             }
         }
     }
@@ -457,8 +463,8 @@ RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
   // If this is the first hop on the route, we need to set the source
   // since NS3 doesn't give us a convenient way to access which interface
   // the original packet was sent out on.
-  if (head.GetHop () == 0)
-    head.SetOrigin (source);
+  if (head->GetHop () == 0)
+    head->SetOrigin (source);
 
   head.IncrHops ();
   Ipv4Address destination = head.GetNextDest ();
@@ -466,6 +472,7 @@ RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
 
   m_forwardTrace (packet, GetNode ()-> GetId ());
   m_socket->SendTo (packet, 0, InetSocketAddress(destination, m_port));
+  //TODO: setup timeouts/ACKs for forwards
 }
 
 void
@@ -481,15 +488,20 @@ RonClient::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
   m_outstandingSeqs.erase (seq);
   //TODO: handle an ack from an old seq number
 
+  Time time = Simulator::Now ();
+  Ptr<OverlayPath> path = head->GetPathFromHeader (head);
+  path->Reverse (); //currently in order from dest
+  m_heuristic->NotifyAck (path, time);
+
   CancelEvents ();
   //TODO: store path? send more data?
 }
 
 void
-RonClient::ScheduleTimeout (uint32_t seq)
+RonClient::ScheduleTimeout (Ptr<RonHeader> head)
 {
-  m_events.push_front (Simulator::Schedule (m_timeout, &RonClient::CheckTimeout, this, seq));
-  m_outstandingSeqs.insert (seq);
+  m_events.push_front (Simulator::Schedule (m_timeout, &RonClient::CheckTimeout, this, head));
+  m_outstandingSeqs.insert (head->seq);
 }
 
 void
@@ -530,6 +542,18 @@ RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
   heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
 
+Ptr<OverlayPath>
+RonClient::GetPathFromHeader (const RonHeader head) const
+{
+  Ptr<OverlayPath> path = Create<OverlayPath> ();
+  for (const double * itr = head.GetPathBegin ();
+       itr != head.GetPathEnd (); itr++)
+    {
+      path->AddPeer (m_peers->GetPeerByAddress ((Ipv4Address)*itr));
+    }
+  return path;
+}
+
 Ipv4Address
 RonClient::GetAddress () const
 {
@@ -537,8 +561,9 @@ RonClient::GetAddress () const
 }
 
 void
-RonClient::CheckTimeout (uint32_t seq)
+RonClient::CheckTimeout (Ptr<RonHeader> head)
 {
+  uint32_t seq = head->GetSeq ();
   std::set<uint32_t>::iterator itr = m_outstandingSeqs.find (seq);
 
   // If it's timed out, we should try a different path to the server
@@ -546,7 +571,13 @@ RonClient::CheckTimeout (uint32_t seq)
     {
       NS_LOG_LOGIC ("Packet with seq# " << seq << " timed out.");
       m_outstandingSeqs.erase (itr);
+
+      Time time = Simulator::Now ();
+      Ptr<OverlayPath> path = GetPathFromHeader (*head);
+      path->Reverse (); //currently in order from dest
+      m_heuristic->NotifyTimeout (path, time);
       
+      // try again?
       if (m_sent < m_count)
         ScheduleTransmit (Seconds (0.0), true);
     }

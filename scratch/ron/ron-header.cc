@@ -226,13 +226,25 @@ RonHeader::SetOrigin (Ipv4Address origin)
   m_origin = origin.Get ();
 }
 
+const double *
+RonHeader::GetPathBegin () const
+{
+  return m_ips;
+}
+
+const double *
+RonHeader::GetPathEnd () const
+{
+  return m_ips + m_nIps;
+}
+
 void
 RonHeader::ReversePath (void)
 {
   NS_LOG_FUNCTION_NOARGS ();
 
   // Iterate over buffer and swap elements
-  for (uint8_t i = m_nIps; i < m_nIps/2; i++)
+  for (uint8_t i = 0; i < m_nIps/2; i++)
     {
       uint32_t tmp = m_ips[i];
       m_ips[i] = m_ips[m_nIps - 1 - i];

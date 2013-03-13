@@ -13,7 +13,7 @@ namespace ns3 {
 
 /* A Header for the Resilient Overlay Network (RON) client and server.
  */
-class RonHeader : public Header 
+class RonHeader : public SimpleRefCount<RonHeader, Header>
 {
 public:
   explicit RonHeader ();
@@ -33,6 +33,10 @@ public:
   bool IsForward (void) const;
   void AddDest (Ipv4Address addr);
   void ReversePath (void);
+  /** Returns the path represented in the RonHeader as a sequence of IP addresses. */
+  const uint32_t * GetPathBegin () const
+  const uint32_t * GetPathEnd () const;
+
   void SetDestination (Ipv4Address dest);
   void SetOrigin (Ipv4Address origin);
   void SetSeq (uint32_t seq);

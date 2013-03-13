@@ -17,7 +17,7 @@
  */
 
 #include "ron-path-heuristic.h"
-#include "boost/bind.hpp"
+//#include "boost/bind.hpp"
 #include <cmath>
 
 using namespace ns3;
@@ -54,25 +54,65 @@ RonPathHeuristic::~RonPathHeuristic ()
 {} //required to keep gcc from complaining
 
 
+void
+RonPathHeuristic::PreUpdateLikelihoods (Ptr<RonPeerEntry> destination)
+{
+
+}
+
+
+void
+RonPathHeuristic::DoPreUpdateLikelihoods (Ptr<RonPeerEntry> destination)
+{
+
+}
+
+
+void
+RandomRonPathHeuristic::UpdateLikelihoods (Ptr<RonPeerEntry> destination)
+{
+  //update us first, then the other aggregate heuristics (if any)
+  DoUpdateLikelihoods (destination);
+  for (AggregateHeuristics::iterator others = m_aggregateHeuristics.begin ();
+       others != m_aggregateHeuristics.end (); others++)
+    (*others)->UpdateLikelihoods (destination);
+}
+
+
+void
+RandomRonPathHeuristic::DoUpdateLikelihoods (Ptr<RonPeerEntry> destination)
+{
+  if (!m_updatedOnce)
+    {
+      for (RonPeerTable::Iterator peer = m_peers->Begin ();
+           peer != m_peers->End (); peer++)
+        SetLikelihood (*peer, GetLikelihood (*peer, destination));
+      m_updatedOnce = true;
+    }
+  // only update likelihood of last attempted peer once we've cached the others
+  else
+    {
+      ZeroLikelihood (m_peersAttempted.back ());
+    }
+}
+
+
 Ptr<OverlayPath>
-RonPathHeuristic::GetNextPath (Ptr<RonPeerEntry> destination)
+RonPathHeuristic::GetBestPath (Ptr<RonPeerEntry> destination)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer before using the heuristic!");
   NS_ASSERT_MSG (destination, "You must specify a valid server to use the heuristic!");
 
   //TODO: multiple servers
 
+  //ensure likelihoods initialized
   if (!m_updatedOnce)
     ZeroLikelihoods ();
-  UpdateLikelihoods (destination);
-  for (std::list<Ptr<RonPathHeuristic> >::iterator others = m_aggregateHeuristics.begin ();
-       others != m_aggregateHeuristics.end (); others++)
-    (*others)->UpdateLikelihoods (destination);
 
   //find the peer with highest likelihood
   //TODO: cache up to MaxAttempts of them
   //TODO: check for valid size
-  std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();
+  LikelihoodPeerIterator probs = m_likelihoods.begin ();
   Ptr<RonPeerEntry> bestPeer = probs->first;
   double bestLikelihood = probs->second;
   for (; probs != m_likelihoods.end (); probs++)
@@ -91,6 +131,60 @@ RonPathHeuristic::GetNextPath (Ptr<RonPeerEntry> destination)
   return Create<OverlayPath> (bestPeer);
   //TODO: implement multiple overlay peers along path
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////  notifications / updates  /////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+void
+RonPathHeuristic::NotifyAck (Ptr<OverlayPath> path, Time time)
+{
+  DoNotifyAck (path, time);
+  for (AggregateHeuristics::iterator heuristic = m_aggregateHeuristics->begin ();
+       heuristic != m_aggregateHeuristics.end (); heuristic++)
+    {
+      heuristic->NotifyAck (path, time);
+    }
+}
+
+
+void
+RonPathHeuristic::DoNotifyAck (Ptr<OverlayPath> path, Time time)
+{
+  for (OverlayPath::Iterator peer = path->Begin ();
+       peer != path.End (); peer++)
+    {
+      SetLikelihood (*peer, 1);
+    }
+  //TODO: record partial path ACKs
+}
+
+
+void
+RonPathHeuristic::NotifyTimeout (Ptr<OverlayPath> path, Time time)
+{
+  DoNotifyTimeout (path, time);
+  for (AggregateHeuristics::iterator heuristic = m_aggregateHeuristics->begin ();
+       heuristic != m_aggregateHeuristics.end (); heuristic++)
+    {
+      heuristic->NotifyTimeout (path, time);
+    }
+}
+
+
+void
+RonPathHeuristic::DoNotifyTimeout (Ptr<OverlayPath> path, Time time)
+{
+  //TODO: handle partial path ACKs
+  SetLikelihood (*(path->Begin ()), 0);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////  mutators / accessors  ////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 
 void
@@ -136,19 +230,19 @@ RonPathHeuristic::ZeroLikelihood (Ptr<RonPeerEntry> peer)
 void
 RonPathHeuristic::ZeroLikelihoods ()
 {
-  // can there actually be likelihoods without peers?
+  //build it first time ?
   if (m_likelihoods.size () != m_peers->GetN ())
     {
       m_likelihoods.clear ();
       for (RonPeerTable::Iterator peer = m_peers->Begin ();
            peer != m_peers->End (); peer++)
         {
-          ZeroLikelihood (*peer);
+          probs->second = 0.0;
         }
     }
   else
     {
-      std::map<Ptr<RonPeerEntry>, double>::iterator probs = m_likelihoods.begin ();
+      LikelihoodPeerIterator probs = m_likelihoods.begin ();
       for (; probs != m_likelihoods.end (); probs++)
         {
           probs->second = 0.0;
@@ -172,6 +266,9 @@ RonPathHeuristic::GetSourcePeer ()
 // }
 
 
+//////////////////// helper functions ////////////////////
+
+
 bool
 RonPathHeuristic::SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
 {
@@ -179,6 +276,8 @@ RonPathHeuristic::SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
   Vector3D loc1 = peer1->location;
   Vector3D loc2 = peer2->location;
   return loc1.x == loc2.x and loc1.y == loc2.y;
+  /* test this later
+     return peer1->GetObject<RonPeerEntry> ()->region == peer2->GetObject<RonPeerEntry> ()->region; */
 }
 
 
@@ -188,19 +287,30 @@ RonPathHeuristic::SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
 OverlayPath::OverlayPath(Ptr<RonPeerEntry> peer)
 {
   AddPeer (peer);
+  m_reversed = false;
 }
 
 
 void 
 OverlayPath::AddPeer (Ptr<RonPeerEntry> peer)
 {
+  if (m_reversed)
+    m_path.push_front (peer);
   m_path.push_back (peer);
+}
+
+void
+OverlayPath::Reverse ()
+{
+  m_reversed = !m_reversed;
 }
 
 
 OverlayPath::Iterator
 OverlayPath::Begin ()
 {
+  if (m_reversed)
+    return m_path.rbegin();
   return m_path.begin();
 }
 
@@ -208,6 +318,8 @@ OverlayPath::Begin ()
 OverlayPath::Iterator
 OverlayPath::End ()
 {
+  if (m_reversed)
+    return m_path.rend();
   return m_path.end();
 }
 
