@@ -171,8 +171,8 @@ private:
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
   void ProcessAck (Ptr<Packet> packet, Ipv4Address source);
-  void CheckTimeout (uint32_t seq);
-  void ScheduleTimeout (uint32_t seq);
+  void CheckTimeout (Ptr<RonHeader> head);
+  void ScheduleTimeout (Ptr<RonHeader> head);
 
   uint32_t m_count;
   Time m_interval;

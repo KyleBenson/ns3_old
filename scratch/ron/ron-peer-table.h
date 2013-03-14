@@ -26,8 +26,8 @@
 #include "region.h"
 
 #include <boost/range/adaptor/map.hpp>
-
 #include <boost/unordered_map.hpp>
+#include <map>
 
 //TODO: enum for choosing which heuristic?
 
@@ -40,6 +40,9 @@ public:
   RonPeerEntry ();
   RonPeerEntry (Ptr<Node> node);
   static TypeId GetTypeId ();
+
+  bool operator== (RonPeerEntry rhs) const;
+  bool operator< (RonPeerEntry rhs) const;
 
   //Ron Attributes
   uint32_t id;
@@ -57,6 +60,7 @@ public:
 class RonPeerTable : public SimpleRefCount<RonPeerTable>
 {
  private:
+  //typedef boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::range_detail::select_second_mutable_range<underlyingMapType> underlyingIterator;
  public:
@@ -89,7 +93,7 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
 
  private:
   underlyingMapType m_peers;
-  boost::unordered_map<Ipv4Address, Ptr<RonPeerEntry> > m_peersByAddress;
+  boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > m_peersByAddress;
 };
 
 } //namespace

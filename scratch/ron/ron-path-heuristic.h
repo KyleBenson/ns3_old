@@ -19,9 +19,11 @@
 #ifndef RON_PATH_HEURISTIC_H
 #define RON_PATH_HEURISTIC_H
 
-#include "ron-peer-table.h"
 #include "ns3/core-module.h"
 #include <vector>
+
+#include "ron-peer-table.h"
+#include "ron-path.h"
 
 /*#include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index_container.hpp>
@@ -29,54 +31,11 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/identity.hpp>*/
 #include <boost/unordered_map.hpp>
+#include <boost/unordered_set.hpp>
+#include <set>
 //#include "boost/function.hpp"
 
 namespace ns3 {
-
-//TODO: enum for choosing which heuristic?
-
-/** This class provides a simple iterable container for storing the path of peer entries. */
-class RonPath : public SimpleRefCount<RonPath>
-{
-private:
-  typedef std::list<Ptr<RonPeerEntry> > underlyingContainer;
-  underlyingContainer m_path;
-  bool m_reversed;
-public:
-  typedef underlyingContainer::iterator Iterator;
-  RonPath(Ptr<RonPeerEntry> peer);
-
-  /** Adds a peer to the end of the path. */
-  void AddPeer (Ptr<RonPeerEntry> peer);
-
-  /** Returns the destination peer(s), which is currently just the last added peer. */
-  PeerDestination GetDestination ();
-  
-  uint32_t GetN () const;
-
-  //TODO: void InsertPeer ChangePeerAt?
-
-  //TODO: handle splicing/forking/adding destinations instead of peers
-
-  //TODO: question: should the path include the source?
-
-  /** Reverses the ordering of the path.
-      Actually, it just stores a flag and reverses calls to it the path. */
-  void Reverse ();
-
-  /** Compare paths based on the contents of the pointers they contain,
-      in case there exist multiple references to the same RonPeerEntry. */
-  bool operator== (RonPath & rhs);
-
-  /** Compare paths based on the contents of the pointers they contain,
-      in case there exist multiple references to the same RonPeerEntry.
-      In the event of a tie, the shorter path is considered less. */
-  bool operator< (RonPath & rhs);
-
-  Iterator Begin ();
-  Iterator End ();
-};
-
 
 /** This class represents a heuristic for choosing overlay paths.  Derived classes must override the ComparePeers
     function to implement the actual heuristic logic. */
@@ -85,6 +44,7 @@ class RonPathHeuristic : public Object
 public:
   static TypeId GetTypeId (void);
 
+  RonPathHeuristic ();
   virtual ~RonPathHeuristic ();
 
   /** Return the best path, according to the aggregate heuristics, to the destination. */
@@ -147,14 +107,14 @@ protected:
   void AddPath (Ptr<RonPath> path);
 
   /** Runs DoBuildPaths on all heuristics. */
-  void BuildPaths (PeerDestination destination);
+  void BuildPaths (Ptr<PeerDestination> destination);
 
   /** Generate enough paths for the heuristics to use.
       By default, it will generate all possible one-hop paths to the destination the first
       time it sees that destination.  It will NOT generate duplicates.
       Override for multi-hop paths or to prune this search tree.
       NOTE: make sure you check for duplicate paths when using aggregate heuristics! */
-  virtual void DoBuildPaths (PeerDestination destination);
+  virtual void DoBuildPaths (Ptr<PeerDestination> destination);
 
   /** Handles adding a path to the master likelihood table and updating all other heuristics
       and their associated likelihood tables. */
@@ -166,11 +126,11 @@ protected:
       Override to change these assumptions (i.e. on-line heuristics),
       but take care to ensure good algorithmic complexity!
   */
-  virtual void DoUpdateLikelihoods (Ptr<RonPeerEntry> destination);
+  virtual void DoUpdateLikelihoods (const PeerDestination destination);
   /** Ensures that DoUpdateLikelihoods is run for each aggregate heuristic */
-  void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
+  void UpdateLikelihoods (const PeerDestination destination);
 
-  bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
+  bool SameRegion (RonPeerEntry peer1, RonPeerEntry peer2);
 
   /** May only need to assign likelihoods once.
       Set this to true to avoid clearing LHs after each newly chosen peer. */
@@ -187,23 +147,26 @@ protected:
       take a reference to a newly created heuristic's LH when it is being built. */
   typedef std::list<double> Likelihood;
 
-  typedef std::list<RonPath> PathsAttempted;
+  //typedef boost::unordered_set<RonPath> PathsAttempted;
+  typedef std::set<RonPath> PathsAttempted;
   PathsAttempted m_pathsAttempted;
   typedef std::list<Ptr<RonPathHeuristic> > AggregateHeuristics;
   AggregateHeuristics m_aggregateHeuristics;
 
   /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
 
-  typedef Ptr<RonPeerEntry> PeerDestination;
-  typedef boost::unordered_map<Ptr<RonPath>, *double> PathLikelihoodInnerTable;
-  typedef boost::unordered_map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
+  //typedef boost::unordered_map<RonPath, double *> PathLikelihoodInnerTable;
+  typedef std::map<RonPath, double *> PathLikelihoodInnerTable;
+  //typedef boost::unordered_map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
+  typedef std::map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
   PathLikelihoodTable m_likelihoods;
 
   /** Only the top-level of a group of aggregate heuristics should manage this. */
-  typedef boost::unordered_map<PeerDestination, 
-                               boost::unordered_map<Ptr<RonPath>, std::list<double> > >*
-  MasterPathLikelihoodTable;
-  MasterPathLikelihoodTable m_masterLikelihoods;
+  //typedef boost::unordered_map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
+  typedef std::map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
+  //typedef boost::unordered_map<PeerDestination, MasterPathLikelihoodInnerTable> MasterPathLikelihoodTable;
+  typedef std::map<PeerDestination, MasterPathLikelihoodInnerTable> MasterPathLikelihoodTable;
+  MasterPathLikelihoodTable * m_masterLikelihoods;
 
   Ptr<RonPathHeuristic> m_topLevel;
  

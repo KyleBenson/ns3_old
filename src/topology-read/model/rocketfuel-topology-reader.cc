@@ -87,10 +87,10 @@ std::map<std::string, std::string> nodeAddresses;
 // whether the file contains latencies or weights
 bool isLatencies;
 
-std::map<std::string, std::string> 
+RocketfuelTopologyReader::LatenciesMap
 RocketfuelTopologyReader::ReadLatencies (std::string filename)
 {
-  std::map<std::string, std::string> weights;
+  LatenciesMap weights;
 
   std::ifstream weightFile;
   weightFile.open (filename.c_str ());

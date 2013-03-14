@@ -50,11 +50,17 @@ RonPeerEntry::GetTypeId ()
 
 
 bool
-RonPeerEntry::operator== (const RonPeerEntry rhs)
+RonPeerEntry::operator== (RonPeerEntry rhs) const
 {
   return id == rhs.id;
 }
 
+
+bool
+RonPeerEntry::operator< (RonPeerEntry rhs) const
+{
+  return id < rhs.id;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -69,7 +75,7 @@ RonPeerTable::GetMaster ()
 Ptr<RonPeerEntry>
 RonPeerTable::GetPeerByAddress (Ipv4Address address)
 {
-  return m_peersByAddress[address];
+  return m_peersByAddress[address.Get ()];
 }
 
 
@@ -93,7 +99,9 @@ RonPeerTable::AddPeer (Ptr<RonPeerEntry> entry)
   else
     returnValue = m_peers[entry->id] = entry;
   
-  m_peersByAddress[entry->address] = entry;
+  m_peersByAddress[(entry->address.Get ())] = entry;
+
+  return returnValue;
 }
 
 
@@ -106,7 +114,7 @@ RonPeerTable::AddPeer (Ptr<Node> node)
 
 
 bool
-RonPeerTable::RemovePeer (int id)
+RonPeerTable::RemovePeer (uint32_t id)
 {
   bool retValue = false;
   if (m_peers.count (id))
@@ -117,7 +125,7 @@ RonPeerTable::RemovePeer (int id)
 
 
 Ptr<RonPeerEntry>
-RonPeerTable::GetPeer (int id)
+RonPeerTable::GetPeer (uint32_t id)
 {
   if (m_peers.count (id))
     return  ((*(m_peers.find (id))).second);
@@ -127,7 +135,7 @@ RonPeerTable::GetPeer (int id)
 
 
 bool
-RonPeerTable::IsInTable (int id)
+RonPeerTable::IsInTable (uint32_t id)
 {
   return m_peers.count (id);
 }

@@ -226,13 +226,13 @@ RonHeader::SetOrigin (Ipv4Address origin)
   m_origin = origin.Get ();
 }
 
-const double *
+const uint32_t *
 RonHeader::GetPathBegin () const
 {
   return m_ips;
 }
 
-const double *
+const uint32_t *
 RonHeader::GetPathEnd () const
 {
   return m_ips + m_nIps;
@@ -242,12 +242,12 @@ Ptr<RonPath>
 RonHeader::GetPath () const
 {
   Ptr<RonPath> path = Create<RonPath> ();
-  for (uint32_t * addrItr = GetPathBegin ();
+  for (const uint32_t * addrItr = GetPathBegin ();
        addrItr != GetPathEnd (); addrItr++)
     {
       path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr));
     }
-  path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)head.GetFinalDest ()));
+  path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ()));
   return path;
 }
 
@@ -262,10 +262,9 @@ RonHeader::SetPath (Ptr<RonPath> path)
   RonPath::Iterator itr = path->Begin ();
 
   //loop up until we have one left
-  for (; itr != path->End () and (*itr) != path->GetDestination () - 1; itr++)
+  for (; !(itr == path->End ()) and !(*(*itr) == path->GetDestination ()); itr++)
     {
       AddDest ((*itr)->address);
-      idx++;
     }
   SetDestination ((*itr)->address);
 }

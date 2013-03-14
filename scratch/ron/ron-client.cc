@@ -388,7 +388,7 @@ RonClient::Send (bool viaOverlay)
 
   head->SetSeq (seq);
   head->SetOrigin (m_address);
-  p->AddHeader (head);
+  p->AddHeader (*head);
 
   // call to the trace sinks before the packet is actually sent,
   // so that tags added to the packet can be sent as well
@@ -424,7 +424,7 @@ RonClient::HandleRead (Ptr<Socket> socket)
           packet->PeekHeader (head);
 
           // If the packet is for us, process the ACK
-          if (head->GetFinalDest () == head->GetNextDest ())
+          if (head.GetFinalDest () == head.GetNextDest ())
             {
               ProcessAck (packet, source);
             }
@@ -456,8 +456,8 @@ RonClient::ForwardPacket (Ptr<Packet> packet, Ipv4Address source)
   // If this is the first hop on the route, we need to set the source
   // since NS3 doesn't give us a convenient way to access which interface
   // the original packet was sent out on.
-  if (head->GetHop () == 0)
-    head->SetOrigin (source);
+  if (head.GetHop () == 0)
+    head.SetOrigin (source);
 
   head.IncrHops ();
   Ipv4Address destination = head.GetNextDest ();
@@ -494,7 +494,7 @@ void
 RonClient::ScheduleTimeout (Ptr<RonHeader> head)
 {
   m_events.push_front (Simulator::Schedule (m_timeout, &RonClient::CheckTimeout, this, head));
-  m_outstandingSeqs.insert (head->seq);
+  m_outstandingSeqs.insert (head->GetSeq ());
 }
 
 void

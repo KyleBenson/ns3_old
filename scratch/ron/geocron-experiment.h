@@ -105,8 +105,7 @@ private:
   std::string topologyFile;
   boost::unordered_map<Location,Vector> locations; //to actual position mapping
 
-  typedef boost::unordered_map<std::string,std::string> LatenciesMap;
-  LatenciesMap latencies;
+  RocketfuelTopologyReader::LatenciesMap latencies;
 
   std::string traceFile;
   Time appStopTime;

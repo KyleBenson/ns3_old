@@ -9,6 +9,8 @@
 #include "ns3/address.h"
 #include <iostream>
 
+#include "ron-path.h"
+
 namespace ns3 {
 
 /* A Header for the Resilient Overlay Network (RON) client and server.
@@ -34,7 +36,7 @@ public:
   void AddDest (Ipv4Address addr);
   void ReversePath (void);
   /** Returns the path represented in the RonHeader as a sequence of IP addresses. */
-  const uint32_t * GetPathBegin () const
+  const uint32_t * GetPathBegin () const;
   const uint32_t * GetPathEnd () const;
   Ptr<RonPath> GetPath () const;
   void SetPath (Ptr<RonPath> path);
