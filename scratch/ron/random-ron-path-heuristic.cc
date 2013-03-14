@@ -53,7 +53,7 @@ RandomRonPathHeuristic::GetTypeId (void)
 
 
 double
-RandomRonPathHeuristic::GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination)
+RandomRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
   return random.GetValue ();
 }

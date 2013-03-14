@@ -36,6 +36,8 @@ public:
   /** Returns the path represented in the RonHeader as a sequence of IP addresses. */
   const uint32_t * GetPathBegin () const
   const uint32_t * GetPathEnd () const;
+  Ptr<RonPath> GetPath () const;
+  void SetPath (Ptr<RonPath> path);
 
   void SetDestination (Ipv4Address dest);
   void SetOrigin (Ipv4Address origin);

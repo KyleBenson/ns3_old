@@ -364,7 +364,7 @@ RonClient::Send (bool viaOverlay)
   // add RON header to packet
   Ptr<RonHeader> head = Create<RonHeader> ();
   uint32_t seq = m_sent;
-  Ptr<OverlayPath> overlayPeerChoices;
+  Ptr<RonPath> overlayPeerChoices;
 
   // If forwarding thru overlay, use heuristic to pick a peer from those available
   if (viaOverlay)
@@ -372,15 +372,8 @@ RonClient::Send (bool viaOverlay)
       try
         {
           overlayPeerChoices = m_heuristic->GetBestPath (serverPeer);
-          head = Create<RonHeader> (serverPeer->address);
-
-          //NS_LOG_INFO ("Trying to send along overlay node " << intermediary);
-          Ipv4Address intermediary;
-          for (OverlayPath::Iterator itr = overlayPeerChoices->Begin ();
-               itr != overlayPeerChoices->End (); itr++)
-            {
-               head->AddDest ((*itr)->address);
-            }
+          head = Create<RonHeader> ();
+          head->SetPath (overlayPeerChoices);
         }
       catch (RonPathHeuristic::NoValidPeerException& e)
         {
@@ -489,7 +482,7 @@ RonClient::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
   //TODO: handle an ack from an old seq number
 
   Time time = Simulator::Now ();
-  Ptr<OverlayPath> path = head->GetPathFromHeader (head);
+  Ptr<RonPath> path = head.GetPath ();
   path->Reverse (); //currently in order from dest
   m_heuristic->NotifyAck (path, time);
 
@@ -542,18 +535,6 @@ RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
   heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
 
-Ptr<OverlayPath>
-RonClient::GetPathFromHeader (const RonHeader head) const
-{
-  Ptr<OverlayPath> path = Create<OverlayPath> ();
-  for (const double * itr = head.GetPathBegin ();
-       itr != head.GetPathEnd (); itr++)
-    {
-      path->AddPeer (m_peers->GetPeerByAddress ((Ipv4Address)*itr));
-    }
-  path->AddPeer (m_peers->GetPeerByAddress ((Ipv4Address)head.GetFinalDest ()));
-  return path;
-}
 
 Ipv4Address
 RonClient::GetAddress () const
@@ -574,7 +555,7 @@ RonClient::CheckTimeout (Ptr<RonHeader> head)
       m_outstandingSeqs.erase (itr);
 
       Time time = Simulator::Now ();
-      Ptr<OverlayPath> path = GetPathFromHeader (*head);
+      Ptr<RonPath> path = head->GetPath ();
       path->Reverse (); //currently in order from dest
       m_heuristic->NotifyTimeout (path, time);
       

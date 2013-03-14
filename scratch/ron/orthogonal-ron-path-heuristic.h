@@ -29,7 +29,7 @@ public:
   OrthogonalRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
-  virtual double GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination);
+  virtual double GetLikelihood (Ptr<RonPath> path);
 };
 
 } //namespace

@@ -52,9 +52,12 @@ OrthogonalRonPathHeuristic::GetTypeId (void)
 
 
 double
-OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination)
+OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer(s) before using the heuristic!");
+  
+  Ptr<RonPeerEntry> peer = *(path->Begin ());
+  PeerDestination destination = path->GetDestination ();
 
   // don't bother solving if peer is within the source or destination's region
   if (SameRegion (m_source, *peer) or SameRegion (destination, *peer))

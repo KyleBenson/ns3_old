@@ -238,6 +238,38 @@ RonHeader::GetPathEnd () const
   return m_ips + m_nIps;
 }
 
+Ptr<RonPath>
+RonHeader::GetPath () const
+{
+  Ptr<RonPath> path = Create<RonPath> ();
+  for (uint32_t * addrItr = GetPathBegin ();
+       addrItr != GetPathEnd (); addrItr++)
+    {
+      path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr));
+    }
+  path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)head.GetFinalDest ()));
+  return path;
+}
+
+void
+RonHeader::SetPath (Ptr<RonPath> path)
+{
+  NS_ASSERT_MSG (path->GetN (), "Can't set an empty path in RonHeader!");
+
+  // for now, we only want to add the path up to destination as that is stored separately
+  // TODO: simply store a whole path duh!
+  // start by adding first hop...
+  RonPath::Iterator itr = path->Begin ();
+
+  //loop up until we have one left
+  for (; itr != path->End () and (*itr) != path->GetDestination () - 1; itr++)
+    {
+      AddDest ((*itr)->address);
+      idx++;
+    }
+  SetDestination ((*itr)->address);
+}
+
 void
 RonHeader::ReversePath (void)
 {

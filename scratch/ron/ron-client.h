@@ -150,10 +150,6 @@ public:
   void AddServerPeer (Ptr<RonPeerEntry> peer);
   void SetHeuristic (Ptr<RonPathHeuristic> heuristic);
 
-  /** Reads the path from a RonHeader and converts it to an OverlayPath
-      using the peer table. */
-  Ptr<OverlayPath> GetPathFromHeader (const RonHeader head) const;
-
   Ipv4Address GetAddress () const;
   void ConnectTraces (Ptr<OutputStreamWrapper> traceOutputStream);
 

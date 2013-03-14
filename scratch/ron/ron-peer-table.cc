@@ -58,6 +58,21 @@ RonPeerEntry::operator== (const RonPeerEntry rhs)
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Ptr<RonPeerTable>
+RonPeerTable::GetMaster ()
+{
+  static Ptr<RonPeerTable> m_master = Create<RonPeerTable> ();
+  return m_master;
+}
+
+
+Ptr<RonPeerEntry>
+RonPeerTable::GetPeerByAddress (Ipv4Address address)
+{
+  return m_peersByAddress[address];
+}
+
+
 uint32_t
 RonPeerTable::GetN ()
 {
@@ -68,14 +83,17 @@ RonPeerTable::GetN ()
 Ptr<RonPeerEntry>
 RonPeerTable::AddPeer (Ptr<RonPeerEntry> entry)
 {
+  Ptr<RonPeerEntry> returnValue;
   if (m_peers.count (entry->id) != 0)
     {
       Ptr<RonPeerEntry> temp = (*(m_peers.find (entry->id))).second;
       m_peers[entry->id] = entry;
-      return temp;
+      returnValue = temp;
     }
   else
-    return m_peers[entry->id] = entry;
+    returnValue = m_peers[entry->id] = entry;
+  
+  m_peersByAddress[entry->address] = entry;
 }
 
 

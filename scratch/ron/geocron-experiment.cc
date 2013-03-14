@@ -29,7 +29,7 @@ GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
 {
   appStopTime = Time (Seconds (30.0));
   simulationLength = Seconds (10.0);
-  overlayPeers = Create<RonPeerTable> ();
+  overlayPeers = RonPeerTable::GetMaster ();
 
   maxNDevs = 1;
   //cmd.AddValue ("install_stubs", "If not 0, install RON client only on stub nodes (have <= specified links - 1 (for loopback dev))", maxNDevs);
@@ -391,7 +391,8 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
     {
       NS_LOG_DEBUG ("Node " << itr->second->GetId () << " has degree " << GetNodeDegree (itr->second));
       Ptr<Node> serverCandidate = itr->second;
-      Location loc = serverCandidate->GetObject<RonPeerEntry> ()->region;
+      Ptr<RonPeerEntry> candidatePeer = serverCandidate->GetObject<RonPeerEntry> ();
+      Location loc = candidatePeer->region;
 
       for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
            disasterLocation != disasterLocations->end (); disasterLocation++)

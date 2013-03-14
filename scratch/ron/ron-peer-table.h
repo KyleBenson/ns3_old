@@ -26,7 +26,8 @@
 #include "region.h"
 
 #include <boost/range/adaptor/map.hpp>
-#include <map>
+
+#include <boost/unordered_map.hpp>
 
 //TODO: enum for choosing which heuristic?
 
@@ -40,8 +41,6 @@ public:
   RonPeerEntry (Ptr<Node> node);
   static TypeId GetTypeId ();
 
-  bool operator== (const RonPeerEntry rhs);
-  
   //Ron Attributes
   uint32_t id;
   Ipv4Address address;
@@ -58,22 +57,31 @@ public:
 class RonPeerTable : public SimpleRefCount<RonPeerTable>
 {
  private:
-  typedef std::map<int, Ptr<RonPeerEntry> > underlyingMapType;
+  typedef boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::range_detail::select_second_mutable_range<underlyingMapType> underlyingIterator;
  public:
   typedef boost::range_iterator<underlyingIterator>::type Iterator;
 
+  /** We store all of the peers in a single master peer table for efficiency purposes.
+      This should save a lot on memory and TODO will incorporate a 'mirroring' feature
+      in which subsets are generated efficiently and contain copy-on-write peer entries. */
+  static Ptr<RonPeerTable> GetMaster ();
+
+  bool operator== (const RonPeerEntry rhs);
+
   uint32_t GetN ();
+
+  Ptr<RonPeerEntry> GetPeerByAddress (Ipv4Address address);
 
   /** Returns old entry if it existed, else new one. */
   Ptr<RonPeerEntry> AddPeer (Ptr<RonPeerEntry> entry);
   /** Returns old entry if it existed, else new one. */
   Ptr<RonPeerEntry> AddPeer (Ptr<Node> node);
   /** Returns true if entry existed. */
-  bool RemovePeer (int id);
+  bool RemovePeer (uint32_t id);
   /** Returns requested entry, NULL if unavailable. Use IsInTable to verify its prescence in the table. */
-  Ptr<RonPeerEntry> GetPeer (int id);
-  bool IsInTable (int id);
+  Ptr<RonPeerEntry> GetPeer (uint32_t id);
+  bool IsInTable (uint32_t id);
   bool IsInTable (Iterator itr);
   //TODO: other forms of get/remove
   Iterator Begin ();
@@ -81,6 +89,7 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
 
  private:
   underlyingMapType m_peers;
+  boost::unordered_map<Ipv4Address, Ptr<RonPeerEntry> > m_peersByAddress;
 };
 
 } //namespace

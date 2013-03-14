@@ -36,7 +36,7 @@ namespace ns3 {
 //TODO: enum for choosing which heuristic?
 
 /** This class provides a simple iterable container for storing the path of peer entries. */
-class OverlayPath : public SimpleRefCount<OverlayPath>
+class RonPath : public SimpleRefCount<RonPath>
 {
 private:
   typedef std::list<Ptr<RonPeerEntry> > underlyingContainer;
@@ -44,15 +44,34 @@ private:
   bool m_reversed;
 public:
   typedef underlyingContainer::iterator Iterator;
-  OverlayPath(Ptr<RonPeerEntry> peer);
+  RonPath(Ptr<RonPeerEntry> peer);
 
   /** Adds a peer to the end of the path. */
   void AddPeer (Ptr<RonPeerEntry> peer);
+
+  /** Returns the destination peer(s), which is currently just the last added peer. */
+  PeerDestination GetDestination ();
+  
+  uint32_t GetN () const;
+
   //TODO: void InsertPeer ChangePeerAt?
+
+  //TODO: handle splicing/forking/adding destinations instead of peers
+
+  //TODO: question: should the path include the source?
 
   /** Reverses the ordering of the path.
       Actually, it just stores a flag and reverses calls to it the path. */
   void Reverse ();
+
+  /** Compare paths based on the contents of the pointers they contain,
+      in case there exist multiple references to the same RonPeerEntry. */
+  bool operator== (RonPath & rhs);
+
+  /** Compare paths based on the contents of the pointers they contain,
+      in case there exist multiple references to the same RonPeerEntry.
+      In the event of a tie, the shorter path is considered less. */
+  bool operator< (RonPath & rhs);
 
   Iterator Begin ();
   Iterator End ();
@@ -69,13 +88,13 @@ public:
   virtual ~RonPathHeuristic ();
 
   /** Return the best path, according to the aggregate heuristics, to the destination. */
-  Ptr<OverlayPath> GetBestPath (Ptr<RonPeerEntry> destination);
+  Ptr<RonPath> GetBestPath (Ptr<RonPeerEntry> destination);
 
   /** Return the best multicast path, according to the aggregate heuristics, to the destinations. */
-  //TODO: Ptr<OverlayPath> GetBestMulticastPath (itr<Ptr<RonPeerEntry???> destinations);
+  //TODO: Ptr<RonPath> GetBestMulticastPath (itr<Ptr<RonPeerEntry???> destinations);
 
   /** Return the best anycast path, according to the aggregate heuristics, to the destination. */
-  //TODO: Ptr<OverlayPath> GetBestAnycastPath (itr<Ptr<RonPeerEntry???> destinations);
+  //TODO: Ptr<RonPath> GetBestAnycastPath (itr<Ptr<RonPeerEntry???> destinations);
 
   /** Inform this heuristic that it will be the top-level for an aggregate heuristic group. */
   void MakeTopLevel ();
@@ -88,18 +107,18 @@ public:
   ////////////////////  notifications / updates  /////////////////////////////////
 
   /** Application will notify heuristics about ACKs. */
-  void NotifyAck (Ptr<OverlayPath> path, Time time);
+  void NotifyAck (Ptr<RonPath> path, Time time);
 
   /** Override this function to control what happens when this heuristic receives an ACK notification.
       Default is to set likelihoods to 1 and update contact times. */
-  virtual void DoNotifyAck (Ptr<OverlayPath> path, Time time);
+  virtual void DoNotifyAck (Ptr<RonPath> path, Time time);
 
   /** Application will notify heuristics about timeouts. */
-  void NotifyTimeout (Ptr<OverlayPath> path, Time time);
+  void NotifyTimeout (Ptr<RonPath> path, Time time);
 
   /** Override this function to control what happens when this heuristic receives a timeout notification.
       Default is to set first likelihood on path to 0, unless an ACK of the partial path occurred. */
-  virtual void DoNotifyTimeout (Ptr<OverlayPath> path, Time time);
+  virtual void DoNotifyTimeout (Ptr<RonPath> path, Time time);
 
   class NoValidPeerException : public std::exception
   {
@@ -115,20 +134,31 @@ protected:
   ///////////////////////// likelihood manipulation ////////////////////
 
   /** Sets the estimated likelihood of reaching the specified peer */
-  void SetLikelihood (Ptr<RonPeerEntry> peer, double lh);
+  void SetLikelihood (Ptr<RonPath> path, double lh);
 
-  /** Get the likelihood of peer being a successful overlay for reaching destination.
-      By default, always assumes destination is reachable via returns 1.0
+  /** Get the likelihood of path being a successful overlay for reaching destination.
+      By default, always assumes destination is reachable, i.e. always returns 1.0.
       The MOST IMPORTANT method to override/implement.
    Can be chained together for multiple-hop overlays. */
-  virtual double GetLikelihood (Ptr<RonPeerEntry> peer, Ptr<RonPeerEntry> destination);
+  virtual double GetLikelihood (Ptr<RonPath> path);
 
-  /** Runs on all heuristics before UpdateLikelihoods. */
-  //void PreUpdateLikelihoods (Ptr<RonPeerEntry> destination);
-  /** By default, zeros likelihood of the last attempted process.
-      Should be overridden if individual peer likelihoods 
-      are to be based on some knowledge accumulated during the PreUpdateLikelihoods pass. */
-  //virtual void DoPreUpdateLikelihoods (Ptr<RonPeerEntry> destination);
+  /** Adds the given path to the master likelihood table of the top-level heuristic,
+      updates all of the other likelhood tables. */
+  void AddPath (Ptr<RonPath> path);
+
+  /** Runs DoBuildPaths on all heuristics. */
+  void BuildPaths (PeerDestination destination);
+
+  /** Generate enough paths for the heuristics to use.
+      By default, it will generate all possible one-hop paths to the destination the first
+      time it sees that destination.  It will NOT generate duplicates.
+      Override for multi-hop paths or to prune this search tree.
+      NOTE: make sure you check for duplicate paths when using aggregate heuristics! */
+  virtual void DoBuildPaths (PeerDestination destination);
+
+  /** Handles adding a path to the master likelihood table and updating all other heuristics
+      and their associated likelihood tables. */
+  void AddPath (RonPath path);
 
   /** Set the estimated likelihood of reaching the destination through each peer. 
       Assumes that we only need to assign random probs once, considered an off-line heuristic.
@@ -140,15 +170,7 @@ protected:
   /** Ensures that DoUpdateLikelihoods is run for each aggregate heuristic */
   void UpdateLikelihoods (Ptr<RonPeerEntry> destination);
 
-  /** Runs on all heuristics after UpdateLikelihoods. */
-  // virtual void PostUpdateLikelihoods (Ptr<RonPeerEntry> destination);
-  /** Should be overridden if individual peer likelihoods are to be
-      based on some knowledge accumulated during the PostUpdateLikelihoods pass. */
-  // virtual void DoPostUpdateLikelihoods (Ptr<RonPeerEntry> destination);
-
-  /*virtual void ZeroLikelihoods ();
-    virtual void ZeroLikelihood (Ptr<RonPeerEntry> destination);*/
-  virtual bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
+  bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
 
   /** May only need to assign likelihoods once.
       Set this to true to avoid clearing LHs after each newly chosen peer. */
@@ -165,11 +187,26 @@ protected:
       take a reference to a newly created heuristic's LH when it is being built. */
   typedef std::list<double> Likelihood;
 
-  typedef std::list<Ptr<RonPeerEntry> > PeersAttempted;
-  PeersAttempted m_peersAttempted;
+  typedef std::list<RonPath> PathsAttempted;
+  PathsAttempted m_pathsAttempted;
   typedef std::list<Ptr<RonPathHeuristic> > AggregateHeuristics;
   AggregateHeuristics m_aggregateHeuristics;
 
+  /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
+
+  typedef Ptr<RonPeerEntry> PeerDestination;
+  typedef boost::unordered_map<Ptr<RonPath>, *double> PathLikelihoodInnerTable;
+  typedef boost::unordered_map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
+  PathLikelihoodTable m_likelihoods;
+
+  /** Only the top-level of a group of aggregate heuristics should manage this. */
+  typedef boost::unordered_map<PeerDestination, 
+                               boost::unordered_map<Ptr<RonPath>, std::list<double> > >*
+  MasterPathLikelihoodTable;
+  MasterPathLikelihoodTable m_masterLikelihoods;
+
+  Ptr<RonPathHeuristic> m_topLevel;
+ 
   //TODO: move this to the PeerTable when it's COW
   //likelihoods are addressed in several ways by different heuristics
   /*typedef
@@ -180,21 +217,6 @@ protected:
       hashed_unique<Ptr<RonPeerEntry> >,
       >
       >*/
-
-  /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
-
-  typedef Ptr<RonPeerEntry> PeerDestination;
-  typedef boost::unordered_map<Ptr<OverlayPath>, *double> SinglePathLikelihoodInnerTable;
-  typedef boost::unordered_map<PeerDestination, SinglePathLikelihoodInnerTable> PathLikelihoodTable;
-  PathLikelihoodTable m_likelihoods;
-
-  /** Only the top-level of a group of aggregate heuristics should manage this. */
-  typedef boost::unordered_map<PeerDestination, 
-                               boost::unordered_map<Ptr<OverlayPath>, std::list<double> > >*
-  MasterPathLikelihoodTable;
-  MasterPathLikelihoodTable m_masterLikelihoods;
-
-  bool m_topLevel;
 
   // typedef LikelihoodTable::nth_index<0>::type::iterator LikelihoodIterator;
   // typedef LikelihoodTable::nth_index<1>::type::iterator LikelihoodPeerIterator;
