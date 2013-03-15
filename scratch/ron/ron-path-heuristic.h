@@ -32,6 +32,7 @@
 #include <boost/multi_index/identity.hpp>*/
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
+#include <boost/functional/hash.hpp>
 #include <set>
 //#include "boost/function.hpp"
 
@@ -48,7 +49,7 @@ public:
   virtual ~RonPathHeuristic ();
 
   /** Return the best path, according to the aggregate heuristics, to the destination. */
-  Ptr<RonPath> GetBestPath (Ptr<RonPeerEntry> destination);
+  Ptr<RonPath> GetBestPath (Ptr<PeerDestination> destination);
 
   /** Return the best multicast path, according to the aggregate heuristics, to the destinations. */
   //TODO: Ptr<RonPath> GetBestMulticastPath (itr<Ptr<RonPeerEntry???> destinations);
@@ -126,9 +127,9 @@ protected:
       Override to change these assumptions (i.e. on-line heuristics),
       but take care to ensure good algorithmic complexity!
   */
-  virtual void DoUpdateLikelihoods (const PeerDestination destination);
+  virtual void DoUpdateLikelihoods (Ptr<PeerDestination> destination);
   /** Ensures that DoUpdateLikelihoods is run for each aggregate heuristic */
-  void UpdateLikelihoods (const PeerDestination destination);
+  void UpdateLikelihoods (Ptr<PeerDestination> destination);
 
   bool SameRegion (RonPeerEntry peer1, RonPeerEntry peer2);
 
@@ -154,21 +155,76 @@ protected:
   AggregateHeuristics m_aggregateHeuristics;
 
   /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
+private:
+  typedef Ptr<RonPath> PathLikelihoodInnerTableKey;
 
-  //typedef boost::unordered_map<RonPath, double *> PathLikelihoodInnerTable;
-  typedef std::map<RonPath, double *> PathLikelihoodInnerTable;
-  //typedef boost::unordered_map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
-  typedef std::map<PeerDestination, PathLikelihoodInnerTable> PathLikelihoodTable;
+  //compare the pointers by attributes of their contained elements
+  struct PathLikelihoodInnerTableTestEqual
+  {
+    bool operator() (const PathLikelihoodInnerTableKey key1, const PathLikelihoodInnerTableKey key2) const
+    {
+      return *(key1->Begin ())->id == *(key2->Begin ())->id;
+    }
+  };
+
+  //hash 
+  struct PathLikelihoodInnerTableHasher
+  {
+    inline size_t operator()(const PathLikelihoodInnerTableKey & key) const
+    {
+      return boost::hash<uint32_t> (*(key->Begin ())->id);
+    }
+  };
+
+  //outer table
+  
+  typedef Ptr<PeerDestination> PathLikelihoodTableKey;
+  //compare the pointers by attributes of their contained elements
+  struct PathLikelihoodTableTestEqual
+  {
+    bool operator() (const PathLikelihoodTableKey key1, const PathLikelihoodTableKey key2) const
+    {
+      return *(key1->Begin ())->id == *(key2->Begin ())->id;
+    }
+  };
+
+  //hash 
+  struct PathLikelihoodTableHasher
+  {
+    inline size_t operator()(const PathLikelihoodTableKey & key) const
+    {
+      return boost::hash<uint32_t> (*(key->Begin ())->id);
+    }
+  };
+
+  //table definitions
+
+  typedef boost::unordered_map<PathLikelihoodInnerTableKey, double *,
+                               PathLikelihoodInnerTableHasher, PathLikelihoodInnerTableTestEqual> PathLikelihoodInnerTable;
+
+  //typedef std::map<RonPath, double *> PathLikelihoodInnerTable;
+  typedef boost::unordered_map<PathLikelihoodTableKey, PathLikelihoodInnerTable,
+                               PathLikelihoodTableHasher, PathLikelihoodTableTestEqual> PathLikelihoodTable;
+  //typedef std::map<Ptr<PeerDestination>, PathLikelihoodInnerTable> PathLikelihoodTable;
   PathLikelihoodTable m_likelihoods;
 
   /** Only the top-level of a group of aggregate heuristics should manage this. */
-  //typedef boost::unordered_map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
-  typedef std::map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
-  //typedef boost::unordered_map<PeerDestination, MasterPathLikelihoodInnerTable> MasterPathLikelihoodTable;
-  typedef std::map<PeerDestination, MasterPathLikelihoodInnerTable> MasterPathLikelihoodTable;
+  typedef boost::unordered_map<PathLikelihoodInnerTableKey, std::list<double>,
+                               PathLikelihoodInnerTableHasher, PathLikelihoodInnerTableTestEqual> MasterPathLikelihoodInnerTable;
+  //typedef std::map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
+  typedef boost::unordered_map<PathLikelihoodTableKey, MasterPathLikelihoodInnerTable,
+                               PathLikelihoodTableHasher, PathLikelihoodTableTestEqual> MasterPathLikelihoodTable;
+  //typedef std::map<Ptr<PeerDestination>, MasterPathLikelihoodInnerTable> MasterPathLikelihoodTable;
   MasterPathLikelihoodTable * m_masterLikelihoods;
 
   Ptr<RonPathHeuristic> m_topLevel;
+
+
+
+
+
+
+
  
   //TODO: move this to the PeerTable when it's COW
   //likelihoods are addressed in several ways by different heuristics

@@ -78,7 +78,7 @@ RonPathHeuristic::MakeTopLevel ()
 void
 RonPathHeuristic::AddPath (Ptr<RonPath> path)
 {
-  PeerDestination dest = path->GetDestination ();
+  Ptr<PeerDestination> dest = path->GetDestination ();
   // If we are not top-level and the top-level has not been notified of this path,
   // we need to start at the top and work our way down, notifying along the way.
   if ((m_topLevel != (RonPathHeuristic*)this) and
@@ -104,7 +104,7 @@ RonPathHeuristic::AddPath (Ptr<RonPath> path)
 
 
 void
-RonPathHeuristic::BuildPaths (PeerDestination destination)
+RonPathHeuristic::BuildPaths (Ptr<PeerDestination> destination)
 {
   DoBuildPaths (destination);
   for (AggregateHeuristics::iterator others = m_aggregateHeuristics.begin ();
@@ -114,7 +114,7 @@ RonPathHeuristic::BuildPaths (PeerDestination destination)
 
 
 void
-RonPathHeuristic::DoBuildPaths (PeerDestination destination)
+RonPathHeuristic::DoBuildPaths (Ptr<PeerDestination> destination)
 {
   // All aggregate heuristics should know about the peer table, so we only need
   // to check if any one heuristic has built paths once, i.e. if the table contains anything.
@@ -144,7 +144,7 @@ RonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 
 
 void
-RonPathHeuristic::UpdateLikelihoods (const PeerDestination destination)
+RonPathHeuristic::UpdateLikelihoods (const Ptr<PeerDestination> destination)
 {
   //update us first, then the other aggregate heuristics (if any)
   DoUpdateLikelihoods (destination);
@@ -155,7 +155,7 @@ RonPathHeuristic::UpdateLikelihoods (const PeerDestination destination)
 
 
 void
-RonPathHeuristic::DoUpdateLikelihoods (const PeerDestination destination)
+RonPathHeuristic::DoUpdateLikelihoods (const Ptr<PeerDestination> destination)
 {
   if (!m_updatedOnce)
     {
@@ -168,7 +168,7 @@ RonPathHeuristic::DoUpdateLikelihoods (const PeerDestination destination)
 
 
 Ptr<RonPath>
-RonPathHeuristic::GetBestPath (PeerDestination destination)
+RonPathHeuristic::GetBestPath (Ptr<PeerDestination> destination)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer before using the heuristic!");
   NS_ASSERT_MSG (destination, "You must specify a valid server to use the heuristic!");
@@ -307,7 +307,7 @@ RonPathHeuristic::SetSourcePeer (Ptr<RonPeerEntry> peer)
 void
 RonPathHeuristic::SetLikelihood (Ptr<RonPath> path, double lh)
 {
-  PeerDestination dest = path->GetDestination ();
+  Ptr<PeerDestination> dest = path->GetDestination ();
   //NS_ASSERT (0.0 <= lh and lh <= 1.0);
   NS_LOG_LOGIC ("Path " << path << " has LH " << lh);
   //m_peers.SetLikelihood (peer, 
