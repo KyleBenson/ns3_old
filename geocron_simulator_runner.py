@@ -166,7 +166,7 @@ def makecmds(args):
                 nruns += 1
                 remainder_runs_per_proc -= 1
 
-            cmd = "./waf --run ron --command-template='"
+            cmd = "./waf --run %s --command-template='" % 'geocron-example' #was 'ron'
             if args.debug:
                 cmd += "gdb --args "
             cmd += r'%s '
