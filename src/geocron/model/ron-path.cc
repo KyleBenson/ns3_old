@@ -44,7 +44,8 @@ RonPath::AddHop (Ptr<PeerDestination> dest, RonPath::Iterator index)
         NS_ASSERT_MSG (false, "You can't specify an index other than Begin() for inserting hops yet.");
       m_path.push_front (dest);
     }
-  m_path.push_back (dest);
+  else
+    m_path.push_back (dest);
 }
 
 
@@ -112,10 +113,18 @@ RonPath::operator== (const RonPath rhs) const
   for (RonPath::ConstIterator itr1 = Begin (), itr2 = rhs.Begin ();
        itr1 != End () and itr2 != rhs.End (); itr1++,itr2++)
     {
-      if ((*(*itr1)->Begin ())->id != (*(*itr2)->Begin ())->id)
+      //compare the objects inside the pointers inside the iterators
+      if (*(*itr1) != *(*itr2))
         return false;
     }
   return true;
+}
+
+
+bool
+RonPath::operator!=(const RonPath rhs) const
+{
+  return !(*this == rhs);
 }
 
 
@@ -168,4 +177,41 @@ PeerDestination::Iterator
 PeerDestination::End ()
 {
   return m_peers.end ();
+}
+
+PeerDestination::ConstIterator
+PeerDestination::Begin () const
+{
+  return m_peers.begin ();
+}
+
+
+PeerDestination::ConstIterator
+PeerDestination::End () const
+{
+  return m_peers.end ();
+}
+
+
+bool
+PeerDestination::operator==(const PeerDestination rhs) const
+{
+  if (GetN () != rhs.GetN ())
+    return false;
+
+  for (ConstIterator itr1 = Begin (), itr2 = rhs.Begin ();
+       itr1 != End () and itr2 != rhs.End (); itr1++, itr2++)
+    {
+      //compare the objects inside the pointers inside the iterators
+      if (((*(*itr1)) != (*(*itr2))))
+        return false;
+    }
+  return true;
+}
+
+
+bool
+PeerDestination::operator!=(const PeerDestination rhs) const
+{
+  return !(*this == rhs);
 }

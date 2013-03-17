@@ -38,10 +38,16 @@ public:
   //TODO: flags for diff casts
   void AddPeer (Ptr<RonPeerEntry> peer/*, flags = 0*/);
   uint32_t GetN () const;
+
+  bool operator==(const PeerDestination rhs) const;
+  bool operator!=(const PeerDestination rhs) const;
   
   typedef DestinationContainer::iterator Iterator;
+  typedef DestinationContainer::const_iterator ConstIterator;
   Iterator Begin ();
   Iterator End ();
+  ConstIterator Begin () const;
+  ConstIterator End () const;
 };
 
 /** This class provides a simple iterable container for storing the path of peer entries. */
@@ -79,7 +85,8 @@ public:
 
   /** Compare paths based on the contents of the pointers they contain,
       in case there exist multiple references to the same RonPeerEntry. */
-  bool operator== (RonPath rhs) const;
+  bool operator== (const RonPath rhs) const;
+  bool operator!=(const RonPath rhs) const;
 
   /** Compare paths based on the contents of the pointers they contain,
       in case there exist multiple references to the same RonPeerEntry.

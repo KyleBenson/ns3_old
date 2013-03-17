@@ -42,6 +42,7 @@ public:
   static TypeId GetTypeId ();
 
   bool operator== (RonPeerEntry rhs) const;
+  bool operator!= (RonPeerEntry rhs) const;
   bool operator< (RonPeerEntry rhs) const;
 
   //Ron Attributes
@@ -71,7 +72,8 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
       in which subsets are generated efficiently and contain copy-on-write peer entries. */
   static Ptr<RonPeerTable> GetMaster ();
 
-  bool operator== (const RonPeerEntry rhs);
+  // bool operator== (const RonPeerEntry rhs) const;
+  // bool operator!= (const RonPeerEntry rhs) const;
 
   uint32_t GetN ();
 

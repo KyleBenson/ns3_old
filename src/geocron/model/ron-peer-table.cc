@@ -50,11 +50,17 @@ RonPeerEntry::GetTypeId ()
 
 
 bool
-RonPeerEntry::operator== (RonPeerEntry rhs) const
+RonPeerEntry::operator== (const RonPeerEntry rhs) const
 {
   return id == rhs.id;
 }
 
+
+bool
+RonPeerEntry::operator!= (const RonPeerEntry rhs) const
+{
+  return !(*this == rhs);
+}
 
 bool
 RonPeerEntry::operator< (RonPeerEntry rhs) const

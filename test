@@ -1,4 +1,7 @@
 #!/bin/bash
-name='geocron_test_results.html'
-./test.py -s geocron -w $name --verbose
+#name='geocron_test_results.html'
+name='geocron_test_results.xml'
+#./test.py -s geocron -w $name --verbose
+./test.py -s geocron -x $name --verbose
+less $name
 #gnome-open $name
