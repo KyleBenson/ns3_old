@@ -136,50 +136,12 @@ main (int argc, char *argv[])
 
   if (verbose == 1)
     {
-      LogComponentEnable ("RonTracers", LOG_LEVEL_INFO);
-      LogComponentEnable ("RonClientApplication", LOG_LEVEL_INFO);
       LogComponentEnable ("GeocronExperiment", LOG_LEVEL_INFO);
-      LogComponentEnable ("RonServerApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("RonHeader", LOG_LEVEL_INFO);
-      LogComponentEnable ("RonDisasterSimulation", LOG_LEVEL_INFO);
-      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_INFO);
-      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
-
-      //LogComponentEnable ("DefaultSimulatorImpl", LOG_LEVEL_LOGIC);
-
-      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_INFO);
     }
-
   else if (verbose == 2)
     {
       LogComponentEnable ("GeocronExperiment", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RonClientApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RonServerApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RonHeader", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_LOGIC);
-
-      //for some stupid reason, enabling logic also enables function...
-      LogComponentDisable ("GeocronExperiment", LOG_LEVEL_FUNCTION);
-      LogComponentDisable ("RonClientApplication", LOG_LEVEL_FUNCTION);
-      LogComponentDisable ("RonServerApplication", LOG_LEVEL_FUNCTION);
-      LogComponentDisable ("RonHeader", LOG_LEVEL_FUNCTION);
-      LogComponentDisable ("RonPathHeuristic", LOG_LEVEL_FUNCTION);
-
-      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_INFO);
-      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_LOGIC);
     }
-
-  /*  else if (verbose == 3)
-     {
-      LogComponentEnable ("RonClientApplication", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RonServerApplication", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RonClientServerHelper", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RonHeader", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("RonPathHeuristic", LOG_LEVEL_FUNCTION);
-      //LogComponentEnable ("RocketfuelExample", LOG_LEVEL_FUNCTION);
-      //LogComponentEnable ("Ipv4NixVectorRouting", LOG_LEVEL_FUNCTION);
-      //LogComponentEnable ("RocketfuelTopologyReader", LOG_LEVEL_FUNCTION);
-      }*/
 
   ////////////////////////////////////////////////////////////////////////////////
   //////////       Create experiment and set parameters   ////////////////////////

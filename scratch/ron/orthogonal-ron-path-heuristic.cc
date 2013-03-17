@@ -56,11 +56,11 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer(s) before using the heuristic!");
   
-  Ptr<RonPeerEntry> peer = *(path->Begin ());
-  PeerDestination destination = path->GetDestination ();
+  Ptr<RonPeerEntry> peer = (*(*path->Begin ())->Begin ());
+  Ptr<PeerDestination> destination = path->GetDestination ();
 
   // don't bother solving if peer is within the source or destination's region
-  if (SameRegion (*m_source, *peer) or SameRegion (destination, *peer))
+  if (SameRegion (m_source, peer) or SameRegion (*destination->Begin (), peer))
     {
       //std::cout << "Ignoring peer at location (" << (*peer)->location.x << "," << (*peer)->location.y << ")" <<std::endl;
       SetLikelihood (path, 0);
@@ -74,7 +74,7 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
       We compute angle c and want it to be as close to right as possible (hence orthogonal).
       We also want the distance of the line from c to a point on line ab such that the lines are perpendicular. */
   Vector3D va = m_source->location;
-  Vector3D vb = destination.location;
+  Vector3D vb = (*destination->Begin ())->location;
   Vector3D vc = peer->location;
 
   double ab_dist = CalculateDistance (va, vb);

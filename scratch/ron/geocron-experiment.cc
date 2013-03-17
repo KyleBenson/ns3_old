@@ -639,7 +639,6 @@ GeocronExperiment::Run ()
         Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
         if (ronClient == NULL)
           continue;
-        //TODO: different heuristics
         Ptr<RonPathHeuristic> heuristic = currHeuristic->Create<RonPathHeuristic> ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
         ronClient->SetHeuristic (heuristic);

@@ -371,7 +371,7 @@ RonClient::Send (bool viaOverlay)
     {
       try
         {
-          overlayPeerChoices = m_heuristic->GetBestPath (serverPeer);
+          overlayPeerChoices = m_heuristic->GetBestPath (Create<PeerDestination> (serverPeer));
           head = Create<RonHeader> ();
           head->SetPath (overlayPeerChoices);
         }

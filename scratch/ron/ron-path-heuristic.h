@@ -131,7 +131,12 @@ protected:
   /** Ensures that DoUpdateLikelihoods is run for each aggregate heuristic */
   void UpdateLikelihoods (Ptr<PeerDestination> destination);
 
-  bool SameRegion (RonPeerEntry peer1, RonPeerEntry peer2);
+  bool SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2);
+
+  /** Returns true if the given path has been attempted, false otherwise.
+      Specifying the recordPath argument will add the given path to the set of
+      attempted paths if true. */
+  bool PathAttempted (Ptr<RonPath> path, bool recordPath=false);
 
   /** May only need to assign likelihoods once.
       Set this to true to avoid clearing LHs after each newly chosen peer. */
@@ -148,33 +153,48 @@ protected:
       take a reference to a newly created heuristic's LH when it is being built. */
   typedef std::list<double> Likelihood;
 
-  //typedef boost::unordered_set<RonPath> PathsAttempted;
-  typedef std::set<RonPath> PathsAttempted;
-  PathsAttempted m_pathsAttempted;
   typedef std::list<Ptr<RonPathHeuristic> > AggregateHeuristics;
   AggregateHeuristics m_aggregateHeuristics;
 
   /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
 private:
+  struct PathTestEqual
+  {
+    inline bool operator() (const Ptr<RonPath> path1, const Ptr<RonPath> path2) const
+    {
+      return *path1 == *path2;
+    }
+  };
+
+  struct PeerDestinationHasher
+  {
+    inline size_t operator()(const Ptr<PeerDestination> hop) const
+    {
+      boost::hash<uint32_t> hasher;
+      Ptr<RonPeerEntry> firstPeer = (*hop->Begin ());
+      uint32_t id = firstPeer->id;
+      return hasher (id);
+    }
+  };
+
+  //TODO: need to combine the unique IDs of the whole path for a real comparison in multi-hop
+  struct PathHasher
+  {
+    inline size_t operator()(const Ptr<RonPath> path) const
+    {
+      Ptr<PeerDestination> hop = *path->Begin ();
+      PeerDestinationHasher hasher;
+      return hasher (hop);
+    }
+  };
+
+  typedef boost::unordered_set<Ptr<RonPath>, PathHasher, PathTestEqual> PathsAttempted;
+  //typedef std::set<Ptr<RonPath>> PathsAttempted;
+  PathsAttempted m_pathsAttempted;
+
   typedef Ptr<RonPath> PathLikelihoodInnerTableKey;
-
-  //compare the pointers by attributes of their contained elements
-  struct PathLikelihoodInnerTableTestEqual
-  {
-    bool operator() (const PathLikelihoodInnerTableKey key1, const PathLikelihoodInnerTableKey key2) const
-    {
-      return *(key1->Begin ())->id == *(key2->Begin ())->id;
-    }
-  };
-
-  //hash 
-  struct PathLikelihoodInnerTableHasher
-  {
-    inline size_t operator()(const PathLikelihoodInnerTableKey & key) const
-    {
-      return boost::hash<uint32_t> (*(key->Begin ())->id);
-    }
-  };
+  typedef PathTestEqual PathLikelihoodInnerTableTestEqual;
+  typedef PathHasher PathLikelihoodInnerTableHasher;
 
   //outer table
   
@@ -184,18 +204,12 @@ private:
   {
     bool operator() (const PathLikelihoodTableKey key1, const PathLikelihoodTableKey key2) const
     {
-      return *(key1->Begin ())->id == *(key2->Begin ())->id;
+      return (*key1->Begin ())->id == (*key2->Begin ())->id;
     }
   };
 
   //hash 
-  struct PathLikelihoodTableHasher
-  {
-    inline size_t operator()(const PathLikelihoodTableKey & key) const
-    {
-      return boost::hash<uint32_t> (*(key->Begin ())->id);
-    }
-  };
+  typedef PeerDestinationHasher PathLikelihoodTableHasher;
 
   //table definitions
 

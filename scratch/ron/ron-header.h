@@ -8,6 +8,7 @@
 #include "ns3/ipv4-address.h"
 #include "ns3/address.h"
 #include <iostream>
+#include <vector>
 
 #include "ron-path.h"
 
@@ -21,8 +22,7 @@ public:
   explicit RonHeader ();
   //RonHeader (Ipv4Address destination);
   explicit RonHeader (Ipv4Address destination, Ipv4Address intermediate = Ipv4Address((uint32_t)0));
-  virtual ~RonHeader ();
-  RonHeader (const RonHeader& original);
+  //RonHeader (const RonHeader& original);
   RonHeader& operator=(const RonHeader& original);
 
   Ipv4Address GetFinalDest (void) const;
@@ -35,9 +35,15 @@ public:
   bool IsForward (void) const;
   void AddDest (Ipv4Address addr);
   void ReversePath (void);
+
+private:
+  typedef std::vector<uint32_t> UnderlyingPathContainer;
+public:
+  typedef UnderlyingPathContainer::const_iterator PathIterator;
+
   /** Returns the path represented in the RonHeader as a sequence of IP addresses. */
-  const uint32_t * GetPathBegin () const;
-  const uint32_t * GetPathEnd () const;
+  PathIterator GetPathBegin () const;
+  PathIterator GetPathEnd () const;
   Ptr<RonPath> GetPath () const;
   void SetPath (Ptr<RonPath> path);
 
@@ -55,11 +61,11 @@ public:
 private:
   bool m_forward;
   uint8_t m_nHops;
-  uint8_t m_nIps;
+  // uint8_t m_nIps; //we just use m_ips.size()
   uint32_t m_seq;
   uint32_t m_dest;
   uint32_t m_origin;
-  uint32_t *m_ips;
+  std::vector<uint32_t> m_ips;
 };
 
 #define RON_HEADER_SIZE(n) 15 + n*4

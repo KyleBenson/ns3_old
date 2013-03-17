@@ -20,8 +20,6 @@ RonHeader::RonHeader ()
   m_seq = 0;
 
   m_dest = 0;
-  m_nIps = 0;
-  m_ips = NULL;
 }
 
 RonHeader::RonHeader (Ipv4Address destination, Ipv4Address intermediate /*= Ipv4Address((uint32_t)0)*/)
@@ -36,20 +34,16 @@ RonHeader::RonHeader (Ipv4Address destination, Ipv4Address intermediate /*= Ipv4
   
   if (intermediate.Get () != 0)
     {
-      m_nIps = 1;
-      m_ips = new uint32_t[1];
       m_ips[0] = intermediate.Get ();
       m_forward = true;
     }
   else
     {
-      m_nIps = 0;
-      m_ips = NULL;
       m_forward = false;
     }
 }
 
-RonHeader::RonHeader (const RonHeader& original)
+  /*RonHeader::RonHeader (const RonHeader& original)
 {
   NS_LOG_FUNCTION (original.GetFinalDest ());
 
@@ -70,7 +64,7 @@ RonHeader::RonHeader (const RonHeader& original)
     {
       m_ips = NULL;
     }
-}
+    }*/
 
 RonHeader&
 RonHeader::operator=(const RonHeader& original)
@@ -81,7 +75,6 @@ RonHeader::operator=(const RonHeader& original)
 
   std::swap(m_forward, temp.m_forward);
   std::swap(m_nHops, temp.m_nHops);
-  std::swap(m_nIps, temp.m_nIps);
   std::swap(m_seq, temp.m_seq);
   std::swap(m_dest, temp.m_dest);
   std::swap(m_origin, temp.m_origin);
@@ -99,14 +92,6 @@ RonHeader::RonHeader (Ipv4Address destination,
   m_ips = new uint32_t[1];
   m_ips[0] = intermediate.Get ();
   }*/
-
-RonHeader::~RonHeader ()
-{
-  NS_LOG_FUNCTION_NOARGS ();
-
-  if (m_ips)
-    delete m_ips;
-}
 
 TypeId
 RonHeader::GetTypeId (void)
@@ -141,7 +126,7 @@ RonHeader::GetNextDest (void) const
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  if (m_nHops < m_nIps)
+  if (m_nHops < m_ips.size ())
     {
       uint32_t next = m_ips[m_nHops];
       return Ipv4Address (next);
@@ -174,20 +159,6 @@ RonHeader::SetSeq (uint32_t seq)
   m_seq = seq;
 }
 
-/*Ipv4Address
-RonHeader::PopNextDest (void)
-{
-  Ipv4Address next = GetNextDest ();
-
-  uint32_t buff = new uint32_t[--m_nIps];
-  memcpy(buff, m_ips, m_nIps);
-
-  delete[] m_ips;
-  m_ips = buff;
-
-  return next;
-  }*/
-
 bool
 RonHeader::IsForward (void) const
 {
@@ -202,16 +173,7 @@ RonHeader::AddDest (Ipv4Address addr)
     m_forward = true;
 
   uint32_t next = addr.Get ();
-  uint32_t *buff = new uint32_t[++m_nIps];
-
-  if (m_ips)
-    {      
-      memcpy(buff, m_ips, (m_nIps-1)*4);
-      delete m_ips;
-    }
-
-  buff[m_nIps-1] = next;
-  m_ips = buff;
+  m_ips.push_back (next);
 }
 
 void
@@ -226,28 +188,28 @@ RonHeader::SetOrigin (Ipv4Address origin)
   m_origin = origin.Get ();
 }
 
-const uint32_t *
+RonHeader::PathIterator
 RonHeader::GetPathBegin () const
 {
-  return m_ips;
+  return m_ips.begin ();
 }
 
-const uint32_t *
+RonHeader::PathIterator
 RonHeader::GetPathEnd () const
 {
-  return m_ips + m_nIps;
+  return m_ips.end ();
 }
 
 Ptr<RonPath>
 RonHeader::GetPath () const
 {
   Ptr<RonPath> path = Create<RonPath> ();
-  for (const uint32_t * addrItr = GetPathBegin ();
+  for (PathIterator addrItr = GetPathBegin ();
        addrItr != GetPathEnd (); addrItr++)
     {
-      path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr));
+      path->AddHop (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr));
     }
-  path->AddPeer (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ()));
+  path->AddHop (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ()));
   return path;
 }
 
@@ -262,11 +224,13 @@ RonHeader::SetPath (Ptr<RonPath> path)
   RonPath::Iterator itr = path->Begin ();
 
   //loop up until we have one left
-  for (; !(itr == path->End ()) and !(*(*itr) == path->GetDestination ()); itr++)
+  for (; (itr != path->End ()) and (*itr != path->GetDestination ()); itr++)
     {
-      AddDest ((*itr)->address);
+      AddDest ((*(*itr)->Begin ())->address);
     }
-  SetDestination ((*itr)->address);
+  SetDestination ((*(*itr)->Begin ())->address);
+
+  NS_ASSERT (path->GetN () == m_ips.size ());
 }
 
 void
@@ -275,11 +239,11 @@ RonHeader::ReversePath (void)
   NS_LOG_FUNCTION_NOARGS ();
 
   // Iterate over buffer and swap elements
-  for (uint8_t i = 0; i < m_nIps/2; i++)
+  for (uint8_t i = 0; i < m_ips.size ()/2; i++)
     {
       uint32_t tmp = m_ips[i];
-      m_ips[i] = m_ips[m_nIps - 1 - i];
-      m_ips[m_nIps - 1 - i] = tmp;
+      m_ips[i] = m_ips[m_ips.size () - 1 - i];
+      m_ips[m_ips.size () - 1 - i] = tmp;
     }
 
   uint32_t oldDest = m_dest;
@@ -305,7 +269,7 @@ uint32_t
 RonHeader::GetSerializedSize (void) const
 {
   // we reserve 2 bytes for our header.
-  return RON_HEADER_SIZE(m_nIps);
+  return RON_HEADER_SIZE(m_ips.size ());
 }
 
 void
@@ -315,14 +279,14 @@ RonHeader::Serialize (Buffer::Iterator start) const
 
   start.WriteU8 (m_forward);
   start.WriteU8 (m_nHops);
-  start.WriteU8 (m_nIps);
+  start.WriteU8 ((unsigned char)m_ips.size ());
   start.WriteU32 (m_seq);
   start.WriteU32 (m_dest);
   start.WriteU32 (m_origin);
-
-  if (m_nIps > 0 and m_ips != NULL)
+  
+  for (PathIterator hops = GetPathBegin (); hops != GetPathEnd (); hops++)
     {
-      start.Write ((uint8_t*)m_ips, m_nIps*4);
+      start.WriteU32 (*hops);
     }
 }
 
@@ -333,19 +297,23 @@ RonHeader::Deserialize (Buffer::Iterator start)
 
   m_forward = (bool)start.ReadU8 ();
   m_nHops = start.ReadU8 ();
-  m_nIps = start.ReadU8 ();
+  uint8_t nIps = start.ReadU8 ();
   m_seq = start.ReadU32 ();
   m_dest = start.ReadU32 ();
   m_origin = start.ReadU32 ();
 
-  if (m_ips)
-    delete m_ips;
-  m_ips = new uint32_t[m_nIps];
+  if (m_ips.size ())
+    m_ips.clear ();
   
-  start.Read ((uint8_t*)m_ips, m_nIps*4);
+  for (uint32_t i = 0; i < (uint32_t)nIps; i++)
+    {
+      m_ips.push_back (start.ReadU32 ());
+    }
+
+  NS_ASSERT (nIps == m_ips.size ());
 
   // we return the number of bytes effectively read.
-  return RON_HEADER_SIZE(m_nIps);
+  return RON_HEADER_SIZE(m_ips.size ());
 }
 
 } //namespace ns3
