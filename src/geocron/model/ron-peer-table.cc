@@ -70,29 +70,50 @@ RonPeerEntry::operator< (RonPeerEntry rhs) const
 
 ////////////////////////////////////////////////////////////////////////////////
 
+Ptr<RonPeerTable> RonPeerTable::m_master = NULL;
+
 Ptr<RonPeerTable>
 RonPeerTable::GetMaster ()
 {
-  static Ptr<RonPeerTable> m_master = Create<RonPeerTable> ();
+  if (m_master == NULL)
+    m_master = Create<RonPeerTable> ();
   return m_master;
 }
 
 
-Ptr<RonPeerEntry>
-RonPeerTable::GetPeerByAddress (Ipv4Address address)
-{
-  if (m_peersByAddress.count (address.Get ()))
-    return m_peersByAddress[address.Get ()];
-  else
-    return NULL;
-}
-
-
 uint32_t
-RonPeerTable::GetN ()
+RonPeerTable::GetN () const
 {
+  NS_ASSERT_MSG (m_peersByAddress.size () == m_peers.size (), "Corrupted peer table (sizes not same)!");
   return m_peers.size ();
 }
+
+
+bool
+RonPeerTable::operator== (const RonPeerTable rhs) const
+{
+  // if they're same size, all from one must be in the other (order not mattering)
+  if (GetN () != rhs.GetN ())
+      return false;
+  for (ConstIterator itr = Begin ();
+       itr != End (); itr++)
+    {
+      if (!rhs.IsInTable ((*itr)->id))
+        return false;
+      Ptr<RonPeerEntry> peer = rhs.GetPeer ((*itr)->id);
+      if (*(*itr) != *peer)
+        return false;
+    }
+  return true;
+}
+
+
+bool
+RonPeerTable::operator!= (const RonPeerTable rhs) const
+{
+  return !(*this == rhs);
+}
+
 
 
 Ptr<RonPeerEntry>
@@ -136,7 +157,7 @@ RonPeerTable::RemovePeer (uint32_t id)
 
 
 Ptr<RonPeerEntry>
-RonPeerTable::GetPeer (uint32_t id)
+RonPeerTable::GetPeer (uint32_t id) const
 {
   if (m_peers.count (id))
     return  ((*(m_peers.find (id))).second);
@@ -145,17 +166,36 @@ RonPeerTable::GetPeer (uint32_t id)
 }
 
 
+Ptr<RonPeerEntry>
+RonPeerTable::GetPeerByAddress (Ipv4Address address) const
+{
+  if (m_peersByAddress.count (address.Get ()))
+    //bracket operator isn't const
+    return m_peersByAddress.at (address.Get ());
+  else
+    return NULL;
+}
+
+
 bool
-RonPeerTable::IsInTable (uint32_t id)
+RonPeerTable::IsInTable (uint32_t id) const
 {
   return m_peers.count (id);
 }
 
 
 bool
-RonPeerTable::IsInTable (Iterator itr)
+RonPeerTable::IsInTable (Iterator itr) const
 {
   return IsInTable ((*itr)->id);
+}
+
+
+void
+RonPeerTable::Clear ()
+{
+  m_peers.clear ();
+  m_peersByAddress.clear ();
 }
 
 
@@ -173,6 +213,20 @@ boost::make_transform_iterator(a_map.begin(), take_second<int, string>),*/
 
 RonPeerTable::Iterator
 RonPeerTable::End ()
+{
+  return boost::end (boost::adaptors::values (m_peers));
+}
+
+
+RonPeerTable::ConstIterator
+RonPeerTable::Begin () const
+{
+  return boost::begin (boost::adaptors::values (m_peers));
+}
+
+
+RonPeerTable::ConstIterator
+RonPeerTable::End () const
 {
   return boost::end (boost::adaptors::values (m_peers));
 }

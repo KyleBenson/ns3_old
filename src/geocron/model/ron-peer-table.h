@@ -64,20 +64,21 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
   //typedef boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::unordered_map<uint32_t, Ptr<RonPeerEntry> > underlyingMapType;
   typedef boost::range_detail::select_second_mutable_range<underlyingMapType> underlyingIterator;
+  typedef boost::range_detail::select_second_const_range<underlyingMapType> underlyingConstIterator;
  public:
   typedef boost::range_iterator<underlyingIterator>::type Iterator;
+  typedef boost::range_iterator<underlyingConstIterator>::type ConstIterator;
 
   /** We store all of the peers in a single master peer table for efficiency purposes.
-      This should save a lot on memory and TODO will incorporate a 'mirroring' feature
+      This should save a lot on memory and
+      TODO will incorporate a 'mirroring' feature
       in which subsets are generated efficiently and contain copy-on-write peer entries. */
   static Ptr<RonPeerTable> GetMaster ();
 
-  // bool operator== (const RonPeerEntry rhs) const;
-  // bool operator!= (const RonPeerEntry rhs) const;
+  bool operator== (const RonPeerTable rhs) const;
+  bool operator!= (const RonPeerTable rhs) const;
 
-  uint32_t GetN ();
-
-  Ptr<RonPeerEntry> GetPeerByAddress (Ipv4Address address);
+  uint32_t GetN () const;
 
   /** Returns old entry if it existed, else new one. */
   Ptr<RonPeerEntry> AddPeer (Ptr<RonPeerEntry> entry);
@@ -86,12 +87,22 @@ class RonPeerTable : public SimpleRefCount<RonPeerTable>
   /** Returns true if entry existed. */
   bool RemovePeer (uint32_t id);
   /** Returns requested entry, NULL if unavailable. Use IsInTable to verify its prescence in the table. */
-  Ptr<RonPeerEntry> GetPeer (uint32_t id);
-  bool IsInTable (uint32_t id);
-  bool IsInTable (Iterator itr);
+  Ptr<RonPeerEntry> GetPeer (uint32_t id) const;
+  /** Returns requested entry, NULL if unavailable. Use IsInTable to verify its prescence in the table. */
+  Ptr<RonPeerEntry> GetPeerByAddress (Ipv4Address address) const;
+
+  bool IsInTable (uint32_t id) const;
+  bool IsInTable (Iterator itr) const;
+
+  /** Drop all RonPeerEntry entries from the table, updating all data structures in the table accordingly. */
+  void Clear ();
+
   //TODO: other forms of get/remove
   Iterator Begin ();
   Iterator End ();
+  ConstIterator Begin () const;
+  ConstIterator End () const;
+  static Ptr<RonPeerTable> m_master;
 
  private:
   underlyingMapType m_peers;

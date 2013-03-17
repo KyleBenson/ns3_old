@@ -158,7 +158,10 @@ TestPeerTable::~TestPeerTable ()
 void
 TestPeerTable::DoRun (void)
 {
-  Ptr<RonPeerTable> table = Create<RonPeerTable> ();
+  Ptr<RonPeerTable> table = RonPeerTable::GetMaster ();
+  table->Clear (); //in case we used it somewhere else
+  //Ptr<RonPeerTable> table = Create<RonPeerTable> ();
+  Ptr<RonPeerTable> table0 = Create<RonPeerTable> ();
 
   Ptr<RonPeerEntry> peer0 = peers[0];
   table->AddPeer (peer0);
@@ -168,6 +171,14 @@ TestPeerTable::DoRun (void)
   bool equality = *peers[3] == *table->GetPeer (nodes.Get (3)->GetId ());
   NS_TEST_ASSERT_MSG_EQ (equality, true, "getting peer (added as node) by id");
 
+  equality = 3 == table->GetN ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "checking table size after adding");
+
+  NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[3]->id), true, "testing IsInTable");
+  NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[2]->id), false, "testing IsInTable false positive");
+  //TODO: test by peer entry ptr ref
+  //NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[2]), false, "testing IsInTable false positive");
+
   equality = *table->GetPeerByAddress (peer0->address) == *peer0;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "getting peer by address");
 
@@ -176,6 +187,33 @@ TestPeerTable::DoRun (void)
 
   equality = NULL == table->GetPeer (nodes.Get (4)->GetId ());
   NS_TEST_ASSERT_MSG_EQ (equality, true, "table should return NULL when peer not present");
+
+  //test multiple tables with fresh peer entries
+  table0->AddPeer (nodes.Get (0));
+  table0->AddPeer (nodes.Get (1));
+
+  equality = *table == *table;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing self-equality");
+
+  equality = *table == *RonPeerTable::GetMaster ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing self-equality GetMaster");
+
+  equality = *table0 == *table;
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "testing RonPeerTable equality false positive");
+
+  table0->AddPeer (nodes.Get (3));
+  equality = *table0 == *table;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPeerTable equality");
+
+  table->RemovePeer (nodes.Get (3)->GetId ());
+  equality = *table0 == *table;
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "testing RonPeerTable false positive equality after removal");
+
+  table0->RemovePeer (nodes.Get (3)->GetId ());
+  equality = *table0 == *table;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPeerTable false positive equality after removal");
+  
+
 
   /*TODO: test removal
   equality = table->RemovePeer (nodes.Get (4)->GetId ());
@@ -397,6 +435,9 @@ TestRonPath::DoRun (void)
 
   equality = *path1 == *path2;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing proper equality for reverse on separately built paths");
+
+  //TODO: check reversing with complex paths
+  //TODO: catting paths together
 }
 
 
@@ -437,6 +478,8 @@ class TestRonHeader : public TestCase
 public:
   TestRonHeader ();
   virtual ~TestRonHeader ();
+  NodeContainer nodes;
+  Ptr<RonPeerTable> peers;
 
 private:
   virtual void DoRun (void);
@@ -446,6 +489,16 @@ private:
 TestRonHeader::TestRonHeader ()
   : TestCase ("Test basic operations of Ronheader objects")
 {
+  nodes = GridGenerator::GetNodes ();
+  
+  PeerContainer peersList = GridGenerator::GetPeers ();
+  peers = RonPeerTable::GetMaster ();
+  peers->Clear (); //in case we used it in other tests
+  for (PeerContainer::iterator itr = peersList.begin ();
+       itr != peersList.end (); itr++)
+    {
+      peers->AddPeer (*itr);
+    }
 }
 
 TestRonHeader::~TestRonHeader ()
@@ -455,10 +508,15 @@ TestRonHeader::~TestRonHeader ()
 void
 TestRonHeader::DoRun (void)
 {
-  // A wide variety of test macros are available in src/core/test.h
-  NS_TEST_ASSERT_MSG_EQ (true, true, "true doesn't equal true for some reason");
-  // Use this one for floating point comparisons
-  NS_TEST_ASSERT_MSG_EQ_TOL (0.01, 0.01, 0.001, "Numbers are not equal within tolerance");
+  /*Ptr<Packet> packet = Create<Packet> ();
+  Ipv4Address addr0 = peers[0]->address;
+  Ipv4Address addr1 = peers[1]->address;
+  Ipv4Address addr2 = peers[2]->address;
+
+  Ptr<Ronheader> head0 = Create<RonHeader> ();
+  Ptr<Ronheader> head1 = Create<RonHeader> ();
+  Ptr<Ronheader> head2 = Create<RonHeader> ();*/
+
 }
 
 
