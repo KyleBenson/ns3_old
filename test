@@ -1,2 +1,4 @@
 #!/bin/bash
-./test.py -s geocron
+name='geocron_test_results.html'
+./test.py -s geocron -w $name --verbose
+#gnome-open $name

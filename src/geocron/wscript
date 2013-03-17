@@ -24,7 +24,10 @@ def get_all_sources(path):
     return sources, headers
 
 def build(bld):
-    module = bld.create_ns3_module('geocron', ['core', 'network', 'internet', 'applications', 'mobility', 'nix-vector-routing', 'topology-read', 'point-to-point'])
+    module = bld.create_ns3_module('geocron', ['core', 'network', 'internet', 'applications', 'mobility', 'nix-vector-routing', 'topology-read', 'point-to-point',
+                                               #these only needed for Test Suite
+                                               'point-to-point-layout'
+                                               ])
     module.lib = ['boost_system', 'boost_filesystem'] #needed for scratch to use boost libs
 
     module.source, headers_list = get_all_sources(bld.path.relpath())

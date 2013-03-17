@@ -75,7 +75,10 @@ RonPeerTable::GetMaster ()
 Ptr<RonPeerEntry>
 RonPeerTable::GetPeerByAddress (Ipv4Address address)
 {
-  return m_peersByAddress[address.Get ()];
+  if (m_peersByAddress.count (address.Get ()))
+    return m_peersByAddress[address.Get ()];
+  else
+    return NULL;
 }
 
 
@@ -119,7 +122,9 @@ RonPeerTable::RemovePeer (uint32_t id)
   bool retValue = false;
   if (m_peers.count (id))
     retValue = true;
+  Ipv4Address addr = GetPeer (id)->address;
   m_peers.erase (m_peers.find (id));
+  m_peersByAddress.erase (m_peersByAddress.find (addr.Get ()));
   return retValue;
 }
 
