@@ -90,7 +90,9 @@ public:
     }
   };
 
-protected:
+  //for whatever reason, friendship isn't working...
+  friend class TestRonPathHeuristic; //testing framework
+  //protected:
 
   ///////////////////////// likelihood manipulation ////////////////////
 
@@ -157,7 +159,7 @@ protected:
   AggregateHeuristics m_aggregateHeuristics;
 
   /** The likelihoods are indexed by the destination and then the path proposed for the destination. */
-private:
+  //private:
   struct PathTestEqual
   {
     inline bool operator() (const Ptr<RonPath> path1, const Ptr<RonPath> path2) const
@@ -170,6 +172,7 @@ private:
   {
     inline size_t operator()(const Ptr<PeerDestination> hop) const
     {
+      NS_ASSERT_MSG (hop->GetN (), "can't hash an empty destination!");
       boost::hash<uint32_t> hasher;
       Ptr<RonPeerEntry> firstPeer = (*hop->Begin ());
       uint32_t id = firstPeer->id;
@@ -182,6 +185,7 @@ private:
   {
     inline size_t operator()(const Ptr<RonPath> path) const
     {
+      NS_ASSERT_MSG (path->GetN (), "can't hash an empty path!");
       Ptr<PeerDestination> hop = *path->Begin ();
       PeerDestinationHasher hasher;
       return hasher (hop);

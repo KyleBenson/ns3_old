@@ -504,6 +504,75 @@ TestRonPathHeuristic::~TestRonPathHeuristic ()
 void
 TestRonPathHeuristic::DoRun (void)
 {
+  //RonPathHeuristic has friended us so we can test internals.
+  Ptr<RonPathHeuristic> h0 = CreateObject<RonPathHeuristic> ();
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back());
+  Ptr<RonPath> path = Create<RonPath> (dest);
+
+  h0->SetPeerTable (RonPeerTable::GetMaster ());
+  h0->SetSourcePeer (peers.front());
+
+  bool equality = *peers.front () == *h0->GetSourcePeer ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing GetSourcePeer after setting it");
+
+  //it must be top-level to build data structures properly
+  h0->MakeTopLevel ();
+
+  //we need to call GetBestPath before anything else as it will build all the available paths
+  h0->BuildPaths (dest);
+  NS_TEST_ASSERT_MSG_NE (h0->m_masterLikelihoods->at (dest).size (), 0,
+                         "inner master likelihood table empty after BuildPaths");
+
+  NS_TEST_ASSERT_MSG_EQ (h0->m_masterLikelihoods->at (dest).size (), peers.size () - 1,
+                         "testing size of inner master likelihood table after BuildPaths");
+
+  NS_TEST_ASSERT_MSG_EQ (h0->PathAttempted (path), false, "testing PathAttempted before GetBestPath");
+  path = h0->GetBestPath (dest);
+  NS_TEST_ASSERT_MSG_EQ (h0->PathAttempted (path), true, "testing PathAttempted after GetBestPath");
+
+  equality = *path->GetDestination () == *dest;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing GetBestPath with basic path");
+
+  path = Create<RonPath> (dest);
+  NS_TEST_ASSERT_MSG_EQ_TOL (h0->GetLikelihood (path), 1.0, 0.01, "testing GetLikelihood before any feedback");
+
+  h0->NotifyTimeout (path, Simulator::Now ());
+  NS_TEST_ASSERT_MSG_EQ_TOL (*h0->m_likelihoods[dest][path], 0.0, 0.01, "testing m_likelihoods after timeout feedback");
+
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path].front (), 0.0, 0.01, "testing m_masterLikelihoods after timeout feedback");
+
+  h0->NotifyAck (path, Simulator::Now ());
+  NS_TEST_ASSERT_MSG_EQ_TOL (*h0->m_likelihoods[dest][path], 1.0, 0.01, "testing m_likelihoods after ACK feedback");
+
+
+  ////////////////////////////////////////////////////////////////////////////////
+  ////////////////////  dangerous: testing the inner structs /////////////////////
+  ////////////////////////////////////////////////////////////////////////////////
+ 
+
+  RonPathHeuristic::PathHasher pathHasher;
+  NS_TEST_ASSERT_MSG_EQ (pathHasher (path),
+                         pathHasher (Create<RonPath> (Create<PeerDestination> (Create<RonPeerEntry> (nodes.Get (nodes.GetN () - 1))))),
+                         "testing PathHasher new copy");
+
+  NS_TEST_ASSERT_MSG_NE (pathHasher (path),
+                         pathHasher (Create<RonPath> (Create<PeerDestination> (Create<RonPeerEntry> (nodes.Get (0))))),
+                         "testing PathHasher false positive new copy");
+
+  RonPathHeuristic::MasterPathLikelihoodInnerTable * masterInner = &(*h0->m_masterLikelihoods)[dest];
+  
+  NS_ASSERT_MSG (masterInner == &(*h0->m_masterLikelihoods)[dest], "why aren't the inner tables in the same location?");
+
+  RonPathHeuristic::Likelihood * lh = &(*masterInner)[path];
+  lh->clear ();
+  lh->push_front (0.5);
+
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path].front (), 0.5,
+                             0.01, "testing m_masterLikelihoods accessing with same keys");
+
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[Create<PeerDestination> (peers.back())][path].back (), 0.5,
+                             0.01, "testing m_masterLikelihoods accessing with fresh copies of keys");
+  //path->AddHop (
 }
 
 
