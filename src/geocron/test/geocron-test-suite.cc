@@ -67,9 +67,12 @@ public:
     cachedNodes.Add (grid.GetNode (3,3));
     cachedNodes.Add (grid.GetNode (4,4));
 
+    NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
+
     for (NodeContainer::Iterator itr = cachedNodes.Begin (); itr != cachedNodes.End (); itr++)
       {
         Ptr<RonPeerEntry> newPeer = Create<RonPeerEntry> (*itr);
+
         //newPeer->id = id++;
         cachedPeers.push_back (newPeer);
       }
@@ -117,6 +120,12 @@ TestPeerEntry::DoRun (void)
   
   equality = (*peers[3] == *peers[1]);
   NS_TEST_ASSERT_MSG_NE (equality, true, "equality test false positive");
+
+  equality = (peers[3]->address == peers[3]->address);
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "equality test address");
+
+  equality = (peers[1]->address == (Ipv4Address)(uint32_t)0);
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "equality test address not 0");
 
   //Test < operator
   equality = *peers[0] < *peers[4];
@@ -175,9 +184,13 @@ TestPeerTable::DoRun (void)
   NS_TEST_ASSERT_MSG_EQ (equality, true, "checking table size after adding");
 
   NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[3]->id), true, "testing IsInTable");
+  NS_TEST_ASSERT_MSG_EQ (table->IsInTable (Create<RonPeerEntry> (nodes.Get (3))->id), true, "testing IsInTable fresh copy by node");
   NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[2]->id), false, "testing IsInTable false positive");
   //TODO: test by peer entry ptr ref
   //NS_TEST_ASSERT_MSG_EQ (table->IsInTable (peers[2]), false, "testing IsInTable false positive");
+
+  equality = *peers[3] == *table->GetPeer (nodes.Get (3)->GetId ());
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing GetPeer");
 
   equality = *table->GetPeerByAddress (peer0->address) == *peer0;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "getting peer by address");
@@ -212,7 +225,12 @@ TestPeerTable::DoRun (void)
   table0->RemovePeer (nodes.Get (3)->GetId ());
   equality = *table0 == *table;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPeerTable false positive equality after removal");
+
+  //test iterators
+  NS_TEST_ASSERT_MSG_EQ (table->IsInTable (table0->Begin ()), true, "testing IsInTable with Iterator");
   
+  table->RemovePeer ((*table->Begin ())->id);
+  NS_TEST_ASSERT_MSG_EQ (table->IsInTable (table0->Begin ()), false, "testing IsInTable with Iterator false positive after removal");
 
 
   /*TODO: test removal
@@ -487,17 +505,23 @@ private:
 
 
 TestRonHeader::TestRonHeader ()
-  : TestCase ("Test basic operations of Ronheader objects")
+  : TestCase ("Test basic operations of RonHeader objects")
 {
   nodes = GridGenerator::GetNodes ();
-  
-  PeerContainer peersList = GridGenerator::GetPeers ();
-  peers = RonPeerTable::GetMaster ();
-  peers->Clear (); //in case we used it in other tests
-  for (PeerContainer::iterator itr = peersList.begin ();
-       itr != peersList.end (); itr++)
+
+  //we want to work with a table rather than lists
+  //PeerContainer peersList = GridGenerator::GetPeers ();
+  peers = Create<RonPeerTable> ();
+
+  //for (PeerContainer::iterator itr = peersList.begin ();
+  for (NodeContainer::Iterator itr = nodes.Begin ();
+       itr != nodes.End (); itr++)
     {
+      NS_ASSERT_MSG (!peers->IsInTable ((*itr)->GetId ()), "this peer (" << (*itr)->GetId () << ") shouldn't be in the table yet!");
+
       peers->AddPeer (*itr);
+
+      NS_ASSERT_MSG (peers->IsInTable ((*itr)->GetId ()), "peers should be in table now");
     }
 }
 
@@ -508,15 +532,139 @@ TestRonHeader::~TestRonHeader ()
 void
 TestRonHeader::DoRun (void)
 {
-  /*Ptr<Packet> packet = Create<Packet> ();
-  Ipv4Address addr0 = peers[0]->address;
-  Ipv4Address addr1 = peers[1]->address;
-  Ipv4Address addr2 = peers[2]->address;
+  NS_ASSERT_MSG (peers->GetN () == nodes.GetN (), "table size != node container size");
 
-  Ptr<Ronheader> head0 = Create<RonHeader> ();
-  Ptr<Ronheader> head1 = Create<RonHeader> ();
-  Ptr<Ronheader> head2 = Create<RonHeader> ();*/
+  Ptr<Packet> packet = Create<Packet> ();
+  Ipv4Address addr0 = peers->GetPeer (nodes.Get (0)->GetId ())->address;
 
+  uint32_t tmpId = nodes.Get (1)->GetId ();
+  NS_TEST_ASSERT_MSG_EQ (peers->IsInTable (tmpId), true, "table should contain this peer");
+  Ipv4Address addr1 = peers->GetPeer (tmpId)->address;
+  Ipv4Address addr2 = peers->GetPeer (nodes.Get (2)->GetId ())->address;
+  Ipv4Address srcAddr = Ipv4Address ("244.244.244.244");
+
+  Ptr<RonHeader> head0 = Create<RonHeader> ();
+  head0->SetDestination (addr0);
+  Ptr<RonHeader> head1 = Create<RonHeader> (addr1);
+  Ptr<RonHeader> head2 = Create<RonHeader> (addr2, addr1);
+
+  //test destinations based on constructors
+
+  bool equality = head1->GetFinalDest () == head2->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonHeader GetFinalDest and GetNextDest with 2 diff constructors.");
+
+  NS_TEST_ASSERT_MSG_EQ (head2->IsForward (), true, "testing IsForward");
+  NS_TEST_ASSERT_MSG_EQ (head0->IsForward (), false, "testing IsForward false positive");
+
+  equality = head1->GetFinalDest () == head1->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonHeader GetFinalDest and GetNextDest should be same.");
+
+  equality = head2->GetFinalDest () == head2->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "testing RonHeader GetFinalDest and GetNextDest shouldn't be same.");
+
+  equality = head0->GetFinalDest () == Create<RonHeader> (addr0)->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonHeader GetFinalDest and GetNextDest with 1 constructor and SetDestination, fresh header.");
+
+  equality = head0->GetFinalDest () == Create<RonHeader> (addr1)->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "testing RonHeader GetFinalDest and GetNextDest false positive equality with 1 constructor and SetDestination, fresh header.");
+
+  //test seq#
+  NS_TEST_ASSERT_MSG_EQ (head0->GetSeq (), 0, "testing default seq#");
+  head0->SetSeq (5);
+  NS_TEST_ASSERT_MSG_EQ (head0->GetSeq (), 5, "testing seq# after setting it");
+
+  //test origin
+  
+  head2->SetOrigin (srcAddr);
+  NS_TEST_ASSERT_MSG_EQ (head2->GetOrigin (), srcAddr, "testing proper origin after setting it");
+
+  //test operator=
+  RonHeader tmpHead = *head2;
+  NS_TEST_ASSERT_MSG_EQ (head2->GetFinalDest (), tmpHead.GetFinalDest (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head2->GetNextDest (), tmpHead.GetNextDest (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head2->GetOrigin (), tmpHead.GetOrigin (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head2->GetSeq (), tmpHead.GetSeq (), "testing assignment operator");
+
+  //test reverse
+  tmpHead = *head2;
+  head2->ReversePath ();
+  Ipv4Address prevHop = head2->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (head2->GetFinalDest (), srcAddr, "testing proper origin after reversing");
+  NS_TEST_ASSERT_MSG_EQ (head2->GetNextDest (), prevHop, "testing proper next hop after reversing");
+
+  //undo reverse
+  head2->ReversePath ();
+  equality = tmpHead.GetFinalDest () == head2->GetFinalDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "header should be back to normal");
+  equality = tmpHead.GetNextDest () == head2->GetNextDest ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "header should be back to normal");
+  equality = tmpHead.GetOrigin () == head2->GetOrigin ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "header should be back to normal");
+
+  //test hop incrementing
+  prevHop = head2->GetFinalDest ();
+  head2->IncrHops ();
+  NS_TEST_ASSERT_MSG_EQ (head2->GetNextDest (), prevHop, "testing proper next hop after incrementing hops");
+
+  //test path manipulation/interface
+
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers->GetPeerByAddress (addr2));
+  Ptr<RonPath> path = Create<RonPath> (dest);
+  path->AddHop (Create<PeerDestination> (peers->GetPeerByAddress (addr1)), path->Begin ());
+
+  //path should now be the same as returned by head2
+  //path: scrAddr -> addr1 -> addr2
+  
+  //first, we need to make sure the master table has all these peers in it or we won't be able to
+  //build paths by Ipv4Address.
+  //TODO: This can be removed later when we actually store the whole RonPeerEntry in the header...
+  Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
+  for (RonPeerTable::Iterator itr = peers->Begin ();
+       itr != peers->End (); itr++)
+    {
+      master->AddPeer (*itr);
+    }
+
+  NS_TEST_ASSERT_MSG_EQ (head2->GetPath ()->GetN (), 2, "path pulled from header isn't right length");
+
+  equality = *head2->GetPath () == *path;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "Checking GetPath equality");
+
+  equality = *head0->GetPath () == *head2->GetPath ();
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "Checking GetPath inequality");
+
+  head0->SetPath (path);
+  equality = *head0->GetPath () == *head2->GetPath ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing path equality after SetPath");
+
+  //RonHeader currently doesn't provide access to inserting hops at arbitrary locations,
+  //so we reverse, add at end, and reverse again to insert at front (after source)
+  head0->ReversePath ();
+  head0->AddDest (addr0);
+  head0->ReversePath ();
+  path->AddHop (peers->GetPeerByAddress (addr0), path->Begin ());
+  equality = *path == *head0->GetPath ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "Checking path equality after modifying both path and header");
+
+  //TODO: test iterators
+
+  //test serializing
+  packet->AddHeader (*head0);
+  packet->RemoveHeader (tmpHead);
+
+  NS_TEST_ASSERT_MSG_EQ (head0->GetFinalDest (), tmpHead.GetFinalDest (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head0->GetNextDest (), tmpHead.GetNextDest (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head0->GetOrigin (), tmpHead.GetOrigin (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head0->GetSeq (), tmpHead.GetSeq (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head0->GetHop (), tmpHead.GetHop (), "testing assignment operator");
+  NS_TEST_ASSERT_MSG_EQ (head0->IsForward (), tmpHead.IsForward (), "testing assignment operator");
+
+  equality = *head0->GetPath () == *tmpHead.GetPath ();
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing deserialized packet path");
+
+  head0->ReversePath ();
+  equality = *head0->GetPath () == *tmpHead.GetPath ();
+  NS_TEST_ASSERT_MSG_EQ (equality, false, "testing deserialized packet path false positive after reverse");
 }
 
 

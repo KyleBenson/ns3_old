@@ -23,18 +23,15 @@ RonHeader::RonHeader ()
 }
 
 RonHeader::RonHeader (Ipv4Address destination, Ipv4Address intermediate /*= Ipv4Address((uint32_t)0)*/)
+  : m_nHops (0), m_seq (0), m_origin (0)
 {
   NS_LOG_FUNCTION (destination << " and " << intermediate);
-
-  m_nHops = 0;
-  m_origin = 0;
-  m_seq = 0;
 
   m_dest = destination.Get ();
   
   if (intermediate.Get () != 0)
     {
-      m_ips[0] = intermediate.Get ();
+      AddDest (intermediate);
       m_forward = true;
     }
   else
@@ -230,7 +227,8 @@ RonHeader::SetPath (Ptr<RonPath> path)
     }
   SetDestination ((*(*itr)->Begin ())->address);
 
-  NS_ASSERT (path->GetN () == m_ips.size ());
+  //ensure correct path size, which should include the Destination
+  NS_ASSERT (path->GetN () == m_ips.size () + 1);
 }
 
 void

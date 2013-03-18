@@ -31,6 +31,9 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
     this->node = node;
     id = node-> GetId ();
     address = GetNodeAddress(node);
+
+    NS_ASSERT_MSG (address.Get () != (uint32_t)0, "got a 0 Ipv4Address!");
+
     lastContact = Simulator::Now ();
     
     Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();

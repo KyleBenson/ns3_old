@@ -25,6 +25,9 @@ public:
   //RonHeader (const RonHeader& original);
   RonHeader& operator=(const RonHeader& original);
 
+  static TypeId GetTypeId (void);
+  virtual TypeId GetInstanceTypeId (void) const;
+
   Ipv4Address GetFinalDest (void) const;
   Ipv4Address GetNextDest (void) const;
   Ipv4Address GetOrigin (void) const;
@@ -33,8 +36,18 @@ public:
   //Ipv4Address PopNextDest (void); 
   uint8_t IncrHops (void);
   bool IsForward (void) const;
+  /** Add an intermediary hop. */
   void AddDest (Ipv4Address addr);
   void ReversePath (void);
+
+  void SetDestination (Ipv4Address dest);
+  void SetOrigin (Ipv4Address origin);
+  void SetSeq (uint32_t seq);
+
+  virtual void Print (std::ostream &os) const;
+  virtual void Serialize (Buffer::Iterator start) const;
+  virtual uint32_t Deserialize (Buffer::Iterator start);
+  virtual uint32_t GetSerializedSize (void) const;
 
 private:
   typedef std::vector<uint32_t> UnderlyingPathContainer;
@@ -46,17 +59,6 @@ public:
   PathIterator GetPathEnd () const;
   Ptr<RonPath> GetPath () const;
   void SetPath (Ptr<RonPath> path);
-
-  void SetDestination (Ipv4Address dest);
-  void SetOrigin (Ipv4Address origin);
-  void SetSeq (uint32_t seq);
-
-  static TypeId GetTypeId (void);
-  virtual TypeId GetInstanceTypeId (void) const;
-  virtual void Print (std::ostream &os) const;
-  virtual void Serialize (Buffer::Iterator start) const;
-  virtual uint32_t Deserialize (Buffer::Iterator start);
-  virtual uint32_t GetSerializedSize (void) const;
 
 private:
   bool m_forward;
