@@ -76,6 +76,15 @@ public:
         //newPeer->id = id++;
         cachedPeers.push_back (newPeer);
       }
+
+    //add all peers to master peer table
+    Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
+
+    for (PeerContainer::iterator itr = cachedPeers.begin ();
+         itr != cachedPeers.end (); itr++)
+      {
+        master->AddPeer (*itr);
+      }
   }
 };
 
@@ -167,9 +176,8 @@ TestPeerTable::~TestPeerTable ()
 void
 TestPeerTable::DoRun (void)
 {
-  Ptr<RonPeerTable> table = RonPeerTable::GetMaster ();
-  table->Clear (); //in case we used it somewhere else
-  //Ptr<RonPeerTable> table = Create<RonPeerTable> ();
+  //Ptr<RonPeerTable> table = RonPeerTable::GetMaster ();
+  Ptr<RonPeerTable> table = Create<RonPeerTable> ();
   Ptr<RonPeerTable> table0 = Create<RonPeerTable> ();
 
   Ptr<RonPeerEntry> peer0 = peers[0];
@@ -208,7 +216,16 @@ TestPeerTable::DoRun (void)
   equality = *table == *table;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing self-equality");
 
-  equality = *table == *RonPeerTable::GetMaster ();
+  //add all entries to new table and make sure its == master
+  Ptr<RonPeerTable> newTable = Create<RonPeerTable> ();
+  Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
+  for (RonPeerTable::Iterator itr = master->Begin ();
+       itr != master->End (); itr++)
+    {
+      newTable->AddPeer (*itr);
+    }
+
+  equality = *newTable == *master;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing self-equality GetMaster");
 
   equality = *table0 == *table;
@@ -614,16 +631,6 @@ TestRonHeader::DoRun (void)
 
   //path should now be the same as returned by head2
   //path: scrAddr -> addr1 -> addr2
-  
-  //first, we need to make sure the master table has all these peers in it or we won't be able to
-  //build paths by Ipv4Address.
-  //TODO: This can be removed later when we actually store the whole RonPeerEntry in the header...
-  Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
-  for (RonPeerTable::Iterator itr = peers->Begin ();
-       itr != peers->End (); itr++)
-    {
-      master->AddPeer (*itr);
-    }
 
   NS_TEST_ASSERT_MSG_EQ (head2->GetPath ()->GetN (), 2, "path pulled from header isn't right length");
 
