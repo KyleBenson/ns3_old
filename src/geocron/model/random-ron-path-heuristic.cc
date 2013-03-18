@@ -55,5 +55,6 @@ RandomRonPathHeuristic::GetTypeId (void)
 double
 RandomRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
+  //NS_ASSERT (random.GetValue () < 1.0 and random.GetValue () > 0.0);
   return random.GetValue ();
 }

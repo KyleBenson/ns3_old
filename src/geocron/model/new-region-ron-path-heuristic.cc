@@ -51,8 +51,8 @@ double
 NewRegionRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
   if (m_regionsAttempted.count ((*(*path->Begin ())->Begin ())->region))
-    return 1.0;
-  return 0.0;
+    return 0.0;
+  return 1.0;
 }
 
 

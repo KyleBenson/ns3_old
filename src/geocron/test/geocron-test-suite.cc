@@ -1,15 +1,14 @@
 /* -*- Mode:C++; c-file-style:"gnu"; indent-tabs-mode:nil; -*- */
 
-// Include a header file from your module to test.
-#include "ns3/geocron-experiment.h"
-
 // An essential include is test.h
 #include "ns3/test.h"
+#include "ns3/geocron-module.h"
 #include "ns3/core-module.h"
 
 #include "ns3/point-to-point-layout-module.h"
 
 #include <vector>
+#include <iostream>
 
 // Do not put your test classes in namespace ns3.  You may find it useful
 // to use the using directive to access the ns3 namespace directly
@@ -62,9 +61,10 @@ public:
   
     cachedNodes.Add (grid.GetNode (0,0));
     cachedNodes.Add (grid.GetNode (1,1));
-    cachedNodes.Add (grid.GetNode (4,1));
+    cachedNodes.Add (grid.GetNode (4,1)); //2nd choice for this V
     cachedNodes.Add (grid.GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
     cachedNodes.Add (grid.GetNode (3,3));
+    cachedNodes.Add (grid.GetNode (4,0));
     cachedNodes.Add (grid.GetNode (4,4));
 
     NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
@@ -76,6 +76,15 @@ public:
         //newPeer->id = id++;
         cachedPeers.push_back (newPeer);
       }
+
+    //set regions for testing those types of heuristics
+    cachedPeers[0]->region = "TL";
+    cachedPeers[1]->region = "TL";
+    cachedPeers[2]->region = "BL";
+    cachedPeers[3]->region = "TR";
+    cachedPeers[4]->region = "BR";
+    cachedPeers[5]->region = "BL";
+    cachedPeers[6]->region = "BR";
 
     //add all peers to master peer table
     Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
@@ -475,7 +484,6 @@ TestRonPath::DoRun (void)
   //TODO: catting paths together
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 class TestRonPathHeuristic : public TestCase
 {
@@ -491,7 +499,7 @@ private:
 
 
 TestRonPathHeuristic::TestRonPathHeuristic ()
-  : TestCase ("Test basic operations of RonPathHeuristic objects as well as aggregation")
+  : TestCase ("Test basic operations of RonPathHeuristic objects, except for aggregation")
 {
   nodes = GridGenerator::GetNodes ();
   peers = GridGenerator::GetPeers ();
@@ -544,6 +552,54 @@ TestRonPathHeuristic::DoRun (void)
   h0->NotifyAck (path, Simulator::Now ());
   NS_TEST_ASSERT_MSG_EQ_TOL (*h0->m_likelihoods[dest][path], 1.0, 0.01, "testing m_likelihoods after ACK feedback");
 
+  ////////////////////////////////////////////////////////////////////////////////
+  //we check to make sure that we actually get some peers from the heuristic
+  Ptr<RandomRonPathHeuristic> random = CreateObject<RandomRonPathHeuristic> ();
+  random->SetPeerTable (RonPeerTable::GetMaster ());
+  random->SetSourcePeer (peers.front());
+  random->MakeTopLevel ();
+  random->BuildPaths (dest);
+  random->UpdateLikelihoods (dest);
+
+  uint32_t npaths = 0;
+  Ptr<RonPath> lastPath = NULL;
+  double totalLh = 0;
+  try
+    {
+      while (true)
+        {
+          path = random->GetBestPath (dest);
+
+          //assert that none of the paths are exactly LH 1 since we're also using random
+          totalLh = 0;
+          RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
+          for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
+               itr != lh.end (); itr++)
+            {
+              totalLh += *itr;
+            }
+
+          //totalLh += *random->m_likelihoods[dest][path];
+
+          NS_TEST_ASSERT_MSG_GT (totalLh, 0.0, /*0.01,*/ "likelihood should be an aggregate and features random");
+          NS_TEST_ASSERT_MSG_LT (totalLh, 1.0, /*0.01,*/ "likelihood should be < 2 as 2 heuristics");
+
+          //we also want to assert that we get a different path
+          equality = (lastPath != NULL) and (*path == *lastPath);
+          NS_TEST_ASSERT_MSG_EQ (equality, false, "got same path as last time");
+          lastPath = path;
+          random->NotifyTimeout (lastPath, Simulator::Now ());
+
+          //as well as that we got the number of expected possible paths
+          npaths++;
+          //TODO: something like this in TestRonPathHeuristic to make sure src and dest aren't chosen
+        }
+    }
+  catch (RonPathHeuristic::NoValidPeerException e)
+    {
+      NS_TEST_ASSERT_MSG_EQ (npaths, 6, npaths << " peers were checked for same region rather than 6");
+    }
+
 
   ////////////////////////////////////////////////////////////////////////////////
   ////////////////////  dangerous: testing the inner structs /////////////////////
@@ -573,6 +629,132 @@ TestRonPathHeuristic::DoRun (void)
   NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[Create<PeerDestination> (peers.back())][path].back (), 0.5,
                              0.01, "testing m_masterLikelihoods accessing with fresh copies of keys");
   //path->AddHop (
+
+  //TODO: multiple destinations
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+class TestAggregateRonPathHeuristic : public TestCase
+{
+public:
+  TestAggregateRonPathHeuristic ();
+  virtual ~TestAggregateRonPathHeuristic ();
+  NodeContainer nodes;
+  PeerContainer peers;
+
+private:
+  virtual void DoRun (void);
+};
+
+
+TestAggregateRonPathHeuristic::TestAggregateRonPathHeuristic ()
+  : TestCase ("Test aggregation feature of RonPathHeuristic objects, using NewRegion and Random")
+{
+  nodes = GridGenerator::GetNodes ();
+  peers = GridGenerator::GetPeers ();
+}
+
+TestAggregateRonPathHeuristic::~TestAggregateRonPathHeuristic ()
+{
+}
+
+void
+TestAggregateRonPathHeuristic::DoRun (void)
+{
+  bool equality;
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]);
+  Ptr<RonPath> path = Create<RonPath> (dest);
+  path->AddHop (botLeft, path->Begin ());
+
+  Ptr<RandomRonPathHeuristic> random = CreateObject<RandomRonPathHeuristic> ();
+  Ptr<NewRegionRonPathHeuristic> newreg = CreateObject<NewRegionRonPathHeuristic> ();
+  
+  random->MakeTopLevel ();
+  random->SetPeerTable (RonPeerTable::GetMaster ());
+  random->SetSourcePeer (peers.front());
+  random->AddHeuristic (newreg);
+
+  random->BuildPaths (dest);
+  random->UpdateLikelihoods (dest);
+
+  //TODO: look at the m_masterLikelihoods
+
+  //If we tell the heuristics that some region failed to work, we should never see any
+  //peers from that region since we only have one there.
+  //path goes thru "BL"
+
+  //we want to check with a different path to make sure that it affected both peers
+
+  double oldLh = *random->m_likelihoods[dest][path];
+  NS_TEST_ASSERT_MSG_GT (oldLh, 0.0, "checking range of random's assigned LH");
+  NS_TEST_ASSERT_MSG_LT (oldLh, 1.0, "checking range of random's assigned LH");
+  
+  NS_TEST_ASSERT_MSG_EQ_TOL (*newreg->m_likelihoods[dest][path], 1.0, 0.01,
+                             "m_likelihoods should be 1.0 for new region");
+  
+  //get master likelihood and verify before and after timeout
+  double totalLh = 0;
+  RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
+  for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
+       itr != lh.end (); itr++)
+    {
+      totalLh += *itr;
+    }
+
+  NS_TEST_ASSERT_MSG_EQ_TOL (totalLh, oldLh + 1.0, 0.01, "testing master LH before NotifyTimeout");
+
+  // TIMEOUT
+  random->NotifyTimeout (path, Simulator::Now ());
+
+  NS_TEST_ASSERT_MSG_EQ_TOL (*newreg->m_likelihoods[dest][path], 0.0, 0.01,
+                             "m_likelihoods should now be 0.0 for target region");
+
+  //random should be same: WRONG its default is set to 0, try a diff path
+  NS_TEST_ASSERT_MSG_EQ_TOL (*random->m_likelihoods[dest][path], oldLh, 0.01,
+                             "random's LH should be same after NotifyTimeout");
+
+  uint32_t npaths = 0;
+  Ptr<RonPath> lastPath = path;
+  try
+    {
+      while (true)
+        {
+          path = random->GetBestPath (dest);
+
+          NS_TEST_ASSERT_MSG_EQ ((*path->GetDestination ()->Begin ())->region, "BL",
+                                 "we got a path using the NotifyTimeout region");
+
+          //assert that none of the paths are exactly LH 1 since we're also using random
+          totalLh = 0;
+          RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
+          for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
+               itr != lh.end (); itr++)
+            {
+              totalLh += *itr;
+            }
+          NS_TEST_ASSERT_MSG_GT (totalLh, 1.0, /*0.01,*/ "likelihood should be an aggregate and features random");
+          NS_TEST_ASSERT_MSG_LT (totalLh, 2.0, /*0.01,*/ "likelihood should be < 2 as 2 heuristics");
+
+          //we also want to assert that we get a different path
+          equality = *path == *lastPath;
+          NS_TEST_ASSERT_MSG_EQ (equality, false, "got same path as last time");
+          lastPath = path;
+
+          //as well as that we got the number of expected possible paths
+          npaths++;
+          //TODO: something like this in TestRonPathHeuristic to make sure src and dest aren't chosen
+        }
+    }
+  catch (RonPathHeuristic::NoValidPeerException e)
+    {
+      NS_TEST_ASSERT_MSG_EQ (npaths, 5, npaths << " peers were checked for same region rather than 5");
+    }
+
+  //TODO: loop through all GetBestPaths until none left, making sure none have the target region
 }
 
 
@@ -768,7 +950,10 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestPeerEntry);
   AddTestCase (new TestPeerTable);
   AddTestCase (new TestRonPath);
+
+  //heuristics
   AddTestCase (new TestRonPathHeuristic);
+  AddTestCase (new TestAggregateRonPathHeuristic);
 
   //network application stuff
   AddTestCase (new TestRonHeader);

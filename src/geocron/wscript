@@ -18,8 +18,8 @@ def get_all_sources(path):
                                                #'model/heuristics'
                                                ]]:
         files = [os.path.join(d, f) for f in os.listdir(d)]
-        sources.extend([os.path.relpath(f,path) for f in files if f.endswith('.cc') and not os.path.isdir(f)])
-        headers.extend([os.path.relpath(f,path) for f in files if f.endswith('.h') and not os.path.isdir(f)])
+        sources.extend([os.path.relpath(f,path) for f in files if f.endswith('.cc') and not (os.path.isdir(f) or '#' in f)])
+        headers.extend([os.path.relpath(f,path) for f in files if f.endswith('.h') and not (os.path.isdir(f) or '#' in f)])
 
     return sources, headers
 

@@ -182,7 +182,7 @@ RonPathHeuristic::GetBestPath (Ptr<PeerDestination> destination)
   // ensure paths built
   BuildPaths (destination);
 
-  //NS_ASSERT_MSG ((*m_masterLikelihoods)[destination].size () > 0, "empty master likelihood table!");
+  NS_ASSERT_MSG ((*m_masterLikelihoods)[destination].size () > 0, "empty master likelihood table!");
 
   //find the path with highest likelihood
   //TODO: cache up to MaxAttempts of them
