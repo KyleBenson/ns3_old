@@ -190,7 +190,7 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
   bool bb = false;
   int num_neigh_s = 0;
   unsigned int num_neigh = 0;
-  int radius = 0;
+  //int radius = 0;
   std::vector <std::string> neigh_list;
   NodeContainer nodes;
 
@@ -255,7 +255,7 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
         name.erase(name.size() - 1);
     }
 
-  radius = ::atoi (&argv[9][0]);
+  //radius = ::atoi (&argv[9][0]);
 
   // Why are we skipping all nodes beyond radius 0??  This creates disconnected topologies because the
   // other nodes still get created but will not have any links
@@ -266,9 +266,11 @@ RocketfuelTopologyReader::GenerateFromMapsFile (int argc, char *argv[])
 
   /* uid @loc [+] [bb] (num_neigh) [&ext] -> <nuid-1> <nuid-2> ... {-euid} ... =name[!] rn */
   NS_LOG_INFO ("Load Node[" << uid << "]: location: " << loc << " dns: " << dns
-                            << " bb: " << bb << " neighbors: " << neigh_list.size ()
-                            << "(" << "%d" << ") externals: \"%s\"(%d) "
-                            << "name: " << name << " radius: " << radius);
+               << " bb: " << bb << " neighbors: " << neigh_list.size ()
+               << "(" << "%d" << ") externals: \"%s\"(%d) "
+               << "name: " << name
+               //<< " radius: " << radius
+               );
 
   //cast bb and dns to void, to suppress variable set but not used compiler warning
   //in optimized builds

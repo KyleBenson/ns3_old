@@ -215,7 +215,7 @@ if __name__ == "__main__":
         os.environ['NS_LOG'] = ':'.join(args.log)
 
     if args.optimized:
-        subprocess.call("./waf -d optimized configure")
+        subprocess.call("./waf -d optimized configure", shell=True)
 
     # run waf build if we're using multiple processes
     if args.nprocs > 1 and subprocess.call("./waf build", shell=True) == 1:
