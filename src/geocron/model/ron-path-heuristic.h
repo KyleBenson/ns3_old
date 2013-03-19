@@ -63,6 +63,10 @@ public:
   void MakeTopLevel ();
 
   void AddHeuristic (Ptr<RonPathHeuristic> other);
+
+  /** Clear aggregate heuristics so that ns-3 can properly release their memory. */
+  void Clear ();
+
   void SetPeerTable (Ptr<RonPeerTable> table);
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
   Ptr<RonPeerEntry> GetSourcePeer ();
@@ -124,6 +128,10 @@ public:
   /** Handles adding a path to the master likelihood table and updating all other heuristics
       and their associated likelihood tables. */
   void AddPath (RonPath path);
+
+  /** Adds the path to the heuristic if it does not exist already,
+      ensuring we don't get Null pointers when accessing Likelihoods. */
+  void EnsurePathRegistered (Ptr<RonPath> path);
 
   /** Set the estimated likelihood of reaching the destination through each peer. 
       Assumes that we only need to assign random probs once, considered an off-line heuristic.
@@ -187,23 +195,33 @@ public:
   {
     inline size_t operator()(const Ptr<PeerDestination> hop) const
     {
+      //TODO: combine all peers on a destination and whatever else makes it unique....
       NS_ASSERT_MSG (hop->GetN (), "can't hash an empty destination!");
       boost::hash<uint32_t> hasher;
       Ptr<RonPeerEntry> firstPeer = (*hop->Begin ());
-      uint32_t id = firstPeer->id;
-      return hasher (id);
+      //uint32_t uniqueValue = firstPeer->id;
+      uint32_t uniqueValue = firstPeer->address.Get ();
+
+      //TODO: because we currently don't store the full peer inside headers, we don't always have the id
+      //and so we're using the address for now instead.... id would be more robust for multiple interfaces
+      //but we currently don't have that feature so no worries... for now
+      return hasher (uniqueValue);
     }
   };
 
-  //TODO: need to combine the unique IDs of the whole path for a real comparison in multi-hop
   struct PathHasher
   {
     inline size_t operator()(const Ptr<RonPath> path) const
     {
       NS_ASSERT_MSG (path->GetN (), "can't hash an empty path!");
-      Ptr<PeerDestination> hop = *path->Begin ();
       PeerDestinationHasher hasher;
-      return hasher (hop);
+
+      std::size_t hashValue = 0;
+      for (RonPath::Iterator itr = path->Begin ();
+           itr != path->End (); itr++)
+        boost::hash_combine (hashValue, hasher (*itr));
+
+      return hashValue;
     }
   };
 

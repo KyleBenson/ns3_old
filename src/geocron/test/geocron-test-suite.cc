@@ -346,6 +346,12 @@ TestRonPath::DoRun (void)
   equality = *path0 == *path0;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPath equality with self");
 
+  equality = *path0->GetDestination () == *(*path0->Begin ());
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPath equality GetDestination and Begin with one-hop path");  
+
+  equality = *(Create<RonPath> (start))->GetDestination () == *(*path0->Begin ());
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPath equality GetDestination and Begin with one-hop path, fresh copy");  
+
   equality = *path0 == *Create<RonPath> (start);
   NS_TEST_ASSERT_MSG_EQ (equality, true, "testing RonPath equality with fresh path, same init");
 

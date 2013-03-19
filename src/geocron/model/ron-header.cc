@@ -201,12 +201,18 @@ Ptr<RonPath>
 RonHeader::GetPath () const
 {
   Ptr<RonPath> path = Create<RonPath> ();
+  Ptr<RonPeerEntry> peer;
   for (PathIterator addrItr = GetPathBegin ();
        addrItr != GetPathEnd (); addrItr++)
     {
-      path->AddHop (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr));
+      peer = RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)*addrItr);
+      NS_ASSERT_MSG (peer != NULL, "null peer in master table with address " << *addrItr);
+      path->AddHop (peer);
     }
-  path->AddHop (RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ()));
+  //TODO: properly get the right destination peer
+  //peer = RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ());
+  peer = Create<RonPeerEntry> ();
+  path->AddHop (peer);
   return path;
 }
 

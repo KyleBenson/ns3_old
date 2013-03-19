@@ -109,6 +109,17 @@ RonPathHeuristic::AddPath (Ptr<RonPath> path)
 
 
 void
+RonPathHeuristic::EnsurePathRegistered (Ptr<RonPath> path)
+{
+  NS_ASSERT_MSG (path->GetN () > 0, "got 0-length path in EnsurePathRegistered");
+
+  Ptr<PeerDestination> dest = path->GetDestination ();
+  if (m_likelihoods[dest].count (path) == 0)
+    AddPath (path);
+}
+
+
+void
 RonPathHeuristic::BuildPaths (Ptr<PeerDestination> destination)
 {
   DoBuildPaths (destination);
@@ -213,7 +224,7 @@ RonPathHeuristic::GetBestPath (Ptr<PeerDestination> destination)
         }
     }
   
-  if (bestLikelihood == 0.0)
+  if (bestLikelihood <= 0.0)
     throw NoValidPeerException();
 
   m_pathsAttempted.insert (bestPath);
@@ -241,7 +252,8 @@ RonPathHeuristic::NotifyAck (Ptr<RonPath> path, Time time)
 void
 RonPathHeuristic::DoNotifyAck (Ptr<RonPath> path, Time time)
 {
-  SetLikelihood (path, 1);
+  EnsurePathRegistered (path);
+  SetLikelihood (path, 1.0);
   //TODO: record partial path ACKs
   //TODO: record parents (Markov chain)
 }
@@ -256,6 +268,11 @@ RonPathHeuristic::NotifyTimeout (Ptr<RonPath> path, Time time)
     {
       (*heuristic)->NotifyTimeout (path, time);
     }
+  
+  NS_ASSERT_MSG (m_masterLikelihoods->at (path->GetDestination ())[path]->GetLh () == 0.0,
+                 "m_masterLikelihoods Likelihood != 0 after timeout notification!");
+  NS_ASSERT_MSG (m_likelihoods.at (path->GetDestination ())[path]->GetLh () == 0.0,
+  "m_masterLikelihoods Likelihood != 0 after timeout notification!");
 }
 
 
@@ -263,7 +280,8 @@ void
 RonPathHeuristic::DoNotifyTimeout (Ptr<RonPath> path, Time time)
 {
   //TODO: handle partial path ACKs
-  SetLikelihood (path, 0);
+  EnsurePathRegistered (path);
+  SetLikelihood (path, 0.0);
 }
 
 
@@ -299,6 +317,15 @@ RonPathHeuristic::AddHeuristic (Ptr<RonPathHeuristic> other)
 
 
 void
+RonPathHeuristic::Clear ()
+{
+  m_topLevel = NULL;
+  m_aggregateHeuristics.clear ();
+  m_likelihoods.clear ();
+  m_masterLikelihoods->clear ();
+}
+
+void
 RonPathHeuristic::SetPeerTable (Ptr<RonPeerTable> table)
 {
   m_peers = table;
@@ -315,11 +342,11 @@ RonPathHeuristic::SetSourcePeer (Ptr<RonPeerEntry> peer)
 void
 RonPathHeuristic::SetLikelihood (Ptr<RonPath> path, double lh)
 {
-  //we need to make sure that this path exists first
-  Ptr<PeerDestination> dest = path->GetDestination ();
-  if (m_likelihoods[dest].count (path) == 0)
-    AddPath (path);
+  NS_ASSERT_MSG (path->GetN () > 0, "got 0 length path from in SetLikelihood");
 
+  EnsurePathRegistered (path);
+
+  Ptr<PeerDestination> dest = path->GetDestination ();
   //NS_ASSERT (0.0 <= lh and lh <= 1.0);
   NS_LOG_LOGIC ("Path " << path << " has LH " << lh);
   //m_peers.SetLikelihood (peer, 

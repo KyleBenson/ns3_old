@@ -99,6 +99,12 @@ RonClient::SetDefaults ()
   m_nextPeer = 0;
   m_count = 0;
 
+  //need to call Clear to remove circular references and allow smart pointers to be Unref'ed
+  if (m_heuristic != (RonPathHeuristic*)NULL)
+    {
+      m_heuristic->Clear ();
+    }
+
   m_heuristic = NULL;
 }
 
@@ -376,6 +382,9 @@ RonClient::Send (bool viaOverlay)
           overlayPeerChoices = m_heuristic->GetBestPath (Create<PeerDestination> (serverPeer));
           head = Create<RonHeader> ();
           head->SetPath (overlayPeerChoices);
+          //TODO: FIX THIS BUG!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+          //for whatever reason, it doesn't work in the CheckTimeout function... something wrong with the way we reverse the header and send it back?  looks like it's because the server pops the header, reverses it, and puts it in the packet for the way back.  this will erase a lot of information about the peers so we should really just get around to actually to storing the entire peer entry (at least const parts of them) in the header path...
+m_heuristic->NotifyTimeout (overlayPeerChoices, Simulator::Now ());
         }
       catch (RonPathHeuristic::NoValidPeerException& e)
         {
@@ -484,8 +493,15 @@ RonClient::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
   //TODO: handle an ack from an old seq number
 
   Time time = Simulator::Now ();
+  head.ReversePath ();//currently in order from dest
   Ptr<RonPath> path = head.GetPath ();
-  path->Reverse (); //currently in order from dest
+
+  NS_ASSERT_MSG (path->GetN () > 0, "got 0 length path from Header in ProcessAck");
+
+  //need to set destination's address explicitly as we currently don't have everything in the master table
+  //TODO: fix this
+  (*path->GetDestination ()->Begin ())->address = source;
+
   m_heuristic->NotifyAck (path, time);
 
   CancelEvents ();
@@ -533,11 +549,6 @@ RonClient::AddServerPeer (Ptr<RonPeerEntry> peer)
 void
 RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
 {
-  if (m_heuristic != (RonPathHeuristic*)NULL)
-    {
-
-    }
-
   m_heuristic = heuristic;
   heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }
@@ -562,13 +573,17 @@ RonClient::CheckTimeout (Ptr<RonHeader> head)
       m_outstandingSeqs.erase (itr);
 
       Time time = Simulator::Now ();
-      head->ReversePath ();//currently in order from dest
       Ptr<RonPath> path = head->GetPath ();
+
+      //need to set destination's address explicitly as we currently don't have everything in the master table
+      //TODO: fix this
+      (*path->GetDestination ()->Begin ())->address = m_serverPeers->GetPeerByAddress (head->GetFinalDest ())->address;
+
       m_heuristic->NotifyTimeout (path, time);
       
       // try again?
       if (m_sent < m_count)
-        ScheduleTransmit (Seconds (0.0), true);
+        ScheduleTransmit (Seconds (1.0001), true);
     }
 }
 
