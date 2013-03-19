@@ -59,6 +59,10 @@ NewRegionRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 void
 NewRegionRonPathHeuristic::DoNotifyTimeout (Ptr<RonPath> path, Time time)
 {
+  //need to update all paths to reflect the newly black-listed region
+  //TODO: cache them and do this more efficiently?  perhaps override DoUpdateLikelihoods
+  if (!m_regionsAttempted.count ((*(*path->Begin ())->Begin ())->region))
+    m_updatedOnce = false;
   m_regionsAttempted.insert ((*(*path->Begin ())->Begin ())->region);
   SetLikelihood (path, 0.0);
 }

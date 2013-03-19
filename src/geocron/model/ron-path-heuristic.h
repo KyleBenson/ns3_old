@@ -20,7 +20,6 @@
 #define RON_PATH_HEURISTIC_H
 
 #include "ns3/core-module.h"
-#include <vector>
 
 #include "ron-peer-table.h"
 #include "ron-path.h"
@@ -33,8 +32,11 @@
 #include <boost/unordered_map.hpp>
 #include <boost/unordered_set.hpp>
 #include <boost/functional/hash.hpp>
-#include <set>
 //#include "boost/function.hpp"
+
+#include <set>
+#include <list>
+#include <vector>
 
 namespace ns3 {
 
@@ -151,9 +153,22 @@ public:
   double m_weight;
 
   /** This  helps us aggregate the likelihoods together from each of the
-      aggregate heuristics.  We store a list of all the LHs (1 per heuristic) and
-      take a reference to a newly created heuristic's LH when it is being built. */
-  typedef std::list<double> Likelihood;
+      aggregate heuristics. */
+  class Likelihood : public SimpleRefCount<Likelihood>
+  {
+  private:
+    double m_likelihood;
+    typedef std::list<Ptr<Likelihood> > UnderlyingContainer;
+    UnderlyingContainer m_otherLikelihoods;
+
+  public:
+    Likelihood ();
+    Likelihood (double lh);
+    Ptr<Likelihood> AddLh (double lh = 0.0);
+    double GetLh ();
+    void SetLh (double newLh);
+    uint32_t GetN ();
+  };
 
   typedef std::list<Ptr<RonPathHeuristic> > AggregateHeuristics;
   AggregateHeuristics m_aggregateHeuristics;
@@ -217,7 +232,7 @@ public:
 
   //table definitions
 
-  typedef boost::unordered_map<PathLikelihoodInnerTableKey, double *,
+  typedef boost::unordered_map<PathLikelihoodInnerTableKey, Ptr<Likelihood>,
                                PathLikelihoodInnerTableHasher, PathLikelihoodInnerTableTestEqual> PathLikelihoodInnerTable;
 
   //typedef std::map<RonPath, double *> PathLikelihoodInnerTable;
@@ -227,7 +242,7 @@ public:
   PathLikelihoodTable m_likelihoods;
 
   /** Only the top-level of a group of aggregate heuristics should manage this. */
-  typedef boost::unordered_map<PathLikelihoodInnerTableKey, std::list<double>,
+  typedef boost::unordered_map<PathLikelihoodInnerTableKey, Ptr<Likelihood>,
                                PathLikelihoodInnerTableHasher, PathLikelihoodInnerTableTestEqual> MasterPathLikelihoodInnerTable;
   //typedef std::map<RonPath, std::list<double> > MasterPathLikelihoodInnerTable;
   typedef boost::unordered_map<PathLikelihoodTableKey, MasterPathLikelihoodInnerTable,

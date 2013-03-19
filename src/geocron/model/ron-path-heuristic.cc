@@ -19,7 +19,6 @@
 #include "ron-path-heuristic.h"
 //#include "boost/bind.hpp"
 #include <cmath>
-#include <numeric> //for accumulate
 
 using namespace ns3;
 
@@ -82,19 +81,27 @@ RonPathHeuristic::AddPath (Ptr<RonPath> path)
   // If we are not top-level and the top-level has not been notified of this path,
   // we need to start at the top and work our way down, notifying along the way.
   if ((m_topLevel != (RonPathHeuristic*)this) and
-      (m_masterLikelihoods->at (dest)[path].size () == 0))
+      (m_masterLikelihoods->at (dest)[path] == NULL))
     m_topLevel->AddPath (path);
 
   // We need to add a new likelihood value to the Likelihood object in the master table,
   // then add the reference to this value to our table.
   else
     {
-      MasterPathLikelihoodInnerTable * tab = &(*m_masterLikelihoods)[dest];
-      Likelihood * lh = &(*tab)[path];
-      lh->push_back (0.0);
-      double * newLh = &(lh->back ());
+      Ptr<Likelihood> lh = (*m_masterLikelihoods)[dest][path], newLh;
+      if (lh == NULL)
+        {
+          //this should only happen if we are top-level
+          NS_ASSERT_MSG (m_topLevel == (RonPathHeuristic*)this,
+                         "NULL Likelihood object (initial Create<> needed), but not at top-level!");
+          newLh = Create<Likelihood> ();
+          (*m_masterLikelihoods)[dest][path] = newLh;
+        }
+      else
+        {
+          newLh = lh->AddLh (0.0);
+        }
       m_likelihoods[dest][path] = newLh;
-
       // Then recurse to the lower-level heuristics
       for (AggregateHeuristics::iterator others = m_aggregateHeuristics.begin ();
            others != m_aggregateHeuristics.end (); others++)
@@ -122,18 +129,21 @@ RonPathHeuristic::DoBuildPaths (Ptr<PeerDestination> destination)
   if (table->size ())
     return;
   
+  RonPeerEntry sourcePeer = *GetSourcePeer ();
   for (RonPeerTable::Iterator peerItr = m_peers->Begin ();
        peerItr != m_peers->End (); peerItr++)
     {
       //make sure not to have loops!
       //TODO: check all pieces of destination
-      if (*(*peerItr) == *(*destination->Begin ()))
+      if (*(*peerItr) == *(*destination->Begin ()) or *(*peerItr) == sourcePeer)
         continue;
       Ptr<RonPath> path = Create<RonPath> ();
       path->AddHop (Create<PeerDestination> (*peerItr));
       path->AddHop (destination);
       AddPath (path);
     }
+  NS_ASSERT_MSG (m_likelihoods[destination].size () == m_peers->GetN () - 2,
+                 "we should have two less paths than peers now...");
 }
 
 
@@ -194,10 +204,10 @@ RonPathHeuristic::GetBestPath (Ptr<PeerDestination> destination)
 
   MasterPathLikelihoodInnerTable::iterator probs = (*m_masterLikelihoods)[destination].begin ();
   Ptr<RonPath> bestPath = probs->first;
-  double bestLikelihood = std::accumulate (probs->second.begin (), probs->second.end (), 0);
+  double bestLikelihood = probs->second->GetLh ();
   for (; probs != (*m_masterLikelihoods)[destination].end (); probs++)
     {
-      double nextLh = std::accumulate (probs->second.begin (), probs->second.end (), 0);
+      double nextLh = probs->second->GetLh ();
       if (nextLh > bestLikelihood)
         {
           bestPath = probs->first;
@@ -282,9 +292,8 @@ RonPathHeuristic::AddHeuristic (Ptr<RonPathHeuristic> other)
            pathLh != tables->second.end (); pathLh++)
         {
           Ptr<RonPath> path = pathLh->first;
-          Likelihood * lh = &(pathLh->second);
-          lh->push_back (0.0);
-          double * newLh = &(lh->back ());
+          Ptr<Likelihood> lh = (pathLh->second);
+          Ptr<Likelihood> newLh = lh->AddLh ();
           (*newTable)[path] = newLh;
         }
     }
@@ -318,7 +327,8 @@ RonPathHeuristic::SetLikelihood (Ptr<RonPath> path, double lh)
   //m_peers.SetLikelihood (peer, 
   PathLikelihoodInnerTable * inner = &(m_likelihoods[dest]);
   NS_ASSERT_MSG (inner->size () > 0, "setting likelhiood but inner table is empty!");
-  *((*inner)[path]) = lh*m_weight;
+  double realLh = lh*m_weight;
+  (*inner)[path]->SetLh (realLh);
 }
 
 
@@ -364,4 +374,52 @@ RonPathHeuristic::PathAttempted (Ptr<RonPath> path, bool recordPath)
     {
       return m_pathsAttempted.count (path);
     }
+}
+
+
+////////////////////////////// Likelihood object //////////////////////////////
+RonPathHeuristic::Likelihood::Likelihood ()
+{
+  m_likelihood = 0.0;
+}
+
+RonPathHeuristic::Likelihood::Likelihood (double lh)
+{
+  m_likelihood = lh;
+}
+
+Ptr<RonPathHeuristic::Likelihood>
+RonPathHeuristic::Likelihood::AddLh (double lh)
+{
+  Ptr<RonPathHeuristic::Likelihood> newLh = Create<RonPathHeuristic::Likelihood> ();
+  newLh->SetLh (lh);
+  m_otherLikelihoods.push_back (newLh);
+  return newLh;
+}
+
+double
+RonPathHeuristic::Likelihood::GetLh ()
+{
+  double total = m_likelihood;
+  for (UnderlyingContainer::iterator itr = m_otherLikelihoods.begin ();
+       itr != m_otherLikelihoods.end (); itr++)
+    total += (*itr)->GetLh ();
+
+  return total;
+}
+
+void
+RonPathHeuristic::Likelihood::SetLh (double newLh)
+{
+  m_likelihood = newLh;
+}
+
+uint32_t
+RonPathHeuristic::Likelihood::GetN ()
+{
+  uint32_t total = 1;
+  for (UnderlyingContainer::iterator itr = m_otherLikelihoods.begin ();
+       itr != m_otherLikelihoods.end (); itr++)
+    total += (*itr)->GetN ();
+  return total;
 }

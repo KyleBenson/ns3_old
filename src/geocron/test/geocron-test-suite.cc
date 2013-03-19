@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <iostream>
+#include <ctime>
 
 // Do not put your test classes in namespace ns3.  You may find it useful
 // to use the using directive to access the ns3 namespace directly
@@ -43,6 +44,10 @@ public:
 
   GridGenerator ()
   {
+    //for RandomRonPathHeuristic
+    SeedManager::SetSeed(std::time (NULL));
+    SeedManager::SetRun(123);
+
     rowHelper = Ipv4AddressHelper ("10.1.0.0", "255.255.0.0");
     colHelper = Ipv4AddressHelper ("10.128.0.0", "255.255.0.0");
 
@@ -516,6 +521,7 @@ TestRonPathHeuristic::DoRun (void)
   Ptr<RonPathHeuristic> h0 = CreateObject<RonPathHeuristic> ();
   Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back());
   Ptr<RonPath> path = Create<RonPath> (dest);
+  path->AddHop (peers[2], path->Begin ());
 
   h0->SetPeerTable (RonPeerTable::GetMaster ());
   h0->SetSourcePeer (peers.front());
@@ -531,11 +537,38 @@ TestRonPathHeuristic::DoRun (void)
   NS_TEST_ASSERT_MSG_NE (h0->m_masterLikelihoods->at (dest).size (), 0,
                          "inner master likelihood table empty after BuildPaths");
 
-  NS_TEST_ASSERT_MSG_EQ (h0->m_masterLikelihoods->at (dest).size (), peers.size () - 1,
+  NS_TEST_ASSERT_MSG_EQ (h0->m_masterLikelihoods->at (dest).size (), peers.size () - 2,
                          "testing size of inner master likelihood table after BuildPaths");
 
+  NS_TEST_ASSERT_MSG_EQ (h0->m_likelihoods.at (dest).size (), peers.size () - 2,
+                         "testing size of inner likelihood table after BuildPaths");
+
+  NS_TEST_ASSERT_MSG_EQ ((*h0->m_masterLikelihoods)[dest][path]->GetN (), 1,
+                         "testing size of Likelihood object in m_masterLikelihoods");
+
   NS_TEST_ASSERT_MSG_EQ (h0->PathAttempted (path), false, "testing PathAttempted before GetBestPath");
-  path = h0->GetBestPath (dest);
+
+  //update LHs so that they won't be updated again to overwrite this change in GetBestPath
+  h0->UpdateLikelihoods (dest);
+
+  //set this path's LH to 2 and we should get it back
+  h0->SetLikelihood (path, 2.0);
+
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path]->GetLh (), 2.0, 0.001,
+                             "m_masterLikelihoods was not set properly by SetLikelihood");
+  NS_TEST_ASSERT_MSG_EQ_TOL (h0->m_likelihoods[dest][path]->GetLh (), 2.0, 0.001,
+                             "m_likelihoods was not set properly by SetLikelihood");
+
+  Ptr<RonPath> path2 = h0->GetBestPath (dest);
+
+  NS_TEST_ASSERT_MSG_EQ_TOL (h0->m_likelihoods[dest][path]->GetLh (), 2.0, 0.001,
+                             "m_likelihoods should not be changed by GetBestPath");
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path]->GetLh (), 2.0, 0.001,
+                             "m_masterLikelihoods should not be changed by GetBestPath");
+
+  equality = *path == *path2;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "should have gotten back highest likelihood path we just set, but instead got LH=" << h0->m_likelihoods[dest][path2]->GetLh ());
+
   NS_TEST_ASSERT_MSG_EQ (h0->PathAttempted (path), true, "testing PathAttempted after GetBestPath");
 
   equality = *path->GetDestination () == *dest;
@@ -545,50 +578,45 @@ TestRonPathHeuristic::DoRun (void)
   NS_TEST_ASSERT_MSG_EQ_TOL (h0->GetLikelihood (path), 1.0, 0.01, "testing GetLikelihood before any feedback");
 
   h0->NotifyTimeout (path, Simulator::Now ());
-  NS_TEST_ASSERT_MSG_EQ_TOL (*h0->m_likelihoods[dest][path], 0.0, 0.01, "testing m_likelihoods after timeout feedback");
+  NS_TEST_ASSERT_MSG_EQ_TOL (h0->m_likelihoods[dest][path]->GetLh (), 0.0, 0.01, "testing m_likelihoods after timeout feedback");
 
-  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path].front (), 0.0, 0.01, "testing m_masterLikelihoods after timeout feedback");
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path]->GetLh (), 0.0, 0.01, "testing m_masterLikelihoods after timeout feedback");
 
   h0->NotifyAck (path, Simulator::Now ());
-  NS_TEST_ASSERT_MSG_EQ_TOL (*h0->m_likelihoods[dest][path], 1.0, 0.01, "testing m_likelihoods after ACK feedback");
+  NS_TEST_ASSERT_MSG_EQ_TOL (h0->m_likelihoods[dest][path]->GetLh (), 1.0, 0.01, "testing m_likelihoods after ACK feedback");
 
   ////////////////////////////////////////////////////////////////////////////////
   //we check to make sure that we actually get some peers from the heuristic
-  Ptr<RandomRonPathHeuristic> random = CreateObject<RandomRonPathHeuristic> ();
-  random->SetPeerTable (RonPeerTable::GetMaster ());
-  random->SetSourcePeer (peers.front());
-  random->MakeTopLevel ();
-  random->BuildPaths (dest);
-  random->UpdateLikelihoods (dest);
+  //h0 = CreateObject<RandomRonPathHeuristic> ();
+  h0 = CreateObject<RonPathHeuristic> ();
+  h0->SetPeerTable (RonPeerTable::GetMaster ());
+  h0->SetSourcePeer (peers.front());
+  h0->MakeTopLevel ();
+  h0->BuildPaths (dest);
+  h0->UpdateLikelihoods (dest);
 
-  uint32_t npaths = 0;
+  uint32_t npaths = 0, nExpectedPeers = 5;
   Ptr<RonPath> lastPath = NULL;
   double totalLh = 0;
   try
     {
       while (true)
         {
-          path = random->GetBestPath (dest);
+          path = h0->GetBestPath (dest);
 
-          //assert that none of the paths are exactly LH 1 since we're also using random
+          //assert that none of the paths are exactly LH 1 since we're also using h0
           totalLh = 0;
-          RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
-          for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
-               itr != lh.end (); itr++)
-            {
-              totalLh += *itr;
-            }
+          totalLh += (*h0->m_masterLikelihoods)[dest][path]->GetLh ();
 
-          //totalLh += *random->m_likelihoods[dest][path];
+          //totalLh += h0->m_likelihoods[dest][path]->GetLh ();
 
-          NS_TEST_ASSERT_MSG_GT (totalLh, 0.0, /*0.01,*/ "likelihood should be an aggregate and features random");
-          NS_TEST_ASSERT_MSG_LT (totalLh, 1.0, /*0.01,*/ "likelihood should be < 2 as 2 heuristics");
+          NS_TEST_ASSERT_MSG_GT (totalLh, 0.99, /*0.01,*/ "likelihood should be 1");
 
           //we also want to assert that we get a different path
           equality = (lastPath != NULL) and (*path == *lastPath);
           NS_TEST_ASSERT_MSG_EQ (equality, false, "got same path as last time");
           lastPath = path;
-          random->NotifyTimeout (lastPath, Simulator::Now ());
+          h0->NotifyTimeout (lastPath, Simulator::Now ());
 
           //as well as that we got the number of expected possible paths
           npaths++;
@@ -597,7 +625,7 @@ TestRonPathHeuristic::DoRun (void)
     }
   catch (RonPathHeuristic::NoValidPeerException e)
     {
-      NS_TEST_ASSERT_MSG_EQ (npaths, 6, npaths << " peers were checked for same region rather than 6");
+      NS_TEST_ASSERT_MSG_EQ (npaths, nExpectedPeers, npaths << " peers were checked for same region rather than " <<nExpectedPeers);
     }
 
 
@@ -607,6 +635,7 @@ TestRonPathHeuristic::DoRun (void)
  
 
   RonPathHeuristic::PathHasher pathHasher;
+  path = Create<RonPath> (Create<PeerDestination> (Create<RonPeerEntry> (nodes.Get (nodes.GetN () - 1))));
   NS_TEST_ASSERT_MSG_EQ (pathHasher (path),
                          pathHasher (Create<RonPath> (Create<PeerDestination> (Create<RonPeerEntry> (nodes.Get (nodes.GetN () - 1))))),
                          "testing PathHasher new copy");
@@ -619,14 +648,14 @@ TestRonPathHeuristic::DoRun (void)
   
   NS_ASSERT_MSG (masterInner == &(*h0->m_masterLikelihoods)[dest], "why aren't the inner tables in the same location?");
 
-  RonPathHeuristic::Likelihood * lh = &(*masterInner)[path];
-  lh->clear ();
-  lh->push_front (0.5);
+  Ptr<RonPathHeuristic::Likelihood> lh = Create<RonPathHeuristic::Likelihood> ();
+  (*masterInner)[path] = lh;
+  lh->AddLh (0.5);
 
-  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path].front (), 0.5,
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[dest][path]->GetLh (), 0.5,
                              0.01, "testing m_masterLikelihoods accessing with same keys");
 
-  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[Create<PeerDestination> (peers.back())][path].back (), 0.5,
+  NS_TEST_ASSERT_MSG_EQ_TOL ((*h0->m_masterLikelihoods)[Create<PeerDestination> (peers.back())][path]->GetLh (), 0.5,
                              0.01, "testing m_masterLikelihoods accessing with fresh copies of keys");
   //path->AddHop (
 
@@ -673,14 +702,20 @@ TestAggregateRonPathHeuristic::DoRun (void)
   Ptr<RandomRonPathHeuristic> random = CreateObject<RandomRonPathHeuristic> ();
   Ptr<NewRegionRonPathHeuristic> newreg = CreateObject<NewRegionRonPathHeuristic> ();
   
-  random->MakeTopLevel ();
   random->SetPeerTable (RonPeerTable::GetMaster ());
   random->SetSourcePeer (peers.front());
+  random->MakeTopLevel ();
   random->AddHeuristic (newreg);
 
+  //do this so we can check some internal data structs
   random->BuildPaths (dest);
   random->UpdateLikelihoods (dest);
 
+  NS_TEST_ASSERT_MSG_EQ ((*random->m_masterLikelihoods)[dest][path]->GetN (), 2,
+                         "aggregate heuristic should have two entries in m_masterLikelihoods Likelihood");
+  equality = NULL != random->m_likelihoods[dest][path];
+  NS_TEST_ASSERT_MSG_EQ (equality, true,
+                         "aggregate heuristic should have non-null entry in m_likelihoods");
   //TODO: look at the m_masterLikelihoods
 
   //If we tell the heuristics that some region failed to work, we should never see any
@@ -689,35 +724,32 @@ TestAggregateRonPathHeuristic::DoRun (void)
 
   //we want to check with a different path to make sure that it affected both peers
 
-  double oldLh = *random->m_likelihoods[dest][path];
-  NS_TEST_ASSERT_MSG_GT (oldLh, 0.0, "checking range of random's assigned LH");
-  NS_TEST_ASSERT_MSG_LT (oldLh, 1.0, "checking range of random's assigned LH");
+  //as random is top-level, its m_likelihoods Likelihood aggregates all the others
+  double oldLh = random->m_likelihoods[dest][path]->GetLh ();
+  NS_TEST_ASSERT_MSG_GT (oldLh, 1.0, "checking range of random's assigned LH, though this could theoretically happen once in a blue moon?");
+  NS_TEST_ASSERT_MSG_LT (oldLh, 2.0, "checking range of random's assigned LH");
   
-  NS_TEST_ASSERT_MSG_EQ_TOL (*newreg->m_likelihoods[dest][path], 1.0, 0.01,
+  NS_TEST_ASSERT_MSG_EQ_TOL (newreg->m_likelihoods[dest][path]->GetLh (), 1.0, 0.01,
                              "m_likelihoods should be 1.0 for new region");
   
   //get master likelihood and verify before and after timeout
   double totalLh = 0;
-  RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
-  for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
-       itr != lh.end (); itr++)
-    {
-      totalLh += *itr;
-    }
+  Ptr<RonPathHeuristic::Likelihood> lh = (*random->m_masterLikelihoods)[dest][path];
 
-  NS_TEST_ASSERT_MSG_EQ_TOL (totalLh, oldLh + 1.0, 0.01, "testing master LH before NotifyTimeout");
+  NS_TEST_ASSERT_MSG_EQ_TOL (lh->GetLh (), oldLh, 0.01, "testing master LH before NotifyTimeout");
 
   // TIMEOUT
   random->NotifyTimeout (path, Simulator::Now ());
 
-  NS_TEST_ASSERT_MSG_EQ_TOL (*newreg->m_likelihoods[dest][path], 0.0, 0.01,
+  NS_TEST_ASSERT_MSG_EQ_TOL (newreg->m_likelihoods[dest][path]->GetLh (), 0.0, 0.01,
                              "m_likelihoods should now be 0.0 for target region");
 
-  //random should be same: WRONG its default is set to 0, try a diff path
-  NS_TEST_ASSERT_MSG_EQ_TOL (*random->m_likelihoods[dest][path], oldLh, 0.01,
-                             "random's LH should be same after NotifyTimeout");
+  NS_TEST_ASSERT_MSG_EQ (random->m_likelihoods[dest][path]->GetLh (), 0,
+                             "random's LH, which is whole aggregate's, should be 0 after NotifyTimeout");
 
-  uint32_t npaths = 0;
+  NS_TEST_ASSERT_MSG_EQ (lh->GetLh (), 0, "testing master LH after NotifyTimeout");
+
+  uint32_t npaths = 0, nExpectedPeers = 4;
   Ptr<RonPath> lastPath = path;
   try
     {
@@ -725,19 +757,28 @@ TestAggregateRonPathHeuristic::DoRun (void)
         {
           path = random->GetBestPath (dest);
 
-          NS_TEST_ASSERT_MSG_EQ ((*path->GetDestination ()->Begin ())->region, "BL",
-                                 "we got a path using the NotifyTimeout region");
+          //make sure we get valid paths
+          equality = *(*path->Begin ()) == *src;
+          NS_TEST_ASSERT_MSG_NE (equality, true, "next path contains source peer!");
+
+          equality = *(*path->Begin ()) == *dest;
+          NS_TEST_ASSERT_MSG_NE (equality, true, "next path contains destination peer as first hop!");
+
+          //check that NewRegion worked properly
+          if ((*(*path->Begin ())->Begin ())->region == "BL")
+            {
+              NS_TEST_ASSERT_MSG_EQ (newreg->m_likelihoods[dest][path]->GetLh (), 0.0,
+                                     "we got a path using the NotifyTimeout region and LH != 0");
+              NS_TEST_ASSERT_MSG_LT ((*newreg->m_masterLikelihoods)[dest][path]->GetLh (), 1.0,
+                                     "we got a path using the NotifyTimeout region and master LH >= 1.0");
+            }
 
           //assert that none of the paths are exactly LH 1 since we're also using random
-          totalLh = 0;
-          RonPathHeuristic::Likelihood lh = (*random->m_masterLikelihoods)[dest][path];
-          for (RonPathHeuristic::Likelihood::iterator itr = lh.begin();
-               itr != lh.end (); itr++)
-            {
-              totalLh += *itr;
-            }
-          NS_TEST_ASSERT_MSG_GT (totalLh, 1.0, /*0.01,*/ "likelihood should be an aggregate and features random");
-          NS_TEST_ASSERT_MSG_LT (totalLh, 2.0, /*0.01,*/ "likelihood should be < 2 as 2 heuristics");
+          totalLh = (*random->m_masterLikelihoods)[dest][path]->GetLh ();
+          double regLh = (newreg->m_likelihoods)[dest][path]->GetLh ();
+
+          NS_TEST_ASSERT_MSG_GT (totalLh, 0.0 + regLh, /*0.01,*/ "likelihood should be an aggregate and features random");
+          NS_TEST_ASSERT_MSG_LT (totalLh, 1.0 + regLh, /*0.01,*/ "likelihood should be < 2 as 2 heuristics");
 
           //we also want to assert that we get a different path
           equality = *path == *lastPath;
@@ -746,15 +787,15 @@ TestAggregateRonPathHeuristic::DoRun (void)
 
           //as well as that we got the number of expected possible paths
           npaths++;
+
+          random->NotifyTimeout (path, Simulator::Now ()); //so we don't get duplicates
           //TODO: something like this in TestRonPathHeuristic to make sure src and dest aren't chosen
         }
     }
   catch (RonPathHeuristic::NoValidPeerException e)
     {
-      NS_TEST_ASSERT_MSG_EQ (npaths, 5, npaths << " peers were checked for same region rather than 5");
+      NS_TEST_ASSERT_MSG_EQ (npaths, nExpectedPeers, npaths << " peers were checked for same region rather than " << nExpectedPeers);
     }
-
-  //TODO: loop through all GetBestPaths until none left, making sure none have the target region
 }
 
 

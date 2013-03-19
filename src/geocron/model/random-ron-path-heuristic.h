@@ -26,7 +26,6 @@ namespace ns3 {
 class RandomRonPathHeuristic : public RonPathHeuristic
 {
 public:
-  RandomRonPathHeuristic ();
   static TypeId GetTypeId (void);
 private:
   virtual double GetLikelihood (Ptr<RonPath> path);
