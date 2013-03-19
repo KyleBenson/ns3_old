@@ -555,8 +555,8 @@ RonClient::CheckTimeout (Ptr<RonHeader> head)
       m_outstandingSeqs.erase (itr);
 
       Time time = Simulator::Now ();
+      head->ReversePath ();//currently in order from dest
       Ptr<RonPath> path = head->GetPath ();
-      path->Reverse (); //currently in order from dest
       m_heuristic->NotifyTimeout (path, time);
       
       // try again?

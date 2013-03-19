@@ -7,6 +7,7 @@
 #include "geocron-experiment.h"
 #include "ron-trace-functions.h"
 #include "failure-helper-functions.h"
+#include "random-ron-path-heuristic.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/lexical_cast.hpp>
@@ -639,11 +640,25 @@ GeocronExperiment::Run ()
         Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
         if (ronClient == NULL)
           continue;
+
+        //add the heuristic and aggregate a weak random one to it to break ties
+        //TODO: make a helper?
+        //TODO: have the random be part of the object factory/attributes?
+        //TODO: just define it as the input to the sim?
         Ptr<RonPathHeuristic> heuristic = currHeuristic->Create<RonPathHeuristic> ();
         // Must set heuristic first so that source will be set and heuristic can make its heap
+        heuristic->MakeTopLevel (); //must always do this! TODO: not need to?
         ronClient->SetHeuristic (heuristic);
         ronClient->SetServerPeerTable (serverPeers);
         heuristic->SetPeerTable (overlayPeers);
+
+        //TODO: do this by TypeId and remove #include from beggining
+        Ptr<RonPathHeuristic> randHeuristic = CreateObject<RandomRonPathHeuristic> ();
+        //TODO: get this working
+        randHeuristic->SetAttribute ("Weight", DoubleValue (0.01));
+        //randHeuristic->
+        heuristic->AddHeuristic (randHeuristic);
+
         ronClient->SetAttribute ("MaxPackets", UintegerValue (contactAttempts));
         numDisasterPeers++;
       }

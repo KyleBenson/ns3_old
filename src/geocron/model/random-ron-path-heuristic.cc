@@ -23,11 +23,16 @@ using namespace ns3;
 
 NS_OBJECT_ENSURE_REGISTERED (RandomRonPathHeuristic);
 
+RandomRonPathHeuristic::RandomRonPathHeuristic ()
+{
+}
+
 TypeId
 RandomRonPathHeuristic::GetTypeId (void)
 {
   static TypeId tid = TypeId ("ns3::RandomRonPathHeuristic")
     .SetParent<RonPathHeuristic> ()
+    .AddConstructor<RandomRonPathHeuristic> ()
     .SetGroupName ("RonPathHeuristics")
     .AddAttribute ("SummaryName", "Short name that summarizes parameters, aggregations, etc. to be used when creating filenames",
                    StringValue ("rand"),

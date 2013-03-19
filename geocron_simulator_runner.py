@@ -13,7 +13,7 @@ from os import system
 default_runs=100
 default_start=0 # num to start run IDs on
 default_nprocs=8
-default_as_choices=['3356', #level3
+default_as_choices=[#'3356', #level3
                     '1239', #sprintlink
                     #'2914', #verio
                     #smaller ones
@@ -22,14 +22,16 @@ default_as_choices=['3356', #level3
                     #'3967',
                     ]
 default_heuristics=['rand',
-                    'ortho'
+                    'ortho',
+                    'newreg',
+                    'close',
                     ]
 default_fprobs=["0.1",
                 "0.2",
                 "0.3",
                 "0.4",
                 "0.5",
-                "0.6"
+                #"0.6"
                 ]
 default_disasters = {}
 default_disasters['1755']='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'

@@ -142,8 +142,8 @@ RonPathHeuristic::DoBuildPaths (Ptr<PeerDestination> destination)
       path->AddHop (destination);
       AddPath (path);
     }
-  NS_ASSERT_MSG (m_likelihoods[destination].size () == m_peers->GetN () - 2,
-                 "we should have two less paths than peers now...");
+  /*NS_ASSERT_MSG (m_likelihoods[destination].size () == m_peers->GetN () - 2,
+    "we should have two less paths than peers now...");*/
 }
 
 
