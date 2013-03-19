@@ -63,6 +63,10 @@ public:
   void MakeTopLevel ();
 
   void AddHeuristic (Ptr<RonPathHeuristic> other);
+
+  /** Clear aggregate heuristics so that ns-3 can properly release their memory. */
+  void Clear ();
+
   void SetPeerTable (Ptr<RonPeerTable> table);
   void SetSourcePeer (Ptr<RonPeerEntry> peer);
   Ptr<RonPeerEntry> GetSourcePeer ();

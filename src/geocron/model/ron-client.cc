@@ -531,6 +531,9 @@ RonClient::AddServerPeer (Ptr<RonPeerEntry> peer)
 void
 RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
 {
+  //need to call Clear to remove circular references and allow smart pointers to be Unref'ed
+  m_heuristic->Clear ();
+
   m_heuristic = heuristic;
   heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }

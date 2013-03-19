@@ -301,6 +301,15 @@ RonPathHeuristic::AddHeuristic (Ptr<RonPathHeuristic> other)
 
 
 void
+RonPathHeuristic::Clear ()
+{
+  m_topLevel = NULL;
+  m_aggregateHeuristics.clear ();
+  m_likelihoods.clear ();
+  m_masterLikelihoods->clear ();
+}
+
+void
 RonPathHeuristic::SetPeerTable (Ptr<RonPeerTable> table)
 {
   m_peers = table;
