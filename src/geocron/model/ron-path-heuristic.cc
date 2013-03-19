@@ -58,8 +58,6 @@ RonPathHeuristic::GetTypeId (void)
 
 RonPathHeuristic::~RonPathHeuristic ()
 {
-  if (m_masterLikelihoods != NULL and m_topLevel == ((RonPathHeuristic*)this))
-    delete m_masterLikelihoods;
 } //required to keep gcc from complaining
 
 

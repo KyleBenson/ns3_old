@@ -98,6 +98,8 @@ RonClient::SetDefaults ()
   m_socket = 0;
   m_nextPeer = 0;
   m_count = 0;
+
+  m_heuristic = NULL;
 }
 
 
@@ -531,6 +533,11 @@ RonClient::AddServerPeer (Ptr<RonPeerEntry> peer)
 void
 RonClient::SetHeuristic (Ptr<RonPathHeuristic> heuristic)
 {
+  if (m_heuristic != (RonPathHeuristic*)NULL)
+    {
+
+    }
+
   m_heuristic = heuristic;
   heuristic->SetSourcePeer (Create<RonPeerEntry> (GetNode ()));
 }

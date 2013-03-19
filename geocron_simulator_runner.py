@@ -13,8 +13,8 @@ from os import system
 default_runs=100
 default_start=0 # num to start run IDs on
 default_nprocs=8
-default_as_choices=[#'3356', #level3
-                    '1239', #sprintlink
+default_as_choices=['3356', #level3
+                    #'1239', #sprintlink
                     #'2914', #verio
                     #smaller ones
                     #'6461',

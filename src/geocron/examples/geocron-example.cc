@@ -113,6 +113,8 @@ main (int argc, char *argv[])
           StringValue name = *(DynamicCast<const StringValue> (info.initialValue));
           //info.checker->Check (name);
           heuristicMap[(std::string)name.Get ()] = tid;
+
+          NS_LOG_INFO ("Found heuristic " << name.Get ());
         }
     }
 
