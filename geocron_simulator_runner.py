@@ -215,7 +215,7 @@ if __name__ == "__main__":
         os.environ['NS_LOG'] = ':'.join(args.log)
 
     if args.optimized:
-        subprocess.call("./waf -d optimized configure", shell=True)
+        subprocess.call("./waf -d optimized configure --enable-examples", shell=True)
 
     # run waf build if we're using multiple processes
     if args.nprocs > 1 and subprocess.call("./waf build", shell=True) == 1:
@@ -249,7 +249,7 @@ if __name__ == "__main__":
         #TODO: add stuff to email: time, 
 
     if args.optimized:
-        subprocess.call("./waf configure --enable-examples --enable-tests")
+        subprocess.call("./waf configure --enable-examples --enable-tests", shell=True)
 
     if args.log:
         del os.environ['NS_LOG']
