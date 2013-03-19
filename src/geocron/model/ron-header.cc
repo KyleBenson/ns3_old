@@ -210,8 +210,10 @@ RonHeader::GetPath () const
       path->AddHop (peer);
     }
   //TODO: properly get the right destination peer
-  //peer = RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ());
-  peer = Create<RonPeerEntry> ();
+  peer = RonPeerTable::GetMaster ()->GetPeerByAddress ((Ipv4Address)GetFinalDest ());
+
+  if (peer == NULL)
+    peer = Create<RonPeerEntry> ();
   path->AddHop (peer);
   return path;
 }
