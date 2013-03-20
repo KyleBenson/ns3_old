@@ -69,7 +69,7 @@ public:
     cachedNodes.Add (grid.GetNode (4,1)); //2nd choice for this V
     cachedNodes.Add (grid.GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
     cachedNodes.Add (grid.GetNode (3,3));
-    cachedNodes.Add (grid.GetNode (4,0));
+    cachedNodes.Add (grid.GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
     cachedNodes.Add (grid.GetNode (4,4));
 
     NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
@@ -806,6 +806,71 @@ TestAggregateRonPathHeuristic::DoRun (void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+class TestOrthogonalRonPathHeuristic : public TestCase
+{
+public:
+  TestOrthogonalRonPathHeuristic ();
+  virtual ~TestOrthogonalRonPathHeuristic ();
+  NodeContainer nodes;
+  PeerContainer peers;
+
+private:
+  virtual void DoRun (void);
+};
+
+
+TestOrthogonalRonPathHeuristic::TestOrthogonalRonPathHeuristic ()
+  : TestCase ("Test aggregation feature of RonPathHeuristic objects, using NewRegion and Random")
+{
+  nodes = GridGenerator::GetNodes ();
+  peers = GridGenerator::GetPeers ();
+}
+
+TestOrthogonalRonPathHeuristic::~TestOrthogonalRonPathHeuristic ()
+{
+}
+
+void
+TestOrthogonalRonPathHeuristic::DoRun (void)
+{
+  bool equality;
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]);
+  Ptr<RonPath> path = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+  path->AddHop (botLeft, path->Begin ());
+  path2->AddHop (topRight, path2->Begin ());
+
+  Ptr<OrthogonalRonPathHeuristic> ortho = CreateObject<OrthogonalRonPathHeuristic> ();
+  
+  ortho->SetPeerTable (RonPeerTable::GetMaster ());
+  ortho->SetSourcePeer (peers.front());
+  ortho->MakeTopLevel ();
+
+  //do this so we can check some internal data structs
+  ortho->BuildPaths (dest);
+  ortho->UpdateLikelihoods (dest);
+
+  // TIMEOUT
+  //  ortho->NotifyTimeout (path, Simulator::Now ());
+
+  path = ortho->GetBestPath (dest);
+
+  //make sure we get the right path
+  equality = *(path) == *(path2);
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node!");
+
+  path = ortho->GetBestPath (dest);
+
+  //now it should be peers[2]
+  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 class TestRonHeader : public TestCase
 {
 public:
@@ -851,7 +916,6 @@ TestRonHeader::DoRun (void)
 
   Ptr<Packet> packet = Create<Packet> ();
   Ipv4Address addr0 = peers->GetPeer (nodes.Get (0)->GetId ())->address;
-
   uint32_t tmpId = nodes.Get (1)->GetId ();
   NS_TEST_ASSERT_MSG_EQ (peers->IsInTable (tmpId), true, "table should contain this peer");
   Ipv4Address addr1 = peers->GetPeer (tmpId)->address;
@@ -1001,6 +1065,7 @@ GeocronTestSuite::GeocronTestSuite ()
   //heuristics
   AddTestCase (new TestRonPathHeuristic);
   AddTestCase (new TestAggregateRonPathHeuristic);
+  AddTestCase (new TestOrthogonalRonPathHeuristic);
 
   //network application stuff
   AddTestCase (new TestRonHeader);

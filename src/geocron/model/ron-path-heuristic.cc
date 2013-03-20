@@ -380,7 +380,8 @@ RonPathHeuristic::SameRegion (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
 {
   Vector3D loc1 = peer1->location;
   Vector3D loc2 = peer2->location;
-  return loc1.x == loc2.x and loc1.y == loc2.y;
+  return (loc1.x == loc2.x and loc1.y == loc2.y) or
+    (peer1->region == peer2->region);
   //TODO: actually define regions to be more than a coordinate
   /* test this later
      return peer1->GetObject<RonPeerEntry> ()->region == peer2->GetObject<RonPeerEntry> ()->region; */

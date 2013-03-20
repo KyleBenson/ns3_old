@@ -39,6 +39,8 @@ RonPeerEntry::RonPeerEntry (Ptr<Node> node)
     Ptr<MobilityModel> mobility = node->GetObject<MobilityModel> ();
     NS_ASSERT_MSG (mobility != NULL, "Geocron nodes need MobilityModels for determining locations!");    
     location = mobility->GetPosition ();
+
+    //NS_ASSERT_MSG (location.x != 0 or location.y != 0, "location is 0,0!");
 }
 
 TypeId
