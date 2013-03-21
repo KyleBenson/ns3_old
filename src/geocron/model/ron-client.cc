@@ -583,7 +583,7 @@ RonClient::CheckTimeout (Ptr<RonHeader> head)
       
       // try again?
       if (m_sent < m_count)
-        ScheduleTransmit (Seconds (1.0001), true);
+        ScheduleTransmit (Seconds (0.0), true);
     }
 }
 

@@ -20,6 +20,8 @@
 #include <iomanip>
 #include <fstream>
 #include <ctime>
+#include <unistd.h>
+#include <boost/functional/hash.hpp>
 
 using namespace ns3;
 
@@ -488,7 +490,11 @@ GeocronExperiment::AutoSetTraceFile ()
 void
 GeocronExperiment::RunAllScenarios ()
 {
-  SeedManager::SetSeed(std::time (NULL));
+  //set the seed using both clock and pid so that simultaneously running sims don't overlap
+  std::size_t seed = 0;
+  boost::hash_combine (seed, std::time (NULL));
+  boost::hash_combine (seed, getpid());
+  SeedManager::SetSeed(seed);
   int runSeed = 0;
   for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
        disasterLocation != disasterLocations->end (); disasterLocation++)
