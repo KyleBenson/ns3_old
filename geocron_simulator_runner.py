@@ -15,7 +15,7 @@ default_start=0 # num to start run IDs on
 default_nprocs=8
 default_as_choices=['3356', #level3
                     #'1239', #sprintlink
-                    '2914', #verio
+                    #'2914', #verio
                     #smaller ones
                     #'6461',
                     #'1755',
@@ -37,7 +37,7 @@ default_disasters = {}
 default_disasters['1755']='"Amsterdam,_Netherlands-London,_UnitedKingdom-Paris,_France"'
 default_disasters['3967']='"Herndon,_VA-Irvine,_CA-Santa_Clara,_CA"'
 default_disasters['6461']='"San_Jose,_CA-Los_Angeles,_CA-New_York,_NY"'
-default_disasters['3356']='"New_York,_NY-Los_Angeles,_CA"' #Miami,_FL-
+default_disasters['3356']='"New_York,_NY-Los_Angeles,_CA-Miami,_FL"'
 default_disasters['2914']='"New_York,_NY-Irvine,_CA"' #New_Orleans,_LA-
 default_disasters['1239']='"New_York,_NY-Dallas,_TX-Washington,_DC"'
 default_verbosity_level=0
@@ -59,8 +59,8 @@ def parse_args(args):
                                      )
 
     # Simulation parameters
-    parser.add_argument('--as', nargs='+', default=default_as_choices,
-                        help='''choose the AS topologies for the simulations''',dest='topologies')
+    parser.add_argument('--as', nargs='+', default=default_as_choices, dest='topologies',
+                        help='''choose the AS topologies for the simulations (default=%(default)s)''')
     parser.add_argument('--topology-type', '--topo', default="rocketfuel",
                         help='''choose how to read/generate topology (currently only rocketfuel)''')
     parser.add_argument('--disasters', type=str, nargs='*', default=default_disasters,

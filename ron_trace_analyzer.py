@@ -644,7 +644,8 @@ if __name__ == '__main__':
             exit(2)
         nextTitleIdx += 1
         plt.xlabel("Time (seconds)") # (resolution = %ss)"% str(TraceRun.TIME_RESOLUTION))
-        plt.ylabel("Normalized Count")
+        #plt.ylabel("Normalized Count")
+        plt.ylabel("Delivery Ratio")
         plt.legend(loc=4) #set legend location to bottom right
         adjustXAxis(plt)
         #ax.Axes.autoscale_view() #need instance

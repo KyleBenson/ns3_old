@@ -118,8 +118,10 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 
   //since we threw away obtuse triangles, the max angular error is 45 deg
   //double ang_err = (abs((c_ang - orthogonal) / (pi/4.0)));
-  double ideal_ang = orthogonal / 2.0;
-  double ang_err = abs(ideal_ang - a_ang);
+  //double ideal_ang = orthogonal / 2.0; //taking angle a
+  double ideal_ang = orthogonal; //taking angle c
+  //double ang_err = abs(ideal_ang - a_ang);
+  double ang_err = abs(ideal_ang - c_ang);
   double norm_ang_err = (ang_err) / ideal_ang;
   norm_ang_err = norm_ang_err * norm_ang_err; //square to further penalize ones farther away from ideal
 
@@ -131,7 +133,8 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 
   NS_ASSERT_MSG (norm_dist_err <= 1.0, "distance error not properly normalized: " << norm_dist_err);
 
-  double newLikelihood = 0.5*((1.0 - norm_dist_err) + (1.0 - norm_ang_err));
+  //double newLikelihood = 0.5*((1.0 - norm_dist_err) + (1.0 - norm_ang_err));
+  double newLikelihood = (0.8*(1.0 - norm_dist_err) + 0.2*(1.0 - norm_ang_err));
 
   NS_LOG_DEBUG ("source(" << m_source->location.x << "," << m_source->location.y
                 << "), dest(" << destination->location.x << "," << destination->location.y
