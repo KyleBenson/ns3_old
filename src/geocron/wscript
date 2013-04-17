@@ -14,7 +14,8 @@ def get_all_sources(path):
 
     # we want to save relative filenames from src/$MODULE_NAME/
 
-    for d in [os.path.join(path,d2) for d2 in ['model', 'helper',
+    for d in [os.path.join(path,d2) for d2 in ['model',
+                                               #'helper',
                                                #'model/heuristics'
                                                ]]:
         files = [os.path.join(d, f) for f in os.listdir(d)]
@@ -28,7 +29,7 @@ def build(bld):
                                                #these only needed for Test Suite
                                                'point-to-point-layout'
                                                ])
-    module.lib = ['boost_system', 'boost_filesystem'] #needed for scratch to use boost libs
+    module.lib = ['boost_system', 'boost_filesystem']
 
     module.source, headers_list = get_all_sources(bld.path.relpath())
 
