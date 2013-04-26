@@ -3,7 +3,8 @@
 #script to auto-install ns-3.  *NO LONGER* assumes that boost is built by source and installed to the home directory under ~/boost/include and ~/lib
 
 #cd /scratch/kebenson
-wget 'http://www.nsnam.org/releases/latest'
+#wget 'http://www.nsnam.org/releases/latest'
+wget 'https://www.nsnam.org/release/ns-allinone-3.16.tar.bz2' #latest doesn't have an actual non-version-specific link name
 tar -xvf ns-allinone-3.*.tar.bz2
 cd ns-allinone-3.*
 cd ns-3.*
