@@ -78,7 +78,7 @@ def build(bld):
     if 'brite' in bld.env['MODULES_NOT_BUILT']:
         return
 
-    module = bld.create_ns3_module('brite', ['network', 'core', 'internet', 'point-to-point'])
+    module = bld.create_ns3_module('brite', ['network', 'core', 'internet', 'point-to-point', 'mobility'])
     module.source = [
         ]
 
