@@ -22,7 +22,7 @@
 #include "ron-helper.h"
 #include "ron-client.h"
 #include "ron-server.h"
-#include "region.h"
+#include "region-helper.h"
 
 #include <iostream>
 #include <sstream>
@@ -42,18 +42,24 @@ uint32_t GetNodeDegree(Ptr<Node> node);
 //forward declaration to allow helper functions' use
 class RonPeerTable;
 
-class GeocronExperiment {
+class GeocronExperiment : public Object {
 public:
+  static TypeId GetTypeId ();
   GeocronExperiment ();
 
-  void ReadTopology (std::string topologyFile);
+  // functions dealing with topology generators
+  void SetTopologyType (std::string topoType);
+  // next, Rocketfuel
+  void ReadRocketfuelTopology (std::string topologyFile);
+  /** This file gives us a map to figure out link latencies as indexed by region. */
   void ReadLatencyFile (std::string latencyFile);
+  /** This file maps region names to physical locations. */
   void ReadLocationFile (std::string locationFile);
+  // finally, BRITE
+  //TODO
+
   void RunAllScenarios ();
   void Run ();
-  /*void SetHeuristic (int newHeuristic);
-  void SetDisasterLocation (std::string newLocation);
-  void SetFailureProbability (double newProb);*/
 
   void SetTimeout (Time newTimeout);
   void SetTraceFile (std::string newTraceFile);
@@ -82,9 +88,16 @@ public:
   uint32_t nruns;
   uint32_t start_run_number;
 
+  /** Builds various indices for choosing different node types of interest.
+      Chooses links/nodes that may be failed during disaster simulation.
+      //TODO: build disaster nodes, servers index
+  */
+  void IndexNodes ();
+
 private:
   /** Sets the next server for the simulation. */
   void SetNextServers ();
+
   void ApplyFailureModel ();
   void UnapplyFailureModel ();
   bool IsDisasterNode (Ptr<Node> node);
@@ -104,6 +117,10 @@ private:
   Ptr<RonPeerTable> serverPeers;
   std::string topologyFile;
   boost::unordered_map<Location,Vector> locations; //to actual position mapping
+
+  // name of topology generator/reader, and a helper for assigning regions
+  std::string topologyType;
+  Ptr<RegionHelper> regionHelper;
 
   RocketfuelTopologyReader::LatenciesMap latencies;
 

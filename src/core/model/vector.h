@@ -45,7 +45,7 @@ public:
   Vector3D ();
   bool operator== (const Vector3D &vector) const;
   bool operator!= (const Vector3D &vector) const;
-
+  bool operator< (const Vector3D &vector) const;
   /**
    * x coordinate of vector
    */
@@ -80,6 +80,7 @@ public:
 
   bool operator!= (const Vector2D &vector) const;
   bool operator== (const Vector2D &vector) const;
+  bool operator< (const Vector2D &vector) const;
 
   /**
    * x coordinate of vector
