@@ -34,7 +34,8 @@ GeocronExperiment::GetTypeId ()
   static TypeId tid = TypeId ("ns3::GeocronExperiment")
     .SetParent<Object> ()
     .AddConstructor<GeocronExperiment> ()
-    .AddAttribute ("TopologyType", "Name of the topology generator to be used by this experiment.  Supports: rocketfuel, brite.",
+    .AddAttribute ("TopologyType",
+                   "Name of the topology generator to be used by this experiment.  Supports: rocketfuel, brite.",
                    StringValue ("rocketfuel"),
                    MakeStringAccessor (&GeocronExperiment::topologyType),
                    MakeStringChecker ())
@@ -43,7 +44,7 @@ GeocronExperiment::GetTypeId ()
 }
 
 
-GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
+GeocronExperiment::GeocronExperiment ()
 {
   appStopTime = Time (Seconds (30.0));
   simulationLength = Seconds (10.0);
@@ -60,16 +61,25 @@ GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
   nruns = 1;
   nServerChoices = 10;
 
-  // set regionHelper by the type specified
-  if (topologyType == "rocketfuel")
-    regionHelper = CreateObject<RocketfuelRegionHelper> ();
-  else if (topologyType == "brite")
-    regionHelper = CreateObject<BriteRegionHelper> ();
-  else {
-    NS_ASSERT_MSG(false, "Invalid topology type: " << topologyType);
-  }
+  regionHelper = NULL;
 }
 
+
+Ptr<RegionHelper> GeocronExperiment::GetRegionHelper ()
+{
+  if (regionHelper == NULL)
+    {
+      // set regionHelper by the type specified
+      if (topologyType == "rocketfuel")
+        regionHelper = CreateObject<RocketfuelRegionHelper> ();
+      else if (topologyType == "brite")
+        regionHelper = CreateObject<BriteRegionHelper> ();
+      else {
+        NS_ASSERT_MSG(false, "Invalid topology type: " << topologyType);
+      }
+    }
+  return regionHelper;
+}
 
 void
 GeocronExperiment::SetTimeout (Time newTimeout)
@@ -140,23 +150,27 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
         }
 
       std::ifstream infile (locationFile.c_str ());
-      std::string loc, line;
+      std::string line;
+      Location region;
       double lat = 0.0, lon = 0.0;
       std::vector<std::string> parts; //for splitting up line
 
       while (std::getline (infile, line))
         {
           boost::split (parts, line, boost::is_any_of ("\t"));
-          loc = parts[0];
+          region = parts[0];
           lat = boost::lexical_cast<double> (parts[1]);
           lon = boost::lexical_cast<double> (parts[2]);
 
-          Ptr<RocketfuelRegionHelper> rrh = DynamicCast<RocketfuelRegionHelper> (regionHelper);
+          // Add region information to the RegionHelper
+          Ptr<RocketfuelRegionHelper> rrh = DynamicCast<RocketfuelRegionHelper> (GetRegionHelper ());
           NS_ASSERT_MSG (rrh != NULL, "Can't read location file without a RocketfuelRegionHelper!"); 
-          //TODO: add information to regionhelper
 
-          //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
-          locations[Location(loc)] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
+          Vector vector = Vector (lat, lon, 1.0);
+          rrh->SetRegion (vector, region);
+
+          //std::cout << "Loc=" << region << ", lat=" << lat << ", lon=" << lon << std::endl;
+          //std::cout << "Location read=" << region << ", Location in helper=" << GetRegionHelper ()->GetRegion (vector) << std::endl;
         }
     }
 }
@@ -251,14 +265,14 @@ GeocronExperiment::ReadRocketfuelTopology (std::string topologyFile)
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : NO_LOCATION_VECTOR;
-    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : NO_LOCATION_VECTOR;
+    Vector fromPosition = GetRegionHelper ()->GetLocation (fromLocation);
+    Vector toPosition = GetRegionHelper ()->GetLocation (toLocation);
     positionAllocator->Add (fromPosition);
     positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
     
-    NS_LOG_DEBUG ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
+    NS_LOG_LOGIC ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
   } //end link iteration
 }
 
@@ -464,7 +478,7 @@ GeocronExperiment::IndexNodes () {
 
           // note that this swanky RonPeerEntry constructor handles the other attributes
           thisPeer = CreateObject<RonPeerEntry> (*node);
-          nodeRegion = regionHelper->GetRegion(GetLocation(*node));
+          nodeRegion = GetRegionHelper ()->GetRegion(GetLocation(*node));
           thisPeer->region = nodeRegion;
           (*node)->AggregateObject (thisPeer);
 
@@ -479,21 +493,12 @@ GeocronExperiment::IndexNodes () {
                   disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > ((*node)->GetId (), *node));
                 }
  
-              // Failure model: if either endpoint is in the disaster location,
-              // add it to the list of potential ifaces to kill
-              if (nodeRegion == *disasterLocation)
-                //random.GetValue () <= currFprob)
-                {
-                  //TODO: fix this!!!
-                  //potentialIfacesToKill[*disasterLocation].Add((*node)->GetDevice(0));
-                  //potentialIfacesToKill[*disasterLocation].Add((*node)->GetDevice(1));
-                }
-
               // Used for debugging to make sure locations are being found properly
 #ifdef NS3_LOG_ENABLE
-              if (!HasLocation (*node)){
-                NS_LOG_DEBUG ("Node " << (*node)->GetId () << " has no position!");
-              }
+              if (!HasLocation (*node))
+                {
+                  NS_LOG_DEBUG ("Node " << (*node)->GetId () << " has no position!");
+                }
 #endif
             } // end disaster location iteration
         }
@@ -552,6 +557,8 @@ GeocronExperiment::ApplyFailureModel () {
 
   // Keep track of these and unfail them later
   failNodes = NodeContainer ();
+  ifacesToKill = Ipv4InterfaceContainer ();
+
   for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
        nodeItr != disasterNodes[currLocation].end (); nodeItr++)
     {
@@ -563,16 +570,25 @@ GeocronExperiment::ApplyFailureModel () {
           NS_LOG_LOGIC ("Node " << (node)->GetId () << " failed.");
           FailNode (node);
         }
-    }
 
-  // Same with these
-  ifacesToKill = Ipv4InterfaceContainer ();
-  for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
-       iface != potentialIfacesToKill[currLocation].End (); iface++)
-    {
-      if (random.GetValue () < currFprob)
-        ifacesToKill.Add (*iface);
-        FailIpv4 (iface->first, iface->second);
+      else {
+        // Check all links on this node if it wasn't failed (which would fail all links anyway)
+        // NOTE: iface 0 is the loopback
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+        NS_ASSERT_MSG(ipv4 != NULL, "Node has no Ipv4 object!");
+
+        std::cout << "Node " << node->GetId () << " has degree " << GetNodeDegree (node) << std::endl;
+
+        for (uint32_t i = 1; i <= GetNodeDegree(node); i++)
+          {
+            std::cout << "considering link on node " << node->GetId () << " for failure..." << std::endl;
+            if (random.GetValue () < currFprob)
+              {
+                ifacesToKill.Add(ipv4, i);
+                FailIpv4 (ipv4, i);
+              }
+          }
+      }
     }
 }
 
@@ -718,17 +734,3 @@ GeocronExperiment::HasLocation (Ptr<Node> node)
     }
   return true;
 }
-
-namespace ns3 {
-//global helper functions must be in ns3 namespace
-Ipv4Address GetNodeAddress(Ptr<Node> node)
-{
-  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
-  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-}
-
-uint32_t GetNodeDegree(Ptr<Node> node)
-{
-  return node->GetNDevices() - 1; //assumes PPP links
-}
-} //namespace ns3

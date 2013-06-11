@@ -217,6 +217,7 @@ if __name__ == "__main__":
     if args.log:
         os.environ['NS_LOG'] = ':'.join(args.log)
 
+    #TODO: fix these 2
     if args.optimized:
         subprocess.call("./waf -d optimized configure --enable-examples", shell=True)
 

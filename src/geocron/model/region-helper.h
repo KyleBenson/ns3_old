@@ -27,13 +27,24 @@
 
 namespace ns3 {
 
+  //NS_LOG_COMPONENT_DEFINE ("RegionHelper");
+
+#define NO_LOCATION_VECTOR Vector (0.0, 0.0, -1.0)
+
+#define NULL_REGION "NO_REGION"
+
 /** Simple helper class for assigning Regions for specific location Vectors. */
 class RegionHelper : public Object
 {
   //boost::unordered_map<Vector, Location> regions;
-  std::map<Vector, Location> regions;
+  typedef std::map<Vector, Location> UnderlyingMapType;
+  UnderlyingMapType regions;
 public:
-  RegionHelper () {}
+  typedef UnderlyingMapType::iterator Iterator;
+
+  RegionHelper () {
+    regions[NO_LOCATION_VECTOR] = NULL_REGION;
+  }
 
   static TypeId GetTypeId () {
     static TypeId tid = TypeId ("ns3::RegionHelper")
@@ -53,7 +64,19 @@ public:
   Location SetRegion (Vector loc, Location newRegion) {
     Location retLoc = (regions.count(loc) ? regions[loc] : newRegion);
     regions[loc] = newRegion;
+
     return retLoc;
+  }
+
+  Vector GetLocation (Location reg) {
+    for (Iterator itr = regions.begin(); itr != regions.end(); itr++)
+      {
+        if (itr->second == reg)
+          {
+            return itr->first;
+          }
+      }
+    return NO_LOCATION_VECTOR;
   }
 };  
 

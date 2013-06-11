@@ -90,12 +90,24 @@ Vector2D::operator== (const Vector2D &vector) const
 bool
 Vector3D::operator< (const Vector3D &vector) const
 {
-  return x < vector.x && y < vector.y && z < vector.z;
+  // we order vectors by x first, then y, then z
+  if (x < vector.x)
+    return true;
+  else if (x == vector.x && y < vector.y)
+    return true;
+  else if (x == vector.x && y == vector.y && z < vector.z)
+    return true;
+  return false;
 }
 bool
 Vector2D::operator< (const Vector2D &vector) const
 {
-  return x < vector.x && y < vector.y;
+  // we order vectors by x first, then y
+  if (x < vector.x)
+    return true;
+  else if (x == vector.x && y < vector.y)
+    return true;
+  return false;
 }
 
 double
