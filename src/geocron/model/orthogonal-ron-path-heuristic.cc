@@ -126,15 +126,17 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   norm_ang_err = norm_ang_err * norm_ang_err; //square to further penalize ones farther away from ideal
 
   NS_ASSERT_MSG (norm_ang_err <= 1.0, "angle error not properly normalized: " << norm_ang_err);
+  NS_ASSERT_MSG (norm_ang_err >= 0.0, "angle error not properly normalized: " << norm_ang_err);
 
   double dist_err = abs(abs(perpDist) - abs(ideal_dist));
   double norm_dist_err = (dist_err) / ideal_dist;
   norm_dist_err = norm_dist_err * norm_dist_err; //square to further penalize ones farther away from ideal
 
   NS_ASSERT_MSG (norm_dist_err <= 1.0, "distance error not properly normalized: " << norm_dist_err);
+  NS_ASSERT_MSG (norm_dist_err >= 0.0, "distance error not properly normalized: " << norm_dist_err);
 
-  //double newLikelihood = 0.5*((1.0 - norm_dist_err) + (1.0 - norm_ang_err));
-  double newLikelihood = (0.8*(1.0 - norm_dist_err) + 0.2*(1.0 - norm_ang_err));
+  double newLikelihood = 0.5*((1.0 - norm_dist_err) + (1.0 - norm_ang_err));
+  //double newLikelihood = (0.8*(1.0 - norm_dist_err) + 0.2*(1.0 - norm_ang_err));
 
   NS_LOG_DEBUG ("source(" << m_source->location.x << "," << m_source->location.y
                 << "), dest(" << destination->location.x << "," << destination->location.y

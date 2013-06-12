@@ -71,6 +71,7 @@ public:
     cachedNodes.Add (grid.GetNode (3,3));
     cachedNodes.Add (grid.GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
     cachedNodes.Add (grid.GetNode (4,4));
+    //cachedNodes.Add (grid.GetNode (3,0));
 
     NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
 
@@ -90,6 +91,7 @@ public:
     cachedPeers[4]->region = "BR";
     cachedPeers[5]->region = "BL";
     cachedPeers[6]->region = "BR";
+    //cachedPeers[7]->region = "BL";
 
     //add all peers to master peer table
     Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
@@ -601,7 +603,7 @@ TestRonPathHeuristic::DoRun (void)
   h0->BuildPaths (dest);
   h0->UpdateLikelihoods (dest);
 
-  uint32_t npaths = 0, nExpectedPeers = 5;
+  uint32_t npaths = 0, nExpectedPeers = GridGenerator::GetNodes ().GetN ()- 2;
   Ptr<RonPath> lastPath = NULL;
   double totalLh = 0;
   try
@@ -755,7 +757,7 @@ TestAggregateRonPathHeuristic::DoRun (void)
 
   NS_TEST_ASSERT_MSG_EQ (lh->GetLh (), 0, "testing master LH after NotifyTimeout");
 
-  uint32_t npaths = 0, nExpectedPeers = 4;
+  uint32_t npaths = 0, nExpectedPeers = GridGenerator::GetNodes ().GetN () - 3;
   Ptr<RonPath> lastPath = path;
   try
     {
@@ -821,7 +823,7 @@ private:
 
 
 TestOrthogonalRonPathHeuristic::TestOrthogonalRonPathHeuristic ()
-  : TestCase ("Test aggregation feature of RonPathHeuristic objects, using NewRegion and Random")
+  : TestCase ("Test OrthogonalRonPathHeuristic")
 {
   nodes = GridGenerator::GetNodes ();
   peers = GridGenerator::GetPeers ();
@@ -839,8 +841,8 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
     src = Create<PeerDestination> (peers.front()),
     topRight = Create<PeerDestination> (peers[3]),
     botLeft = Create<PeerDestination> (peers[5]);
-  Ptr<RonPath> path = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
-  path->AddHop (botLeft, path->Begin ());
+  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+  path1->AddHop (botLeft, path1->Begin ());
   path2->AddHop (topRight, path2->Begin ());
 
   Ptr<OrthogonalRonPathHeuristic> ortho = CreateObject<OrthogonalRonPathHeuristic> ();
@@ -854,15 +856,29 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
   ortho->UpdateLikelihoods (dest);
 
   // TIMEOUT
-  //  ortho->NotifyTimeout (path, Simulator::Now ());
+  //  ortho->NotifyTimeout (path1, Simulator::Now ());
 
   path = ortho->GetBestPath (dest);
 
   //make sure we get the right path
-  equality = *(path) == *(path2);
-  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node!");
+  equality = (*(path) == *(path2)) or (*(path) == *(path1));
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right or bottom left node!");
+
+  // we don't define a rigid tie-breaker, so check that we get both top-right and bottom-left, but not the same one each time
+  bool gotTopRight = true;
+  if (path == path1)
+    gotTopRight = false;
 
   path = ortho->GetBestPath (dest);
+
+  // now it should be the other one
+  if (gotTopRight) {
+    equality = (*(path) == *(path1));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom left node now!");
+  } else {
+    equality = (*(path) == *(path2));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
+  }
 
   //now it should be peers[2]
   equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
@@ -1038,6 +1054,39 @@ TestRonHeader::DoRun (void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+class TestGeocronExperiment : public TestCase
+{
+public:
+  TestGeocronExperiment ();
+  virtual ~TestGeocronExperiment ();
+  NodeContainer nodes;
+  Ptr<RonPeerTable> peers;
+
+private:
+  virtual void DoRun (void);
+};
+
+
+TestGeocronExperiment::TestGeocronExperiment ()
+  : TestCase ("Test various features of GeocronExperiment object")
+{
+  nodes = GridGenerator::GetNodes ();
+}
+
+TestGeocronExperiment::~TestGeocronExperiment ()
+{
+}
+
+void
+TestGeocronExperiment::DoRun (void)
+{
+  NS_TEST_ASSERT_MSG_EQ (GetNodeDegree (nodes.Get (0)), 2, "corner node doesn't have degree 2!");
+  NS_TEST_ASSERT_MSG_EQ (GetNodeDegree (nodes.Get (1)), 4, "interior node doesn't have degree 4!");
+  NS_TEST_ASSERT_MSG_EQ (GetNodeDegree (nodes.Get (2)), 3, "edge node doesn't have degree 3!");
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$////////////////////
 //////////$$$$$$$$$$   End of test cases - create test suite $$$$$$$$$$/////////
 ////////////////////$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$////////////////////
@@ -1067,8 +1116,9 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
 
-  //network application stuff
+  //network application / experiment stuff
   AddTestCase (new TestRonHeader);
+  AddTestCase (new TestGeocronExperiment);
 }
 
 // Do not forget to allocate an instance of this TestSuite
