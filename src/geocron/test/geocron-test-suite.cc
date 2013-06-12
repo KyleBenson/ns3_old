@@ -26,6 +26,8 @@ public:
   PeerContainer cachedPeers;
   NodeContainer cachedNodes;
 
+  PointToPointGridHelper * grid;
+
   static GridGenerator GetInstance ()
   {
     static GridGenerator instance = GridGenerator ();
@@ -56,22 +58,22 @@ public:
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-    PointToPointGridHelper grid = PointToPointGridHelper (nrows, ncols, pointToPoint);
-    grid.BoundingBox (0, 0, 10, 10);
+    grid = new PointToPointGridHelper (nrows, ncols, pointToPoint);
+    grid->BoundingBox (0, 0, 10, 10);
     InternetStackHelper internet;
-    grid.InstallStack (internet);
-    grid.AssignIpv4Addresses (rowHelper, colHelper);
+    grid->InstallStack (internet);
+    grid->AssignIpv4Addresses (rowHelper, colHelper);
     rowHelper.NewNetwork ();
     colHelper.NewNetwork ();
   
-    cachedNodes.Add (grid.GetNode (0,0));
-    cachedNodes.Add (grid.GetNode (1,1));
-    cachedNodes.Add (grid.GetNode (4,1)); //2nd choice for this V
-    cachedNodes.Add (grid.GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
-    cachedNodes.Add (grid.GetNode (3,3));
-    cachedNodes.Add (grid.GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
-    cachedNodes.Add (grid.GetNode (4,4));
-    //cachedNodes.Add (grid.GetNode (3,0));
+    cachedNodes.Add (grid->GetNode (0,0));
+    cachedNodes.Add (grid->GetNode (1,1));
+    cachedNodes.Add (grid->GetNode (4,1)); //2nd choice for this V
+    cachedNodes.Add (grid->GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
+    cachedNodes.Add (grid->GetNode (3,3));
+    cachedNodes.Add (grid->GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
+    cachedNodes.Add (grid->GetNode (4,4));
+    //cachedNodes.Add (grid->GetNode (3,0));
 
     NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
 
@@ -101,6 +103,16 @@ public:
       {
         master->AddPeer (*itr);
       }
+  }
+
+  ~GridGenerator ()
+  {
+    //delete grid; // causes seg faults since we dont always use object pointers...
+  }
+
+  static Ptr<Node> GetNode (uint32_t row, uint32_t col)
+  {
+    return GetInstance ().grid->GetNode (row, col);
   }
 };
 
@@ -837,7 +849,8 @@ void
 TestOrthogonalRonPathHeuristic::DoRun (void)
 {
   bool equality;
-  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+  //Ptr<PeerDestination> dest = Create<PeerDestination> (CreateObject<RonPeerEntry> (GridGenerator::GetNode (4, 4))),
+  Ptr<PeerDestination> dest = Create<PeerDestination> (GridGenerator::GetPeers ().back()),
     src = Create<PeerDestination> (peers.front()),
     topRight = Create<PeerDestination> (peers[3]),
     botLeft = Create<PeerDestination> (peers[5]);
@@ -869,6 +882,8 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
   if (path == path1)
     gotTopRight = false;
 
+  ortho->NotifyTimeout (path, Simulator::Now ());
+
   path = ortho->GetBestPath (dest);
 
   // now it should be the other one
@@ -880,9 +895,14 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
   }
 
-  //now it should be peers[2]
-  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
-  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  //NOTE: we currently ignore obtuse angles in this heuristic, which any node other than the far corners of the square will be
+  //now it should be peers[2], a node 'inside' the grid
+  // ortho->NotifyTimeout (path, Simulator::Now ());
+
+  // path = ortho->GetBestPath (dest);
+
+  // equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  // NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
 

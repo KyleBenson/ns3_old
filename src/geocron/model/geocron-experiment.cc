@@ -251,12 +251,7 @@ GeocronExperiment::ReadRocketfuelTopology (std::string topologyFile)
 
     // NetDevices
     NetDeviceContainer new_devs = pointToPoint.Install (both_nodes);
-    NetDeviceContainer from_dev;
-    from_dev.Add(new_devs.Get(0));
-    NetDeviceContainer to_dev;
-    to_dev.Add(new_devs.Get(1));
-    //router_devices.Add(new_devs);
-
+ 
     // Interfaces
     Ipv4InterfaceContainer new_interfaces = address.Assign (new_devs);
     //router_interfaces.Add(new_interfaces);
