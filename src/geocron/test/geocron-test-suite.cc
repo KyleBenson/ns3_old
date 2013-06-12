@@ -10,6 +10,7 @@
 #include <vector>
 #include <iostream>
 #include <ctime>
+#include <map>
 
 // Do not put your test classes in namespace ns3.  You may find it useful
 // to use the using directive to access the ns3 namespace directly
@@ -26,22 +27,50 @@ public:
   PeerContainer cachedPeers;
   NodeContainer cachedNodes;
 
+  Ptr<RonPeerTable> allPeers;
+
   PointToPointGridHelper * grid;
 
-  static GridGenerator GetInstance ()
+  // 2D array of peer entries
+  // NOTE: how the four quadrant regions are defined, the higher numbered regions will have more peers.
+  // i.e. a 5x5 grid will have TopLeft be (0,0) -> (1,1), BottomLeft will be (4,0) -> (2,1)
+  std::vector<std::vector<Ptr<RonPeerEntry> > > gridPeers; 
+
+  static GridGenerator * GetInstance ()
   {
-    static GridGenerator instance = GridGenerator ();
+    static GridGenerator * instance = new GridGenerator ();
     return instance;
   }
   
   static NodeContainer GetNodes ()
   {
-    return GetInstance ().cachedNodes;
+    return GetInstance ()->cachedNodes;
   }
 
   static PeerContainer GetPeers ()
   {
-    return GetInstance ().cachedPeers;
+    return GetInstance ()->cachedPeers;
+  }
+
+  static Ptr<Node> GetNode (uint32_t row, uint32_t col)
+  {
+    return GetInstance ()->grid->GetNode (row, col);
+  }
+
+  // really only exists for sanity checks in constructor
+  Ptr<RonPeerEntry> DoGetPeer (uint32_t row, uint32_t col)
+  {
+    return gridPeers[row][col];
+  }
+
+  static Ptr<RonPeerEntry> GetPeer (uint32_t row, uint32_t col)
+  {
+    return GetInstance ()->DoGetPeer (row, col);
+  }
+
+  static Ptr<RonPeerTable> GetAllPeers ()
+  {
+    return GetInstance ()->allPeers;
   }
 
   GridGenerator ()
@@ -95,7 +124,7 @@ public:
     cachedPeers[6]->region = "BR";
     //cachedPeers[7]->region = "BL";
 
-    //add all peers to master peer table
+    //add all cached peers to master peer table
     Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
 
     for (PeerContainer::iterator itr = cachedPeers.begin ();
@@ -103,16 +132,57 @@ public:
       {
         master->AddPeer (*itr);
       }
+
+    ////////////////////////////////////////////////////////////
+    ////////////////////  NEW STYLE PEER ACCESS  ///////////////
+    ////////////////////////////////////////////////////////////
+
+    allPeers = Create<RonPeerTable> ();
+
+    // // save info about ALL the peers
+    for (uint32_t i = 0; i < nrows; i++)
+      {
+        std::vector<Ptr<RonPeerEntry> > vec;
+        gridPeers.push_back (vec);
+
+        for (uint32_t j = 0; j < nrows; j++)
+          {
+            Ptr<RonPeerEntry> thisPeer = Create<RonPeerEntry> (grid->GetNode (i, j));
+
+            // build up the region based on the location of the current node being considered
+            std::string regionLabel;
+            regionLabel += (i < nrows/2 ? "T" : "B");
+            regionLabel += (j < ncols/2 ? "L" : "R");
+
+            Location newRegion = regionLabel;
+            thisPeer->region = newRegion;
+
+            gridPeers[i].push_back (thisPeer);
+
+            allPeers->AddPeer (thisPeer);
+          }
+      }
+
+    // some sanity checks that this craziness ^^^ worked
+    NS_ASSERT_MSG (DoGetPeer (0,0)->region == cachedPeers[0]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (1,1)->region == cachedPeers[1]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,1)->region == cachedPeers[2]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (0,4)->region == cachedPeers[3]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (3,3)->region == cachedPeers[4]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,0)->region == cachedPeers[5]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,4)->region == cachedPeers[6]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
   }
 
   ~GridGenerator ()
   {
     //delete grid; // causes seg faults since we dont always use object pointers...
-  }
-
-  static Ptr<Node> GetNode (uint32_t row, uint32_t col)
-  {
-    return GetInstance ().grid->GetNode (row, col);
   }
 };
 
