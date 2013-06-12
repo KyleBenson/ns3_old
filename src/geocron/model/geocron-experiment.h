@@ -74,10 +74,6 @@ public:
   void NextDisasterLocation ();
   void NextFailureProbability ();
 
-  //these rely on the Vector following
-  Vector GetLocation (Ptr<Node> node);
-  bool HasLocation (Ptr<Node> node);
-
   std::vector<ObjectFactory*> * heuristics;
   std::vector<Location> * disasterLocations;
   std::vector<double> * failureProbabilities;
@@ -101,6 +97,7 @@ private:
 
   void ApplyFailureModel ();
   void UnapplyFailureModel ();
+  bool IsOverlayNode (Ptr<Node> node);
   bool IsDisasterNode (Ptr<Node> node);
   void AutoSetTraceFile ();
 

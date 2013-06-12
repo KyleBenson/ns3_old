@@ -33,6 +33,14 @@ namespace ns3 {
 
 #define NULL_REGION "NO_REGION"
 
+  // HELPER FUNCTIONS
+
+//these rely on the NO_LOCATION_VECTOR
+Vector GetLocation (Ptr<Node> node);
+bool HasLocation (Ptr<Node> node);
+
+  // BEGIN ACTUAL REGION HELPER
+
 /** Simple helper class for assigning Regions for specific location Vectors. */
 class RegionHelper : public Object
 {
