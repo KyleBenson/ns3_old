@@ -22,7 +22,7 @@
 #include "ron-helper.h"
 #include "ron-client.h"
 #include "ron-server.h"
-#include "region.h"
+#include "region-helper.h"
 
 #include <iostream>
 #include <sstream>
@@ -42,18 +42,26 @@ uint32_t GetNodeDegree(Ptr<Node> node);
 //forward declaration to allow helper functions' use
 class RonPeerTable;
 
-class GeocronExperiment {
+class GeocronExperiment : public Object {
 public:
+  static TypeId GetTypeId ();
   GeocronExperiment ();
 
-  void ReadTopology (std::string topologyFile);
+  Ptr<RegionHelper> GetRegionHelper ();
+
+  // functions dealing with topology generators
+  void SetTopologyType (std::string topoType);
+  // next, Rocketfuel
+  void ReadRocketfuelTopology (std::string topologyFile);
+  /** This file gives us a map to figure out link latencies as indexed by region. */
   void ReadLatencyFile (std::string latencyFile);
+  /** This file maps region names to physical locations. */
   void ReadLocationFile (std::string locationFile);
+  // finally, BRITE
+  //TODO
+
   void RunAllScenarios ();
   void Run ();
-  /*void SetHeuristic (int newHeuristic);
-  void SetDisasterLocation (std::string newLocation);
-  void SetFailureProbability (double newProb);*/
 
   void SetTimeout (Time newTimeout);
   void SetTraceFile (std::string newTraceFile);
@@ -66,11 +74,6 @@ public:
   void NextDisasterLocation ();
   void NextFailureProbability ();
 
-  //these rely on the Vector following
-  Vector GetLocation (Ptr<Node> node);
-  bool HasLocation (Ptr<Node> node);
-  Vector NO_LOCATION_VECTOR;
-
   std::vector<ObjectFactory*> * heuristics;
   std::vector<Location> * disasterLocations;
   std::vector<double> * failureProbabilities;
@@ -82,11 +85,19 @@ public:
   uint32_t nruns;
   uint32_t start_run_number;
 
+  /** Builds various indices for choosing different node types of interest.
+      Chooses links/nodes that may be failed during disaster simulation.
+      //TODO: build disaster nodes, servers index
+  */
+  void IndexNodes ();
+
 private:
   /** Sets the next server for the simulation. */
   void SetNextServers ();
+
   void ApplyFailureModel ();
   void UnapplyFailureModel ();
+  bool IsOverlayNode (Ptr<Node> node);
   bool IsDisasterNode (Ptr<Node> node);
   void AutoSetTraceFile ();
 
@@ -103,7 +114,10 @@ private:
   Ptr<RonPeerTable> overlayPeers;
   Ptr<RonPeerTable> serverPeers;
   std::string topologyFile;
-  boost::unordered_map<Location,Vector> locations; //to actual position mapping
+
+  // name of topology generator/reader, and a helper for assigning regions
+  std::string topologyType;
+  Ptr<RegionHelper> regionHelper;
 
   RocketfuelTopologyReader::LatenciesMap latencies;
 
@@ -113,8 +127,7 @@ private:
   // Random variable for determining if links fail during the disaster
   UniformVariable random;
 
-  // These maps, indexed by disaster location name, hold nodes and ifaces of interest for the associated disaster region
-  boost::unordered_map<Location, Ipv4InterfaceContainer> potentialIfacesToKill; //are the nested containers created automatically?
+  // These maps, indexed by disaster location name, hold nodes of interest for the associated disaster region
   std::map<Location, std::map<uint32_t, Ptr <Node> > > disasterNodes; //both random access AND iteration hmmm...
   std::map<Location, NodeContainer> serverNodeCandidates; //want to just find these once and randomly pick from later (1 entry per disaster location)
   /** Number of nodes to collect as potential server choices. */

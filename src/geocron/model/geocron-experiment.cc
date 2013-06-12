@@ -28,7 +28,23 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
   //NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
 
-GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
+TypeId
+GeocronExperiment::GetTypeId ()
+{
+  static TypeId tid = TypeId ("ns3::GeocronExperiment")
+    .SetParent<Object> ()
+    .AddConstructor<GeocronExperiment> ()
+    .AddAttribute ("TopologyType",
+                   "Name of the topology generator to be used by this experiment.  Supports: rocketfuel, brite.",
+                   StringValue ("rocketfuel"),
+                   MakeStringAccessor (&GeocronExperiment::topologyType),
+                   MakeStringChecker ())
+  ;
+  return tid;
+}
+
+
+GeocronExperiment::GeocronExperiment ()
 {
   appStopTime = Time (Seconds (30.0));
   simulationLength = Seconds (10.0);
@@ -44,8 +60,26 @@ GeocronExperiment::GeocronExperiment () : NO_LOCATION_VECTOR (0.0, 0.0, -1.0)
   traceFile = "";
   nruns = 1;
   nServerChoices = 10;
+
+  regionHelper = NULL;
 }
 
+
+Ptr<RegionHelper> GeocronExperiment::GetRegionHelper ()
+{
+  if (regionHelper == NULL)
+    {
+      // set regionHelper by the type specified
+      if (topologyType == "rocketfuel")
+        regionHelper = CreateObject<RocketfuelRegionHelper> ();
+      else if (topologyType == "brite")
+        regionHelper = CreateObject<BriteRegionHelper> ();
+      else {
+        NS_ASSERT_MSG(false, "Invalid topology type: " << topologyType);
+      }
+    }
+  return regionHelper;
+}
 
 void
 GeocronExperiment::SetTimeout (Time newTimeout)
@@ -77,13 +111,22 @@ GeocronExperiment::NextFailureProbability ()
 
 
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////   Helper Functions     ////////////////////////////////////
+///////////////////   File/Topology Helper Functions     ///////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
 
 bool
 GeocronExperiment::IsDisasterNode (Ptr<Node> node)
 {
   return disasterNodes[currLocation].count ((node)->GetId ());
+}
+
+
+bool
+GeocronExperiment::IsOverlayNode (Ptr<Node> node)
+{
+  // first part handles if we didn't specify a max degree for overlay nodes, in which case ALL nodes are overlays...
+  return !maxNDevs or GetNodeDegree (node) <= maxNDevs;
 }
 
 
@@ -115,19 +158,27 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
         }
 
       std::ifstream infile (locationFile.c_str ());
-      std::string loc, line;
+      std::string line;
+      Location region;
       double lat = 0.0, lon = 0.0;
       std::vector<std::string> parts; //for splitting up line
 
       while (std::getline (infile, line))
         {
           boost::split (parts, line, boost::is_any_of ("\t"));
-          loc = parts[0];
+          region = parts[0];
           lat = boost::lexical_cast<double> (parts[1]);
           lon = boost::lexical_cast<double> (parts[2]);
 
-          //std::cout << "Loc=" << loc << ", lat=" << lat << ", lon=" << lon << std::endl;
-          locations[Location(loc)] = Vector (lat, lon, 1.0); //z position of 1 means we do have a location
+          // Add region information to the RegionHelper
+          Ptr<RocketfuelRegionHelper> rrh = DynamicCast<RocketfuelRegionHelper> (GetRegionHelper ());
+          NS_ASSERT_MSG (rrh != NULL, "Can't read location file without a RocketfuelRegionHelper!"); 
+
+          Vector vector = Vector (lat, lon, 1.0);
+          rrh->SetRegion (vector, region);
+
+          //std::cout << "Loc=" << region << ", lat=" << lat << ", lon=" << lon << std::endl;
+          //std::cout << "Location read=" << region << ", Location in helper=" << GetRegionHelper ()->GetRegion (vector) << std::endl;
         }
     }
 }
@@ -135,7 +186,7 @@ GeocronExperiment::ReadLocationFile (std::string locationFile)
 
 /** Read network topology, store nodes and devices. */
 void
-GeocronExperiment::ReadTopology (std::string topologyFile)
+GeocronExperiment::ReadRocketfuelTopology (std::string topologyFile)
 {
   this->topologyFile = topologyFile;
 
@@ -200,210 +251,32 @@ GeocronExperiment::ReadTopology (std::string topologyFile)
           }
       }
 
+    // Nodes
     Ptr<Node> from_node = iter->GetFromNode();
     Ptr<Node> to_node = iter->GetToNode();
     NodeContainer both_nodes (from_node);
     both_nodes.Add (to_node);
 
+    // NetDevices
     NetDeviceContainer new_devs = pointToPoint.Install (both_nodes);
-    NetDeviceContainer from_dev;
-    from_dev.Add(new_devs.Get(0));
-    NetDeviceContainer to_dev;
-    to_dev.Add(new_devs.Get(1));
-    //router_devices.Add(new_devs);
-
+ 
+    // Interfaces
     Ipv4InterfaceContainer new_interfaces = address.Assign (new_devs);
     //router_interfaces.Add(new_interfaces);
     address.NewNetwork();
+
     // Mobility model to set positions for geographically-correlated information
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> positionAllocator = CreateObject<ListPositionAllocator> ();
-    Vector fromPosition = locations.count (fromLocation)  ? (locations.find (fromLocation))->second : NO_LOCATION_VECTOR;
-    Vector toPosition = locations.count (toLocation) ? (locations.find (toLocation))->second : NO_LOCATION_VECTOR;
+    Vector fromPosition = GetRegionHelper ()->GetLocation (fromLocation);
+    Vector toPosition = GetRegionHelper ()->GetLocation (toLocation);
     positionAllocator->Add (fromPosition);
     positionAllocator->Add (toPosition);
     mobility.SetPositionAllocator (positionAllocator);
     mobility.Install (both_nodes);
-
-    //aggregate RonPeerEntries to Nodes if we haven't already
-    Ptr<RonPeerEntry> fromPeer = from_node->GetObject<RonPeerEntry> ();
-    if (!fromPeer)
-      {
-        fromPeer = CreateObject<RonPeerEntry> (from_node);
-        fromPeer->region = fromLocation;
-        from_node->AggregateObject (fromPeer);
-      }
-    Ptr<RonPeerEntry> toPeer = to_node->GetObject<RonPeerEntry> ();
-    if (!toPeer)
-      {
-        toPeer = CreateObject<RonPeerEntry> (to_node);
-        toPeer->region = toLocation;
-        to_node->AggregateObject (toPeer);
-      }
     
-    NS_LOG_DEBUG ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
-
-    // If the node is in a disaster region, add it to the corresponding list
-    // Also add potential servers (randomly chosen from node's with well-defined locations that lie outside that disaster region)
-    for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
-         disasterLocation != disasterLocations->end (); disasterLocation++)
-      {
-        if (fromLocation == *disasterLocation)
-          {
-            disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (from_node->GetId (), from_node));
-          }
- 
-        if (toLocation == *disasterLocation)
-          {
-            disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > (to_node->GetId (), to_node));
-          }
-
-        // Failure model: if either endpoint is in the disaster location,
-        // add it to the list of potential ifaces to kill
-        if (iter->GetAttribute ("From Location") == *disasterLocation ||
-            iter->GetAttribute ("To Location") == *disasterLocation)
-          //random.GetValue () <= currFprob)
-          {
-            potentialIfacesToKill[*disasterLocation].Add(new_interfaces.Get (0));
-            potentialIfacesToKill[*disasterLocation].Add(new_interfaces.Get (1));
-          }
-
-        // Used for debugging to make sure locations are being found properly
-        #ifdef NS3_LOG_ENABLE
-        if (!HasLocation (to_node)){
-          NS_LOG_DEBUG ("Node " << to_node->GetId () << " has no position at location " << toLocation);}
-        if (!HasLocation (from_node)){
-          NS_LOG_DEBUG ("Node " << from_node->GetId () << " has no position at location " << fromLocation);}
-        #endif
-      }
+    NS_LOG_LOGIC ("Link from " << fromLocation << "[" << fromPosition << "] to " << toLocation<< "[" << toPosition << "]");
   } //end link iteration
-
-
-  ////////////////////////////////////////////////////////////////////////////////
-
-
-  NS_LOG_INFO ("Topology finished.  Choosing & installing clients.");
-
-  // We want to narrow down the number of server choices by picking about nServerChoices of the highest-degree
-  // nodes.  We want at least nServerChoices of them, but will allow more so as not to include some of degree d
-  // but exclude others of degree d.
-  //
-  // So we keep an ordered list of nodes and keep track of the sums
-  //
-  // invariant: if the group of smallest degree nodes were removed from the list,
-  // its size would be < nServerChoices
-  typedef std::pair<uint32_t/*degree*/, Ptr<Node> > DegreeType;
-  typedef boost::heap::priority_queue<DegreeType, boost::heap::compare<std::greater<DegreeType> > > DegreePriorityQueue;
-  DegreePriorityQueue potentialServerNodeCandidates;
-  uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
-
-  NodeContainer overlayNodes;
-  for (NodeContainer::Iterator node = nodes.Begin ();
-       node != nodes.End (); node++)
-    {
-      uint32_t degree = GetNodeDegree (*node);
-      // Sanity check that a node has some actual links, otherwise remove it from the simulation
-      // this happened with some disconnected Rocketfuel models and made null pointers
-      if (degree <= 0)
-        {
-          NS_LOG_LOGIC ("Node " << (*node)->GetId () << " has no links!");
-          //node.erase ();
-          disasterNodes[currLocation].erase ((*node)->GetId ());
-          continue;
-        }
-      
-      // We may only install the overlay application on clients attached to stub networks,
-      // so we just choose the stub network nodes here
-      // (note that all nodes have a loopback device)
-      if (!maxNDevs or degree <= maxNDevs) 
-        {
-          overlayNodes.Add (*node);
-          overlayPeers->AddPeer (*node);
-        }
-
-      else if (degree > maxNDevs and HasLocation (*node))
-        {
-          //add potential server
-          if (degree >= lowDegree or potentialServerNodeCandidates.size () < nServerChoices)
-            potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, *node));
-          else
-            continue;
-
-          //base condition to set lowDegree the 1st time
-          if (!lowDegree)
-            lowDegree = degree;
-
-          if (degree == lowDegree)
-            nLowestDegreeNodes++;
-          else if (degree < lowDegree)
-            {
-              lowDegree = degree;
-              nLowestDegreeNodes = 1;
-            }
-
-          //remove group of lowest degree nodes if it's okay to do so
-          if (potentialServerNodeCandidates.size () - nLowestDegreeNodes >= nServerChoices)
-            {
-              #ifdef NS3_LOG_ENABLE
-              uint32_t nThrownAway = 0;
-              #endif
-              while (potentialServerNodeCandidates.top ().first == lowDegree)
-                {
-                  potentialServerNodeCandidates.pop ();
-                  #ifdef NS3_LOG_ENABLE
-                  nThrownAway++;
-                  #endif
-                }
-              NS_LOG_DEBUG ("Throwing away " << nThrownAway << " vertices of degree " << lowDegree);
-
-              // recalculate nLowestDegreeNodes
-              lowDegree = GetNodeDegree (potentialServerNodeCandidates.top ().second);
-              nLowestDegreeNodes = 0;
-              for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
-                   itr != potentialServerNodeCandidates.end () and (itr)->first == lowDegree; itr++)
-                nLowestDegreeNodes++;
-              NS_LOG_DEBUG (nLowestDegreeNodes << " nodes have new lowest degree = " << lowDegree);
-            }
-        }
-    }
-  
-  RonClientHelper ronClient (9);
-  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
-  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
-  ronClient.SetAttribute ("Timeout", TimeValue (timeout));
-  
-  // Install client app and set number of server contacts they make based on whether all nodes
-  // should report the disaster or only the ones in the disaster region.
-  for (NodeContainer::Iterator node = overlayNodes.Begin ();
-       node != overlayNodes.End (); node++)
-    {
-      ApplicationContainer newApp = ronClient.Install (*node);
-      clientApps.Add (newApp);
-      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
-      newClient->SetAttribute ("MaxPackets", UintegerValue (0)); //explicitly enable sensor reporting when disaster area set
-      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper?? or some p2p overlay algorithm? or the table itself? give out a callback function with that nodes peers?
-    }
-  
-  clientApps.Start (Seconds (2.0));
-  clientApps.Stop (appStopTime);
-
-  // Now cache the actual choices of server nodes for each disaster region
-  NS_LOG_DEBUG (potentialServerNodeCandidates.size () << " total potentialServerNodeCandidates.");
-  for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
-       itr != potentialServerNodeCandidates.end (); itr++)
-    {
-      NS_LOG_DEBUG ("Node " << itr->second->GetId () << " has degree " << GetNodeDegree (itr->second));
-      Ptr<Node> serverCandidate = itr->second;
-      Ptr<RonPeerEntry> candidatePeer = serverCandidate->GetObject<RonPeerEntry> ();
-      Location loc = candidatePeer->region;
-
-      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
-           disasterLocation != disasterLocations->end (); disasterLocation++)
-        {
-          if (*disasterLocation != loc)
-            serverNodeCandidates[*disasterLocation].Add (serverCandidate);
-        }
-    }
 }
 
 
@@ -550,9 +423,184 @@ GeocronExperiment::ConnectAppTraces ()
 
 //////////////////////////////////////////////////////////////////////
 /////************************************************************/////
-////////////////        APPLY FAILURE MODEL         //////////////////
+////////////////             FAILURE MODEL          //////////////////
 /////************************************************************/////
 //////////////////////////////////////////////////////////////////////
+
+
+void
+GeocronExperiment::IndexNodes () {
+  NS_LOG_INFO ("Topology finished.  Choosing & installing clients.");
+
+  // We want to narrow down the number of server choices by picking about nServerChoices of the highest-degree
+  // nodes.  We want at least nServerChoices of them, but will allow more so as not to include some of degree d
+  // but exclude others of degree d.
+  //
+  // So we keep an ordered list of nodes and keep track of the sums
+  //
+  // invariant: if the group of smallest degree nodes were removed from the list,
+  // its size would be < nServerChoices
+  typedef std::pair<uint32_t/*degree*/, Ptr<Node> > DegreeType;
+  typedef boost::heap::priority_queue<DegreeType, boost::heap::compare<std::greater<DegreeType> > > DegreePriorityQueue;
+  DegreePriorityQueue potentialServerNodeCandidates;
+  uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
+
+  // For finding all the overlay nodes, which must be done before installing applications since we need to specify the peers
+  NodeContainer overlayNodes;
+
+  for (NodeContainer::Iterator node = nodes.Begin ();
+       node != nodes.End (); node++)
+    {
+      uint32_t degree = GetNodeDegree (*node);
+
+      // Sanity check that a node has some actual links, otherwise remove it from the simulation
+      // this happened with some disconnected Rocketfuel models and made null pointers
+      if (degree <= 0)
+        {
+          NS_LOG_LOGIC ("Node " << (*node)->GetId () << " has no links!");
+          //node.erase ();
+          disasterNodes[currLocation].erase ((*node)->GetId ());
+          continue;
+        }
+
+      // Aggregate RonPeerEntry objects for getting useful peering information later
+      Ptr<RonPeerEntry> thisPeer = (*node)->GetObject<RonPeerEntry> ();
+
+      // sanity check that this is the only place we set this info
+#ifdef NS3_LOG_ENABLE
+      if (thisPeer)
+        NS_ASSERT_MSG (false, "Where did this RonPeerEntry come from???");
+#endif
+
+      Location nodeRegion = GetRegionHelper ()->GetRegion(GetLocation(*node));
+      // note that this swanky RonPeerEntry constructor handles the other attributes
+      thisPeer = CreateObject<RonPeerEntry> (*node);
+      thisPeer->region = nodeRegion;
+      (*node)->AggregateObject (thisPeer);
+
+      // Build disaster node indexes
+      // If the node is in a disaster region, add it to the corresponding list
+
+      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
+           // Only bother if the region is defined
+           disasterLocation != disasterLocations->end () and nodeRegion != NULL_REGION;
+           disasterLocation++)
+        {
+          if (nodeRegion == *disasterLocation)
+            {
+              disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > ((*node)->GetId (), *node));
+            }
+ 
+          // Used for debugging to make sure locations are being found properly
+#ifdef NS3_LOG_ENABLE
+          if (!HasLocation (*node))
+            {
+              NS_LOG_DEBUG ("Node " << (*node)->GetId () << " has no position!");
+            }
+#endif
+        } // end disaster location iteration
+      
+      // OVERLAY NODES
+      //
+      // We may only install the overlay application on clients attached to stub networks,
+      // so we just choose the stub network nodes here
+      // (note that all nodes have a loopback device)
+      if (IsOverlayNode (*node)) 
+        {
+          overlayNodes.Add (*node);
+          overlayPeers->AddPeer (*node);
+        }
+
+      // ROUTING NODES
+      // must ignore if no location information, since clients expect server location info!
+      else if (!IsOverlayNode (*node) and HasLocation (*node))
+        {
+          //add potential server
+          if (degree >= lowDegree or potentialServerNodeCandidates.size () < nServerChoices)
+            potentialServerNodeCandidates.push (std::pair<uint32_t, Ptr<Node> > (degree, *node));
+          else
+            continue;
+
+          //base condition to set lowDegree the 1st time
+          if (!lowDegree)
+            lowDegree = degree;
+
+          if (degree == lowDegree)
+            nLowestDegreeNodes++;
+          else if (degree < lowDegree)
+            {
+              lowDegree = degree;
+              nLowestDegreeNodes = 1;
+            }
+
+          //remove group of lowest degree nodes if it's okay to do so
+          if (potentialServerNodeCandidates.size () - nLowestDegreeNodes >= nServerChoices)
+            {
+              #ifdef NS3_LOG_ENABLE
+              uint32_t nThrownAway = 0;
+              #endif
+              while (potentialServerNodeCandidates.top ().first == lowDegree)
+                {
+                  potentialServerNodeCandidates.pop ();
+                  #ifdef NS3_LOG_ENABLE
+                  nThrownAway++;
+                  #endif
+                }
+              NS_LOG_DEBUG ("Throwing away " << nThrownAway << " vertices of degree " << lowDegree);
+
+              // recalculate nLowestDegreeNodes
+              lowDegree = GetNodeDegree (potentialServerNodeCandidates.top ().second);
+              nLowestDegreeNodes = 0;
+              for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
+                   itr != potentialServerNodeCandidates.end () and (itr)->first == lowDegree; itr++)
+                nLowestDegreeNodes++;
+              NS_LOG_DEBUG (nLowestDegreeNodes << " nodes have new lowest degree = " << lowDegree);
+            }
+        }
+    } // end node iteration
+
+  // Install client applications
+  // NOTE: this must be done after finding ALL the overlay nodes so that we can assign peers to each application
+  RonClientHelper ronClient (9);
+  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  ronClient.SetAttribute ("Timeout", TimeValue (timeout));
+  
+  // Install client app and set number of server contacts they make based on whether all nodes
+  // should report the disaster or only the ones in the disaster region.
+  for (NodeContainer::Iterator node = overlayNodes.Begin ();
+       node != overlayNodes.End (); node++)
+    {
+      ApplicationContainer newApp = ronClient.Install (*node);
+      clientApps.Add (newApp);
+      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
+      newClient->SetAttribute ("MaxPackets", UintegerValue (0)); //explicitly enable sensor reporting when disaster area set
+      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper?? or some p2p overlay algorithm? or the table itself? give out a callback function with that nodes peers?
+    }
+  
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (appStopTime);
+
+  // Now cache the actual choices of server nodes for each disaster region
+  NS_LOG_DEBUG (potentialServerNodeCandidates.size () << " total potentialServerNodeCandidates.");
+  for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
+       itr != potentialServerNodeCandidates.end (); itr++)
+    {
+      NS_LOG_DEBUG ("Node " << itr->second->GetId () << " has degree " << GetNodeDegree (itr->second));
+      Ptr<Node> serverCandidate = itr->second;
+      Ptr<RonPeerEntry> candidatePeer = serverCandidate->GetObject<RonPeerEntry> ();
+      NS_ASSERT_MSG (candidatePeer != NULL, "Server doesn't have a RonPeerEntry!");
+      Location loc = candidatePeer->region;
+
+      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
+           disasterLocation != disasterLocations->end (); disasterLocation++)
+        {
+          if (*disasterLocation != loc)
+            serverNodeCandidates[*disasterLocation].Add (serverCandidate);
+        }
+    }
+}
+
 /**   Fail the links that were chosen with given probability */
 void
 GeocronExperiment::ApplyFailureModel () {
@@ -560,6 +608,8 @@ GeocronExperiment::ApplyFailureModel () {
 
   // Keep track of these and unfail them later
   failNodes = NodeContainer ();
+  ifacesToKill = Ipv4InterfaceContainer ();
+
   for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
        nodeItr != disasterNodes[currLocation].end (); nodeItr++)
     {
@@ -568,27 +618,25 @@ GeocronExperiment::ApplyFailureModel () {
       if (random.GetValue () < currFprob)
         {
           failNodes.Add (node);
-          NS_LOG_LOGIC ("Node " << (node)->GetId () << " will fail.");
+          NS_LOG_LOGIC ("Node " << (node)->GetId () << " failed.");
+          FailNode (node);
         }
-    }
-  for (NodeContainer::Iterator node = failNodes.Begin ();
-       node != failNodes.End (); node++)
-    {
-      FailNode (*node);
-    }
 
-  // Same with these
-  ifacesToKill = Ipv4InterfaceContainer ();
-  for (Ipv4InterfaceContainer::Iterator iface = potentialIfacesToKill[currLocation].Begin ();
-       iface != potentialIfacesToKill[currLocation].End (); iface++)
-    {
-      if (random.GetValue () < currFprob)
-        ifacesToKill.Add (*iface);
-    }
-  for (Ipv4InterfaceContainer::Iterator iface = ifacesToKill.Begin ();
-       iface != ifacesToKill.End (); iface++)
-    {
-        FailIpv4 (iface->first, iface->second);
+      else {
+        // Check all links on this node if it wasn't failed (which would fail all links anyway)
+        // NOTE: iface 0 is the loopback
+        Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+        NS_ASSERT_MSG(ipv4 != NULL, "Node has no Ipv4 object!");
+
+        for (uint32_t i = 1; i <= GetNodeDegree(node); i++)
+          {
+            if (random.GetValue () < currFprob)
+              {
+                ifacesToKill.Add(ipv4, i);
+                FailIpv4 (ipv4, i);
+              }
+          }
+      }
     }
 }
 
@@ -639,16 +687,23 @@ void
 GeocronExperiment::Run ()
 {
   int numDisasterPeers = 0;
-  // Set some parameters for this run
+
+  // Set up the proper heuristics, peer tables, and calculate the number of overlay nodes.
   for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
        nodeItr != disasterNodes[currLocation].end (); nodeItr++)
     /*  for (ApplicationContainer::Iterator app = disasterNodes[currLocation].Begin ();
         app != clientApps.End (); app++)*/
     {
+      // skip over routers
+      if (!IsOverlayNode (nodeItr->second))
+        continue;
+
+      // iterate over all applications just in case we add other apps later on...
       for (uint32_t i = 0; i < nodeItr->second->GetNApplications (); i++) {
         Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
-        if (ronClient == NULL)
+        if (ronClient == NULL) {
           continue;
+        }
 
         //add the heuristic and aggregate a weak random one to it to break ties
         //TODO: make a helper?
@@ -707,82 +762,3 @@ GeocronExperiment::Run ()
       ronClient->Reset ();
     }
 }
-
-//////////////////////////////////////////////////////////////////////
-//////////////////// Helper functions ////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-Vector
-GeocronExperiment::GetLocation (Ptr<Node> node)
-{
-  return node->GetObject<MobilityModel> ()->GetPosition ();
-}
-
-
-bool
-GeocronExperiment::HasLocation (Ptr<Node> node)
-{
-  Ptr<MobilityModel> mob = node->GetObject<MobilityModel> ();
-  if (mob == NULL)
-    {
-      NS_LOG_UNCOND ("Node " << node->GetId () << " has no MobilityModel!");
-      return false;
-    }
-  if (mob->GetPosition () == NO_LOCATION_VECTOR)
-    {
-      return false;
-    }
-  return true;
-}
-
-namespace ns3 {
-//global helper functions must be in ns3 namespace
-Ipv4Address GetNodeAddress(Ptr<Node> node)
-{
-  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
-  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
-}
-
-uint32_t GetNodeDegree(Ptr<Node> node)
-{
-  return node->GetNDevices() - 1; //assumes PPP links
-}
-}//ns3
-    /* Was used in a (failed) attempt to mimic the actual addresses from the file to exploit topology information...
-
-
-  uint32_t network_mask = 0xffffff00;
-  uint32_t host_mask = 0x000000ff;
-  Ipv4Mask ip_mask("255.255.255.0");
-
-    Ipv4Address from_addr = Ipv4Address(iter->GetAttribute("From Address").c_str());
-    Ipv4Address to_addr = Ipv4Address(iter->GetAttribute("To Address").c_str());
-    // Try to find an unused address near to this one (hopefully within the subnet)    while (Ipv4AddressGenerator::IsAllocated(from_addr) ||
-           ((from_addr.Get() & host_mask) == 0) ||
-           ((from_addr.Get() & host_mask) == 255)) {
-      from_addr.Set(from_addr.Get() + 1);
-    }
-
-    address.SetBase (Ipv4Address( from_addr.Get() & network_mask), ip_mask, Ipv4Address( from_addr.Get() & host_mask));
-    Ipv4InterfaceContainer from_iface = address.Assign (from_dev);
-
-    // Try to find an unused address near to this one (hopefully within the subnet)
-    while (Ipv4AddressGenerator::IsAllocated(to_addr) ||
-           ((to_addr.Get() & host_mask) == 0) ||
-           ((to_addr.Get() & host_mask) == 255)) {
-      to_addr.Set(to_addr.Get() + 1);
-    }
-
-    address.SetBase (Ipv4Address( to_addr.Get() & network_mask), ip_mask, Ipv4Address( to_addr.Get() & host_mask));
-    Ipv4InterfaceContainer to_iface = address.Assign (to_dev);
-
-    router_interfaces.Add(from_iface);
-    router_interfaces.Add(to_iface);*/
-
-
-
-        //Attributes
-        /*        for (TopologyReader::Link::ConstAttributesIterator attr = iter->AttributesBegin();
-             attr != iter->AttributesEnd(); attr++) {
-          //NS_LOG_INFO("Attribute: " + boost::lexical_cast<std::string>(attr->second));
-          }*/

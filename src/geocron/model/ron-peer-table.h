@@ -33,7 +33,7 @@
 
 namespace ns3 {
 
-/** We make this an objects so that we can aggregate one to each node. */
+/** We make this an object so that we can aggregate one to each node. */
 class RonPeerEntry : public Object
 {
 public:

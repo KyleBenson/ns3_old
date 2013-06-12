@@ -29,7 +29,7 @@ NS_LOG_COMPONENT_DEFINE ("RonDisasterSimulation");
 int 
 main (int argc, char *argv[])
 {
-  GeocronExperiment exp;
+  Ptr<GeocronExperiment> exp = CreateObject<GeocronExperiment> ();
 
   ////////////////////////////////////////////////////////////////////////////////
   ////////////////////     Arguments    //////////////////////////////////////////
@@ -50,24 +50,29 @@ main (int argc, char *argv[])
   double timeout = 1.0;
 
   CommandLine cmd;
+  // file parameters
   cmd.AddValue ("file", "File to read network topology from", filename);
   cmd.AddValue ("latencies", "File to read latencies from in Rocketfuel weights file format", latencyFile);
   cmd.AddValue ("locations", "File to read city locations from", locationFile);
+
+  // tracing/output
   cmd.AddValue ("tracing", "Whether to write traces to file", tracing);
   cmd.AddValue ("trace_acks", "Whether to print traces when a client receives an ACK from the server", trace_acks);
   cmd.AddValue ("trace_forwards", "Whether to print traces when a client forwards a packet", trace_forwards);
   cmd.AddValue ("trace_sends", "Whether to print traces when a client sends a packet initially", trace_sends);
   cmd.AddValue ("verbose", "Whether to print verbose log info (1=INFO, 2=LOGIC, 3=FUNCTION)", verbose);
+
+  // scenario parameters
   cmd.AddValue ("disaster", "Where the disaster(s) (and subsequent failures) is(are) to occur "
                 "(use underscores for spaces so the command line parser will actually work)", disaster_location);
   cmd.AddValue ("fail_prob", "Probability(s) that a link in the disaster region will fail", fail_prob);
   cmd.AddValue ("report_disaster", "Only RON clients in the disaster region will report to the server", report_disaster);
   cmd.AddValue ("heuristic", "Which heuristic(s) to use when choosing intermediate overlay nodes.", heuristic);
-  cmd.AddValue ("runs", "Number of times to run simulation on given inputs.", exp.nruns);
-  cmd.AddValue ("start_run", "Starting number to use for multiple runs when outputting files.", exp.start_run_number);
+  cmd.AddValue ("runs", "Number of times to run simulation on given inputs.", exp->nruns);
+  cmd.AddValue ("start_run", "Starting number to use for multiple runs when outputting files.", exp->start_run_number);
   cmd.AddValue ("timeout", "Seconds to wait for server reply before attempting contact through the overlay.", timeout);
   cmd.AddValue ("contact_attempts", "Number of times a reporting node will attempt to contact the server "
-                "(it will use the overlay after the first attempt).  Default is 1 (no overlay).", exp.contactAttempts);
+                "(it will use the overlay after the first attempt).  Default is 1 (no overlay).", exp->contactAttempts);
 
   cmd.Parse (argc,argv);
 
@@ -150,16 +155,17 @@ main (int argc, char *argv[])
   //////////       Create experiment and set parameters   ////////////////////////
   ////////////////////////////////////////////////////////////////////////////////
 
-  exp.heuristics = heuristics;
-  exp.disasterLocations = disasterLocations;
-  exp.failureProbabilities = failureProbabilities;
-  exp.SetTimeout (Seconds (timeout));
+  exp->heuristics = heuristics;
+  exp->disasterLocations = disasterLocations;
+  exp->failureProbabilities = failureProbabilities;
+  exp->SetTimeout (Seconds (timeout));
 
-  exp.ReadLocationFile (locationFile);
-  exp.ReadTopology (filename);
-  exp.ReadLatencyFile (latencyFile);
-  //exp.SetTraceFile (traceFile);
-  exp.RunAllScenarios ();
+  exp->ReadLatencyFile (latencyFile);
+  exp->ReadLocationFile (locationFile);
+  exp->ReadRocketfuelTopology (filename);
+  exp->IndexNodes ();
+  //exp->SetTraceFile (traceFile);
+  exp->RunAllScenarios ();
 
   return 0;
 }

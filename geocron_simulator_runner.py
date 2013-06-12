@@ -61,7 +61,7 @@ def parse_args(args):
     # Simulation parameters
     parser.add_argument('--as', nargs='+', default=default_as_choices, dest='topologies',
                         help='''choose the AS topologies for the simulations (default=%(default)s)''')
-    parser.add_argument('--topology-type', '--topo', default="rocketfuel",
+    parser.add_argument('--topology_type', '--topo', default="rocketfuel",
                         help='''choose how to read/generate topology (currently only rocketfuel)''')
     parser.add_argument('--disasters', type=str, nargs='*', default=default_disasters,
                         help='''disaster locations to apply to ALL AS choices (cities currently) (default depends on AS)''')
@@ -173,6 +173,9 @@ def makecmds(args):
                 cmd += "gdb --args "
             cmd += r'%s '
 
+            # first, ns3 typeId system configurations
+            cmd += '--ns3::GeocronExperiment::TopologyType=%s ' % args.topology_type
+
             # individual parameters
             if args.disasters != default_disasters:
                 disasters = ('"%s"' % '-'.join(args.disasters))
@@ -214,6 +217,7 @@ if __name__ == "__main__":
     if args.log:
         os.environ['NS_LOG'] = ':'.join(args.log)
 
+    #TODO: fix these 2
     if args.optimized:
         subprocess.call("./waf -d optimized configure --enable-examples", shell=True)
 

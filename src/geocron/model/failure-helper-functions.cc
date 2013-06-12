@@ -51,4 +51,15 @@ void UnfailNode (Ptr<Node> node, Time appStopTime)
     }
 }
 
+Ipv4Address GetNodeAddress(Ptr<Node> node)
+{
+  return ((Ipv4Address)(node->GetObject<Ipv4>()->GetAddress(1,0).GetLocal()));
+  // for interfaces: //ronServer.Install (router_interfaces.Get (0).first->GetNetDevice (0)->GetNode ());
+}
+
+uint32_t GetNodeDegree(Ptr<Node> node)
+{
+  return node->GetNDevices() - 1; //assumes PPP links
+}
+
 }//namespace
