@@ -226,8 +226,7 @@ if __name__ == "__main__":
         exit(1) #error building
 
     children = []
-    for cmd in makecmds(args):
-    
+    for cmd in makecmds(args):    
         if args.verbose:
             print(cmd)
         if args.show_cmd:

@@ -26,7 +26,7 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
-  //NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
+NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
 
 TypeId
 GeocronExperiment::GetTypeId ()
