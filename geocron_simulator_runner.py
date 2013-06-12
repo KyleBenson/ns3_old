@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/env python2
 from __future__ import print_function
 GEOCRON_SIMULATOR_RUNNER_DESCRIPTION = '''Handles building command line arguments to be passed to the Geocron Simulator.'''
 

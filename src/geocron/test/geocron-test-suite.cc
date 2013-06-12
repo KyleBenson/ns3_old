@@ -821,7 +821,7 @@ private:
 
 
 TestOrthogonalRonPathHeuristic::TestOrthogonalRonPathHeuristic ()
-  : TestCase ("Test aggregation feature of RonPathHeuristic objects, using NewRegion and Random")
+  : TestCase ("Test Orthogonal feature of RonPathHeuristic objects, using NewRegion and Random")
 {
   nodes = GridGenerator::GetNodes ();
   peers = GridGenerator::GetPeers ();
@@ -1038,6 +1038,134 @@ TestRonHeader::DoRun (void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+
+class TestAngleRonPathHeuristic : public TestCase
+{
+public:
+  TestAngleRonPathHeuristic ();
+  virtual ~TestAngleRonPathHeuristic ();
+  NodeContainer nodes;
+  PeerContainer peers;
+
+private:
+  virtual void DoRun (void);
+};
+
+
+TestAngleRonPathHeuristic::TestAngleRonPathHeuristic ()
+  : TestCase ("Test AngleRonPathHeuristic feature of RonPathHeuristic objects, using NewRegion and Random")
+{
+  nodes = GridGenerator::GetNodes ();
+  peers = GridGenerator::GetPeers ();
+}
+
+TestAngleRonPathHeuristic::~TestAngleRonPathHeuristic ()
+{
+}
+
+void
+TestAngleRonPathHeuristic::DoRun (void)
+{
+  bool equality;
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]);
+  Ptr<RonPath> path = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+  path->AddHop (botLeft, path->Begin ());
+  path2->AddHop (topRight, path2->Begin ());
+
+  Ptr<AngleRonPathHeuristic> angle = CreateObject<AngleRonPathHeuristic> ();
+  
+  angle->SetPeerTable (RonPeerTable::GetMaster ());
+  angle->SetSourcePeer (peers.front());
+  angle->MakeTopLevel ();
+
+  //do this so we can check some internal data structs
+  angle->BuildPaths (dest);
+  angle->UpdateLikelihoods (dest);
+
+  // TIMEOUT
+  //  ortho->NotifyTimeout (path, Simulator::Now ());
+
+  path = angle->GetBestPath (dest);
+
+  //make sure we get the right path
+  equality = *(path) == *(path2);
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node!");
+
+  path = angle->GetBestPath (dest);
+
+  //now it should be peers[2]
+  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+class TestFurtherestFirstRonPathHeuristic : public TestCase
+{
+public:
+  TestFurtherestFirstRonPathHeuristic ();
+  virtual ~TestFurtherestFirstRonPathHeuristic ();
+  NodeContainer nodes;
+  PeerContainer peers;
+
+private:
+  virtual void DoRun (void);
+};
+
+
+TestFurtherestFirstRonPathHeuristic::TestFurtherestFirstRonPathHeuristic ()
+  : TestCase ("Test FurtherestFirstRonPathHeuristic feature of RonPathHeuristic objects, using NewRegion and Random")
+{
+  nodes = GridGenerator::GetNodes ();
+  peers = GridGenerator::GetPeers ();
+}
+
+TestFurtherestFirstRonPathHeuristic::~TestFurtherestFirstRonPathHeuristic ()
+{
+}
+
+void
+TestFurtherestFirstRonPathHeuristic::DoRun (void)
+{
+  bool equality;
+  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]);
+  Ptr<RonPath> path = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+  path->AddHop (botLeft, path->Begin ());
+  path2->AddHop (topRight, path2->Begin ());
+
+  Ptr<FurtherestFirstRonPathHeuristic> far = CreateObject<FurtherestFirstRonPathHeuristic> ();
+  
+  far->SetPeerTable (RonPeerTable::GetMaster ());
+  far->SetSourcePeer (peers.front());
+  far->MakeTopLevel ();
+
+  //do this so we can check some internal data structs
+  far->BuildPaths (dest);
+  far->UpdateLikelihoods (dest);
+
+  // TIMEOUT
+  //  ortho->NotifyTimeout (path, Simulator::Now ());
+
+  path = far->GetBestPath (dest);
+
+  //make sure we get the right path
+  equality = *(path) == *(path2);
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node!");
+
+  path = far->GetBestPath (dest);
+
+  //now it should be peers[2]
+  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+}
+
+////////////////////////////////////////////////////////////////////////////////
 ////////////////////$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$////////////////////
 //////////$$$$$$$$$$   End of test cases - create test suite $$$$$$$$$$/////////
 ////////////////////$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$////////////////////
@@ -1066,6 +1194,8 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestRonPathHeuristic);
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
+  AddTestCase (new TestAngleRonPathHeuristic);
+  AddTestCase (new TestFurtherestFirstRonPathHeuristic);
 
   //network application stuff
   AddTestCase (new TestRonHeader);
