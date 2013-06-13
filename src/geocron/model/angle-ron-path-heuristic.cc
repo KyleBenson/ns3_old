@@ -117,24 +117,37 @@ double AngleRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   std::cout<<"likelihood = "<<newLikelihood<<std::endl;
   NS_ASSERT_MSG (newLikelihood, "newLikelihood gives the wrong answer");
   
-  NS_LOG_DEBUG ("source(" << m_source->location.x << "," << m_source->location.y
+  for (PathsAttemptedIterator itr = m_pathsAttempted.begin();
+       itr != m_pathsAttempted.end (); itr++)
+    {
+      // get a point to represent the current attempted path under consideration
+      Ptr<PeerDestination> thisDest = *((*itr)->Begin ());
+      vc = (*(thisDest->Begin ()))->location;
+
+      ac_dist = CalculateDistance (va, vc);
+      bc_dist = CalculateDistance (vb, vc);
+	
+      double thisLh = GetAngleLikelihood (GetDistance (ab_dist, ac_dist, bc_dist));
+
+      newLikelihood *= thisLh;
+    }
+
+  //NS_LOG_DEBUG (
+  std::cout <<
+		"source(" << m_source->location.x << "," << m_source->location.y
                 << "), dest(" << destination->location.x << "," << destination->location.y
                 << "), peer(" << peer->location.x << "," << peer->location.y
-                << ")'s LH = " << newLikelihood);
+                << ")'s LH = " << newLikelihood
+		<< std::endl;
+  //);
 
-  /*if(pastLikelihood != 0)
-  {
-     newLikelihood *= pastLikelihood;
-     pastLikelihood = newLikelihood;
-     std::cout<<"pastlikelihood = "<<pastLikelihood<<std::endl;
-     return newLikelihood;
-  }
-  else 
-  {
-     pastLikelihood = newLikelihood;
-     std::cout<<"initial pastlikelihood = "<<pastLikelihood<<std::endl;*/
-     return newLikelihood;
-  //}
-  
+  return newLikelihood;
 }
 
+double
+AngleRonPathHeuristic::GetAngleLikelihood (double ang)
+{
+  //TODO: implement
+  double pi = 3.14159265;
+  return fabs(cos(ang - pi*0.25));
+}

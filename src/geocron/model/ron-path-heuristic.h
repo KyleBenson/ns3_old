@@ -226,6 +226,7 @@ public:
   };
 
   typedef boost::unordered_set<Ptr<RonPath>, PathHasher, PathTestEqual> PathsAttempted;
+  typedef PathsAttempted::iterator PathsAttemptedIterator;
   //typedef std::set<Ptr<RonPath>> PathsAttempted;
   PathsAttempted m_pathsAttempted;
 

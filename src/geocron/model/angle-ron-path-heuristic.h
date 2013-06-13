@@ -10,8 +10,6 @@
 
 #include "ron-path-heuristic.h"
 
-extern double pastLikelihood;
-
 namespace ns3 {
 
 class AngleRonPathHeuristic : public RonPathHeuristic
@@ -23,6 +21,7 @@ private:
   virtual double GetLikelihood (Ptr<RonPath> path);
   double GetDistance(double d1, double d2, double d3);
   double GetInitialLikelihood (double ang);
+  double GetAngleLikelihood (double ang);
 };
 
 } //namespace
