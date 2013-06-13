@@ -184,8 +184,14 @@ def makecmds(args):
                 disasters = default_disasters[topology]
             cmd += '--disaster=%s ' % disasters
 
+            #TODO: brite topologies too
+            #cmd += '--file=rocketfuel/maps/%s.cch ' % topology
+            
+            # instead, this hack lets us put the different runs in the same directory,
+            # but separate different processes since they will have different topologies 
+            cmd += '--file=rocketfuel/maps/%s.cch ' % i
+
             cmd += '--fail_prob=%s ' % fprobs
-            cmd += '--file=rocketfuel/maps/%s.cch ' % topology
             cmd += '--runs=%i ' % nruns
             cmd += '--start_run=%i ' % startnum
             cmd += '--heuristic=%s ' % heuristics
