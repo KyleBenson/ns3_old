@@ -13,6 +13,7 @@
 #include "ns3/internet-module.h"
 #include "ns3/nix-vector-routing-module.h"
 #include "ns3/topology-read-module.h"
+#include "ns3/brite-module.h"
 #include "ns3/ipv4-address-generator.h" //necessary?
 #include "ns3/point-to-point-module.h"
 #include "ns3/network-module.h"
@@ -51,14 +52,15 @@ public:
 
   // functions dealing with topology generators
   void SetTopologyType (std::string topoType);
+
+  void ReadBriteTopology (std::string topologyFile);
+
   // next, Rocketfuel
   void ReadRocketfuelTopology (std::string topologyFile);
   /** This file gives us a map to figure out link latencies as indexed by region. */
   void ReadLatencyFile (std::string latencyFile);
   /** This file maps region names to physical locations. */
   void ReadLocationFile (std::string locationFile);
-  // finally, BRITE
-  //TODO
 
   void RunAllScenarios ();
   void Run ();

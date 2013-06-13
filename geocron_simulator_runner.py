@@ -121,10 +121,11 @@ def parse_args(args):
         #args.topologies = args.topologies[:1]
         if args.topologies == default_as_choices:
             args.topologies = ['3356'] #small topology in US
+            #TODO: something for rocketfuel once we feed that in to the GeocronExperiment
             if args.disasters == default_disasters:
-                args.disasters = ['Orlando,_FL'] #25 nodes
+                args.disasters = ['2,2'] #25 nodes
         if args.fprobs is default_fprobs:
-            args.fprobs = args.fprobs[:1]
+            args.fprobs = [str(0.5)]
 
     if args.show_cmd and args.verbose is None:
         args.verbose = default_verbosity_level
