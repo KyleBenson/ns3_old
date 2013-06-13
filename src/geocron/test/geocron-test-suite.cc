@@ -1176,12 +1176,14 @@ TestAngleRonPathHeuristic::DoRun (void)
   bool equality;
   Ptr<PeerDestination> dest = Create<PeerDestination> (GridGenerator::GetPeers ().back()),
   //Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
-  src = Create<PeerDestination> (peers.front()),
-  topRight = Create<PeerDestination> (peers[3]),
-  botLeft = Create<PeerDestination> (peers[5]);
-  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]),
+    nextBest = Create<PeerDestination> (GridGenerator::GetPeer (4,1));
+  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest);
   path1->AddHop (botLeft, path1->Begin ());
   path2->AddHop (topRight, path2->Begin ());
+  path3->AddHop (nextBest, path3->Begin ());
 
   Ptr<AngleRonPathHeuristic> angle = CreateObject<AngleRonPathHeuristic> ();
   
@@ -1230,7 +1232,7 @@ TestAngleRonPathHeuristic::DoRun (void)
   // Zhipeng: this one is giving us peers[1], i.e. (1,1) instead of the right one...
   
   // now it should be the next best angle option, near the bottom left
-  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  equality = *(path) == *path3;
   NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
@@ -1338,12 +1340,14 @@ TestDistRonPathHeuristic::DoRun (void)
 {
   bool equality;
   Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
-  src = Create<PeerDestination> (peers.front()),
-  topRight = Create<PeerDestination> (peers[3]),
-  botLeft = Create<PeerDestination> (peers[5]);
-  Ptr<RonPath> path,path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+    src = Create<PeerDestination> (peers.front()),
+    topRight = Create<PeerDestination> (peers[3]),
+    botLeft = Create<PeerDestination> (peers[5]),
+    nextBest = Create<PeerDestination> (GridGenerator::GetPeer (4,1));
+  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest);
   path1->AddHop (botLeft, path1->Begin ());
   path2->AddHop (topRight, path2->Begin ());
+  path3->AddHop (nextBest, path3->Begin ());
 
   Ptr<DistRonPathHeuristic> dist = CreateObject<DistRonPathHeuristic> ();
   
@@ -1356,19 +1360,38 @@ TestDistRonPathHeuristic::DoRun (void)
   dist->UpdateLikelihoods (dest);
 
   // TIMEOUT
-  //  ortho->NotifyTimeout (path, Simulator::Now ());
-
+  
   path = dist->GetBestPath (dest);
 
   //make sure we get the right path
   equality = (*(path) == *(path2)) or (*(path) == *(path1));
   NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right or bottom left node!");
 
+  // we don't define a rigid tie-breaker, so check that we get both top-right and bottom-left, but not the same one each time
+  bool gotTopRight = true;
+  if (*path == *path1)
+    gotTopRight = false;
+
+  dist->NotifyTimeout (path, Simulator::Now ());
+
   path = dist->GetBestPath (dest);
 
-  //now it should be peers[2]
-  //equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
-  //NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  // now it should be the other one
+  if (gotTopRight) {
+    equality = (*(path) == *(path1));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom left node now!");
+  } else {
+    equality = (*(path) == *(path2));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
+  }
+
+  dist->NotifyTimeout (path, Simulator::Now ());
+
+  path = dist->GetBestPath (dest);
+  
+  // now it should be the next best angle option, near the bottom left
+  equality = *(path) == *path3;
+  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
 
