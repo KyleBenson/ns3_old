@@ -10,6 +10,7 @@
 #include <vector>
 #include <iostream>
 #include <ctime>
+#include <map>
 
 // Do not put your test classes in namespace ns3.  You may find it useful
 // to use the using directive to access the ns3 namespace directly
@@ -26,20 +27,50 @@ public:
   PeerContainer cachedPeers;
   NodeContainer cachedNodes;
 
-  static GridGenerator GetInstance ()
+  Ptr<RonPeerTable> allPeers;
+
+  PointToPointGridHelper * grid;
+
+  // 2D array of peer entries
+  // NOTE: how the four quadrant regions are defined, the higher numbered regions will have more peers.
+  // i.e. a 5x5 grid will have TopLeft be (0,0) -> (1,1), BottomLeft will be (4,0) -> (2,1)
+  std::vector<std::vector<Ptr<RonPeerEntry> > > gridPeers; 
+
+  static GridGenerator * GetInstance ()
   {
-    static GridGenerator instance = GridGenerator ();
+    static GridGenerator * instance = new GridGenerator ();
     return instance;
   }
   
   static NodeContainer GetNodes ()
   {
-    return GetInstance ().cachedNodes;
+    return GetInstance ()->cachedNodes;
   }
 
   static PeerContainer GetPeers ()
   {
-    return GetInstance ().cachedPeers;
+    return GetInstance ()->cachedPeers;
+  }
+
+  static Ptr<Node> GetNode (uint32_t row, uint32_t col)
+  {
+    return GetInstance ()->grid->GetNode (row, col);
+  }
+
+  // really only exists for sanity checks in constructor
+  Ptr<RonPeerEntry> DoGetPeer (uint32_t row, uint32_t col)
+  {
+    return gridPeers[row][col];
+  }
+
+  static Ptr<RonPeerEntry> GetPeer (uint32_t row, uint32_t col)
+  {
+    return GetInstance ()->DoGetPeer (row, col);
+  }
+
+  static Ptr<RonPeerTable> GetAllPeers ()
+  {
+    return GetInstance ()->allPeers;
   }
 
   GridGenerator ()
@@ -56,22 +87,22 @@ public:
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
-    PointToPointGridHelper grid = PointToPointGridHelper (nrows, ncols, pointToPoint);
-    grid.BoundingBox (0, 0, 10, 10);
+    grid = new PointToPointGridHelper (nrows, ncols, pointToPoint);
+    grid->BoundingBox (0, 0, 10, 10);
     InternetStackHelper internet;
-    grid.InstallStack (internet);
-    grid.AssignIpv4Addresses (rowHelper, colHelper);
+    grid->InstallStack (internet);
+    grid->AssignIpv4Addresses (rowHelper, colHelper);
     rowHelper.NewNetwork ();
     colHelper.NewNetwork ();
   
-    cachedNodes.Add (grid.GetNode (0,0));
-    cachedNodes.Add (grid.GetNode (1,1));
-    cachedNodes.Add (grid.GetNode (4,1)); //2nd choice for this V
-    cachedNodes.Add (grid.GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
-    cachedNodes.Add (grid.GetNode (3,3));
-    cachedNodes.Add (grid.GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
-    cachedNodes.Add (grid.GetNode (4,4));
-    //cachedNodes.Add (grid.GetNode (3,0));
+    cachedNodes.Add (grid->GetNode (0,0));
+    cachedNodes.Add (grid->GetNode (1,1));
+    cachedNodes.Add (grid->GetNode (4,1)); //2nd choice for this V
+    cachedNodes.Add (grid->GetNode (0,4)); //should be best ortho path for 0,0 --> 4,4
+    cachedNodes.Add (grid->GetNode (3,3));
+    cachedNodes.Add (grid->GetNode (4,0)); //should be best ortho path for 0,0 --> 4,4
+    cachedNodes.Add (grid->GetNode (4,4));
+    //cachedNodes.Add (grid->GetNode (3,0));
 
     NS_ASSERT_MSG (cachedNodes.Get (0)->GetId () != cachedNodes.Get (2)->GetId (), "nodes shouldn't ever have same ID!");
 
@@ -93,7 +124,7 @@ public:
     cachedPeers[6]->region = "BR";
     //cachedPeers[7]->region = "BL";
 
-    //add all peers to master peer table
+    //add all cached peers to master peer table
     Ptr<RonPeerTable> master = RonPeerTable::GetMaster ();
 
     for (PeerContainer::iterator itr = cachedPeers.begin ();
@@ -101,6 +132,57 @@ public:
       {
         master->AddPeer (*itr);
       }
+
+    ////////////////////////////////////////////////////////////
+    ////////////////////  NEW STYLE PEER ACCESS  ///////////////
+    ////////////////////////////////////////////////////////////
+
+    allPeers = Create<RonPeerTable> ();
+
+    // // save info about ALL the peers
+    for (uint32_t i = 0; i < nrows; i++)
+      {
+        std::vector<Ptr<RonPeerEntry> > vec;
+        gridPeers.push_back (vec);
+
+        for (uint32_t j = 0; j < nrows; j++)
+          {
+            Ptr<RonPeerEntry> thisPeer = Create<RonPeerEntry> (grid->GetNode (i, j));
+
+            // build up the region based on the location of the current node being considered
+            std::string regionLabel;
+            regionLabel += (i < nrows/2 ? "T" : "B");
+            regionLabel += (j < ncols/2 ? "L" : "R");
+
+            Location newRegion = regionLabel;
+            thisPeer->region = newRegion;
+
+            gridPeers[i].push_back (thisPeer);
+
+            allPeers->AddPeer (thisPeer);
+          }
+      }
+
+    // some sanity checks that this craziness ^^^ worked
+    NS_ASSERT_MSG (DoGetPeer (0,0)->region == cachedPeers[0]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (1,1)->region == cachedPeers[1]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,1)->region == cachedPeers[2]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (0,4)->region == cachedPeers[3]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (3,3)->region == cachedPeers[4]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,0)->region == cachedPeers[5]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+    NS_ASSERT_MSG (DoGetPeer (4,4)->region == cachedPeers[6]->region,
+                   "cachedPeers' region doesn't match that of peers from grid!");
+  }
+
+  ~GridGenerator ()
+  {
+    //delete grid; // causes seg faults since we dont always use object pointers...
   }
 };
 
@@ -837,7 +919,8 @@ void
 TestOrthogonalRonPathHeuristic::DoRun (void)
 {
   bool equality;
-  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+  //Ptr<PeerDestination> dest = Create<PeerDestination> (CreateObject<RonPeerEntry> (GridGenerator::GetNode (4, 4))),
+  Ptr<PeerDestination> dest = Create<PeerDestination> (GridGenerator::GetPeers ().back()),
     src = Create<PeerDestination> (peers.front()),
     topRight = Create<PeerDestination> (peers[3]),
     botLeft = Create<PeerDestination> (peers[5]);
@@ -869,6 +952,8 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
   if (path == path1)
     gotTopRight = false;
 
+  ortho->NotifyTimeout (path, Simulator::Now ());
+
   path = ortho->GetBestPath (dest);
 
   // now it should be the other one
@@ -880,9 +965,14 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
   }
 
-  //now it should be peers[2]
-  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
-  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  //NOTE: we currently ignore obtuse angles in this heuristic, which any node other than the far corners of the square will be
+  //now it should be peers[2], a node 'inside' the grid
+  // ortho->NotifyTimeout (path, Simulator::Now ());
+
+  // path = ortho->GetBestPath (dest);
+
+  // equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  // NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
 

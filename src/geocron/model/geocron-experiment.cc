@@ -26,7 +26,7 @@
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("GeocronExperiment");
-  //NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
+NS_OBJECT_ENSURE_REGISTERED (GeocronExperiment);
 
 TypeId
 GeocronExperiment::GetTypeId ()
@@ -119,6 +119,14 @@ bool
 GeocronExperiment::IsDisasterNode (Ptr<Node> node)
 {
   return disasterNodes[currLocation].count ((node)->GetId ());
+}
+
+
+bool
+GeocronExperiment::IsOverlayNode (Ptr<Node> node)
+{
+  // first part handles if we didn't specify a max degree for overlay nodes, in which case ALL nodes are overlays...
+  return !maxNDevs or GetNodeDegree (node) <= maxNDevs;
 }
 
 
@@ -251,12 +259,7 @@ GeocronExperiment::ReadRocketfuelTopology (std::string topologyFile)
 
     // NetDevices
     NetDeviceContainer new_devs = pointToPoint.Install (both_nodes);
-    NetDeviceContainer from_dev;
-    from_dev.Add(new_devs.Get(0));
-    NetDeviceContainer to_dev;
-    to_dev.Add(new_devs.Get(1));
-    //router_devices.Add(new_devs);
-
+ 
     // Interfaces
     Ipv4InterfaceContainer new_interfaces = address.Assign (new_devs);
     //router_interfaces.Add(new_interfaces);
@@ -442,7 +445,9 @@ GeocronExperiment::IndexNodes () {
   DegreePriorityQueue potentialServerNodeCandidates;
   uint32_t nLowestDegreeNodes = 0, lowDegree = 0;
 
+  // For finding all the overlay nodes, which must be done before installing applications since we need to specify the peers
   NodeContainer overlayNodes;
+
   for (NodeContainer::Iterator node = nodes.Begin ();
        node != nodes.End (); node++)
     {
@@ -457,53 +462,58 @@ GeocronExperiment::IndexNodes () {
           disasterNodes[currLocation].erase ((*node)->GetId ());
           continue;
         }
+
+      // Aggregate RonPeerEntry objects for getting useful peering information later
+      Ptr<RonPeerEntry> thisPeer = (*node)->GetObject<RonPeerEntry> ();
+
+      // sanity check that this is the only place we set this info
+#ifdef NS3_LOG_ENABLE
+      if (thisPeer)
+        NS_ASSERT_MSG (false, "Where did this RonPeerEntry come from???");
+#endif
+
+      Location nodeRegion = GetRegionHelper ()->GetRegion(GetLocation(*node));
+      // note that this swanky RonPeerEntry constructor handles the other attributes
+      thisPeer = CreateObject<RonPeerEntry> (*node);
+      thisPeer->region = nodeRegion;
+      (*node)->AggregateObject (thisPeer);
+
+      // Build disaster node indexes
+      // If the node is in a disaster region, add it to the corresponding list
+
+      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
+           // Only bother if the region is defined
+           disasterLocation != disasterLocations->end () and nodeRegion != NULL_REGION;
+           disasterLocation++)
+        {
+          if (nodeRegion == *disasterLocation)
+            {
+              disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > ((*node)->GetId (), *node));
+            }
+ 
+          // Used for debugging to make sure locations are being found properly
+#ifdef NS3_LOG_ENABLE
+          if (!HasLocation (*node))
+            {
+              NS_LOG_DEBUG ("Node " << (*node)->GetId () << " has no position!");
+            }
+#endif
+        } // end disaster location iteration
       
+      // OVERLAY NODES
+      //
       // We may only install the overlay application on clients attached to stub networks,
       // so we just choose the stub network nodes here
       // (note that all nodes have a loopback device)
-      if (!maxNDevs or degree <= maxNDevs) 
+      if (IsOverlayNode (*node)) 
         {
           overlayNodes.Add (*node);
           overlayPeers->AddPeer (*node);
-
-          //aggregate RonPeerEntries to Nodes if we haven't already
-          Ptr<RonPeerEntry> thisPeer = (*node)->GetObject<RonPeerEntry> ();
-          Location nodeRegion;
-
-          // sanity check that this is the only place we set Region info
-#ifdef NS3_LOG_ENABLE
-          if (thisPeer)
-            NS_ASSERT_MSG (false, "Where did this RonPeerEntry come from???");
-#endif
-
-          // note that this swanky RonPeerEntry constructor handles the other attributes
-          thisPeer = CreateObject<RonPeerEntry> (*node);
-          nodeRegion = GetRegionHelper ()->GetRegion(GetLocation(*node));
-          thisPeer->region = nodeRegion;
-          (*node)->AggregateObject (thisPeer);
-
-          // Build disaster node indexes
-          // If the node is in a disaster region, add it to the corresponding list
-
-          for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
-               disasterLocation != disasterLocations->end (); disasterLocation++)
-            {
-              if (nodeRegion == *disasterLocation)
-                {
-                  disasterNodes[*disasterLocation].insert(std::pair<uint32_t, Ptr<Node> > ((*node)->GetId (), *node));
-                }
- 
-              // Used for debugging to make sure locations are being found properly
-#ifdef NS3_LOG_ENABLE
-              if (!HasLocation (*node))
-                {
-                  NS_LOG_DEBUG ("Node " << (*node)->GetId () << " has no position!");
-                }
-#endif
-            } // end disaster location iteration
         }
 
-      else if (degree > maxNDevs and HasLocation (*node))
+      // ROUTING NODES
+      // must ignore if no location information, since clients expect server location info!
+      else if (!IsOverlayNode (*node) and HasLocation (*node))
         {
           //add potential server
           if (degree >= lowDegree or potentialServerNodeCandidates.size () < nServerChoices)
@@ -548,6 +558,47 @@ GeocronExperiment::IndexNodes () {
             }
         }
     } // end node iteration
+
+  // Install client applications
+  // NOTE: this must be done after finding ALL the overlay nodes so that we can assign peers to each application
+  RonClientHelper ronClient (9);
+  ronClient.SetAttribute ("Interval", TimeValue (Seconds (1.)));
+  ronClient.SetAttribute ("PacketSize", UintegerValue (1024));
+  ronClient.SetAttribute ("Timeout", TimeValue (timeout));
+  
+  // Install client app and set number of server contacts they make based on whether all nodes
+  // should report the disaster or only the ones in the disaster region.
+  for (NodeContainer::Iterator node = overlayNodes.Begin ();
+       node != overlayNodes.End (); node++)
+    {
+      ApplicationContainer newApp = ronClient.Install (*node);
+      clientApps.Add (newApp);
+      Ptr<RonClient> newClient = DynamicCast<RonClient> (newApp.Get (0));
+      newClient->SetAttribute ("MaxPackets", UintegerValue (0)); //explicitly enable sensor reporting when disaster area set
+      newClient->SetPeerTable (overlayPeers); //TODO: make this part of the helper?? or some p2p overlay algorithm? or the table itself? give out a callback function with that nodes peers?
+    }
+  
+  clientApps.Start (Seconds (2.0));
+  clientApps.Stop (appStopTime);
+
+  // Now cache the actual choices of server nodes for each disaster region
+  NS_LOG_DEBUG (potentialServerNodeCandidates.size () << " total potentialServerNodeCandidates.");
+  for (DegreePriorityQueue::iterator itr = potentialServerNodeCandidates.begin ();
+       itr != potentialServerNodeCandidates.end (); itr++)
+    {
+      NS_LOG_DEBUG ("Node " << itr->second->GetId () << " has degree " << GetNodeDegree (itr->second));
+      Ptr<Node> serverCandidate = itr->second;
+      Ptr<RonPeerEntry> candidatePeer = serverCandidate->GetObject<RonPeerEntry> ();
+      NS_ASSERT_MSG (candidatePeer != NULL, "Server doesn't have a RonPeerEntry!");
+      Location loc = candidatePeer->region;
+
+      for (std::vector<Location>::iterator disasterLocation = disasterLocations->begin ();
+           disasterLocation != disasterLocations->end (); disasterLocation++)
+        {
+          if (*disasterLocation != loc)
+            serverNodeCandidates[*disasterLocation].Add (serverCandidate);
+        }
+    }
 }
 
 /**   Fail the links that were chosen with given probability */
@@ -577,11 +628,8 @@ GeocronExperiment::ApplyFailureModel () {
         Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
         NS_ASSERT_MSG(ipv4 != NULL, "Node has no Ipv4 object!");
 
-        std::cout << "Node " << node->GetId () << " has degree " << GetNodeDegree (node) << std::endl;
-
         for (uint32_t i = 1; i <= GetNodeDegree(node); i++)
           {
-            std::cout << "considering link on node " << node->GetId () << " for failure..." << std::endl;
             if (random.GetValue () < currFprob)
               {
                 ifacesToKill.Add(ipv4, i);
@@ -639,16 +687,23 @@ void
 GeocronExperiment::Run ()
 {
   int numDisasterPeers = 0;
-  // Set some parameters for this run
+
+  // Set up the proper heuristics, peer tables, and calculate the number of overlay nodes.
   for (std::map<uint32_t, Ptr <Node> >::iterator nodeItr = disasterNodes[currLocation].begin ();
        nodeItr != disasterNodes[currLocation].end (); nodeItr++)
     /*  for (ApplicationContainer::Iterator app = disasterNodes[currLocation].Begin ();
         app != clientApps.End (); app++)*/
     {
+      // skip over routers
+      if (!IsOverlayNode (nodeItr->second))
+        continue;
+
+      // iterate over all applications just in case we add other apps later on...
       for (uint32_t i = 0; i < nodeItr->second->GetNApplications (); i++) {
         Ptr<RonClient> ronClient = DynamicCast<RonClient> (nodeItr->second->GetApplication (0));
-        if (ronClient == NULL)
+        if (ronClient == NULL) {
           continue;
+        }
 
         //add the heuristic and aggregate a weak random one to it to break ties
         //TODO: make a helper?
@@ -706,31 +761,4 @@ GeocronExperiment::Run ()
       Ptr<RonClient> ronClient = DynamicCast<RonClient> (*app);
       ronClient->Reset ();
     }
-}
-
-//////////////////////////////////////////////////////////////////////
-//////////////////// Helper functions ////////////////////////////////
-//////////////////////////////////////////////////////////////////////
-
-Vector
-GeocronExperiment::GetLocation (Ptr<Node> node)
-{
-  return node->GetObject<MobilityModel> ()->GetPosition ();
-}
-
-
-bool
-GeocronExperiment::HasLocation (Ptr<Node> node)
-{
-  Ptr<MobilityModel> mob = node->GetObject<MobilityModel> ();
-  if (mob == NULL)
-    {
-      NS_LOG_UNCOND ("Node " << node->GetId () << " has no MobilityModel!");
-      return false;
-    }
-  if (mob->GetPosition () == NO_LOCATION_VECTOR)
-    {
-      return false;
-    }
-  return true;
 }
