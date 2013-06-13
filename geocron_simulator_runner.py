@@ -192,7 +192,7 @@ def makecmds(args):
             
             # instead, this hack lets us put the different runs in the same directory,
             # but separate different processes since they will have different topologies 
-            cmd += '--file=rocketfuel/maps/%s.cch ' % i
+            cmd += '--file=%s ' % i
 
             cmd += '--fail_prob=%s ' % fprobs
             cmd += '--runs=%i ' % nruns

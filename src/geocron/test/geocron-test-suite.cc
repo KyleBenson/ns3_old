@@ -1250,7 +1250,7 @@ private:
 
 
 TestFurtherestFirstRonPathHeuristic::TestFurtherestFirstRonPathHeuristic ()
-  : TestCase ("Test FurtherestFirstRonPathHeuristic feature of RonPathHeuristic objects, using NewRegion and Random")
+  : TestCase ("Test FurtherestFirstRonPathHeuristic feature of RonPathHeuristic objects")
 {
   nodes = GridGenerator::GetNodes ();
   peers = GridGenerator::GetPeers ();
@@ -1264,13 +1264,13 @@ void
 TestFurtherestFirstRonPathHeuristic::DoRun (void)
 {
   bool equality;
-  Ptr<PeerDestination> dest = Create<PeerDestination> (peers.back()),
+  Ptr<PeerDestination> dest = Create<PeerDestination> (GridGenerator::GetPeer (0, 4)),
     src = Create<PeerDestination> (peers.front()),
-    topRight = Create<PeerDestination> (peers[3]),
+    botRight = Create<PeerDestination> (GridGenerator::GetPeer (4, 4)),
     botLeft = Create<PeerDestination> (peers[5]);
-  Ptr<RonPath> path,path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest);
+  Ptr<RonPath> path,path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest);
   path1->AddHop (botLeft, path1->Begin ());
-  path2->AddHop (topRight, path2->Begin ());
+  path2->AddHop (botRight, path2->Begin ());
 
   Ptr<FurtherestFirstRonPathHeuristic> far = CreateObject<FurtherestFirstRonPathHeuristic> ();
   
@@ -1288,11 +1288,12 @@ TestFurtherestFirstRonPathHeuristic::DoRun (void)
 
   path = far->GetBestPath (dest);
 
-  expectedDestination = Create<PeerDestination> (GridGenerator::GetPeer (4, 4));
+  expectedDestination = botRight;
 
   //make sure we get the right path
   //equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[4]);
-  equality = *(*path->Begin ()) == *expectedDestination;
+  //equality = (*(*path->Begin ()) == *expectedDestination);
+  equality = *path == *path2;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom right node!");
 
   far->NotifyTimeout (path, Simulator::Now ());
@@ -1302,7 +1303,7 @@ TestFurtherestFirstRonPathHeuristic::DoRun (void)
   expectedDestination = Create<PeerDestination> (GridGenerator::GetPeer (3, 3));
 
 //make sure we get the right path
-  equality = (*(*path->Begin ()) == *expectedDestination);
+  equality = (*(*(*path->Begin ())->Begin ()) == *(*expectedDestination->Begin ()));
   NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have been next from bottom right, i.e. 3,3!");
 }
 
@@ -1430,8 +1431,8 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
   AddTestCase (new TestDistRonPathHeuristic);
-  AddTestCase (new TestAngleRonPathHeuristic);
   AddTestCase (new TestFurtherestFirstRonPathHeuristic);
+  AddTestCase (new TestAngleRonPathHeuristic);
 
   //network application / experiment stuff
   AddTestCase (new TestRonHeader);

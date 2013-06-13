@@ -169,7 +169,7 @@ main (int argc, char *argv[])
   exp->ReadRocketfuelTopology (filename);
   */
   
-  exp->ReadBriteTopology ("src/brite/examples/conf_files/TD_ASBarabasi_RTWaxman.conf");
+  exp->ReadBriteTopology (filename);
 
   exp->IndexNodes ();
   //exp->SetTraceFile (traceFile);

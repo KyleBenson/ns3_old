@@ -139,6 +139,11 @@ GeocronExperiment::IsOverlayNode (Ptr<Node> node)
 
 void GeocronExperiment::ReadBriteTopology (std::string topologyFile)
 {
+  this->topologyFile = topologyFile;
+  
+  //TODO: don't hard-code this
+  topologyFile = "src/brite/examples/conf_files/TD_ASBarabasi_RTWaxman.conf";
+
   //TODO: make these part of the object so we can change it
   double boundaryLength = 1000;
   

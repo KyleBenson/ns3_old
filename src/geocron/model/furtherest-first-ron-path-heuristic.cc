@@ -10,6 +10,7 @@
 
 using namespace ns3;
 
+NS_LOG_COMPONENT_DEFINE ("FurtherestFirstRonPathHeuristic");
 
 NS_OBJECT_ENSURE_REGISTERED (FurtherestFirstRonPathHeuristic);
 
@@ -32,7 +33,7 @@ FurtherestFirstRonPathHeuristic::GetTypeId (void)
                    StringValue ("far"),
                    MakeStringAccessor (&FurtherestFirstRonPathHeuristic::m_shortName),
                    MakeStringChecker ())
-    .AddAttribute ("MaxDistance", "Minimum distance we will permit for peers.",
+    .AddAttribute ("MinDistance", "Minimum distance we will permit for peers.",
                    DoubleValue (1.0),
                    MakeDoubleAccessor (&FurtherestFirstRonPathHeuristic::m_minDistance),
                    MakeDoubleChecker<double> ())
@@ -54,14 +55,14 @@ FurtherestFirstRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   double distance = CalculateDistance (va, vb);
   double likelihood;
   
-  std::cout<<"the distance is "<<distance<<std::endl;
+  NS_LOG_DEBUG ("the distance is "<<distance);
 
-  if (distance <= m_minDistance)
+  if (distance < m_minDistance)
       return 0;  
   else 
   {
-      likelihood = 0.1 * (distance - m_minDistance);
-      std::cout<<"the furtherest likelihood is "<<likelihood<<std::endl;
+      likelihood = (distance - m_minDistance);
+      NS_LOG_DEBUG ("the furtherest likelihood is "<<likelihood);
   }
   
   return likelihood;
