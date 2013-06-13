@@ -36,7 +36,8 @@ GeocronExperiment::GetTypeId ()
     .AddConstructor<GeocronExperiment> ()
     .AddAttribute ("TopologyType",
                    "Name of the topology generator to be used by this experiment.  Supports: rocketfuel, brite.",
-                   StringValue ("rocketfuel"),
+                   //StringValue ("rocketfuel"),
+                   StringValue ("brite"),
                    MakeStringAccessor (&GeocronExperiment::topologyType),
                    MakeStringChecker ())
   ;
@@ -72,8 +73,9 @@ Ptr<RegionHelper> GeocronExperiment::GetRegionHelper ()
       // set regionHelper by the type specified
       if (topologyType == "rocketfuel")
         regionHelper = CreateObject<RocketfuelRegionHelper> ();
-      else if (topologyType == "brite")
+      else if (topologyType == "brite") {
         regionHelper = CreateObject<BriteRegionHelper> ();
+      }
       else {
         NS_ASSERT_MSG(false, "Invalid topology type: " << topologyType);
       }
@@ -128,6 +130,61 @@ GeocronExperiment::IsOverlayNode (Ptr<Node> node)
   // first part handles if we didn't specify a max degree for overlay nodes, in which case ALL nodes are overlays...
   return !maxNDevs or GetNodeDegree (node) <= maxNDevs;
 }
+
+
+/////////////////////////////////////////////////////////////////////
+////////////////////    BRITE Topology //////////////////////////////
+/////////////////////////////////////////////////////////////////////
+
+
+void GeocronExperiment::ReadBriteTopology (std::string topologyFile)
+{
+  //TODO: make these part of the object so we can change it
+  double boundaryLength = 1000;
+  
+  Ptr<BriteRegionHelper> regionHelper = DynamicCast<BriteRegionHelper> (GetRegionHelper ());
+  NS_ASSERT_MSG (regionHelper, "Need BriteRegionHelper for ReadBriteTopology!");
+
+  regionHelper->SetTopologySize (boundaryLength);
+
+  BriteTopologyHelper bth (topologyFile);
+  // need to seed it with something different from any other running procs
+  std::size_t seed = 0;
+  boost::hash_combine (seed, std::time (NULL));
+  boost::hash_combine (seed, getpid());
+  bth.AssignStreams (seed);
+
+  //TODO: BGP routing and others
+
+  // need a list routing setup
+  Ipv4NixVectorHelper nixRouting;
+  nixRouting.SetAttribute("FollowDownEdges", BooleanValue (true));
+  Ipv4StaticRoutingHelper staticRouting;
+  Ipv4ListRoutingHelper routingList;
+  routingList.Add (staticRouting, 0);
+  routingList.Add (nixRouting, 10);
+  InternetStackHelper stack;
+  stack.SetRoutingHelper (routingList); // has effect on the next Install ()
+
+  bth.BuildBriteTopology (stack);
+
+  //TODO: hierarchical address assignment... maybe eventually
+  Ipv4AddressHelper address;
+  address.SetBase ("10.1.0.0", "255.255.255.252");
+  bth.AssignIpv4Addresses (address);
+
+  // BriteTopologyHelper doesn't give easy access to ALL nodes, so get all of the global ones
+  nodes = NodeContainer::GetGlobal ();
+
+  // TODO: save information about AS's for that heuristic and other reasons
+
+  NS_LOG_INFO ("Number of AS created " << bth.GetNAs ());
+}
+
+
+/////////////////////////////////////////////////////////////////////
+////////////////////    Rocketfuel Topology /////////////////////////
+/////////////////////////////////////////////////////////////////////
 
 
 void

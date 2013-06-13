@@ -50,10 +50,14 @@ main (int argc, char *argv[])
   double timeout = 1.0;
 
   CommandLine cmd;
-  // file parameters
-  cmd.AddValue ("file", "File to read network topology from", filename);
+  // file /topology generator parameters
+  cmd.AddValue ("file", "File to read network topology, or configuration in the case of topology generators, from", filename);
+
+  // cmd.AddValue ("event_radius", "Radius of affect of the events", exp->eventRadius);
+  // cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", exp->boundaryLength);
+
   cmd.AddValue ("latencies", "File to read latencies from in Rocketfuel weights file format", latencyFile);
-  cmd.AddValue ("locations", "File to read city locations from", locationFile);
+  cmd.AddValue ("locations", "File to read city locations from (used with Rocketfuel)", locationFile);
 
   // tracing/output
   cmd.AddValue ("tracing", "Whether to write traces to file", tracing);
@@ -160,9 +164,13 @@ main (int argc, char *argv[])
   exp->failureProbabilities = failureProbabilities;
   exp->SetTimeout (Seconds (timeout));
 
-  exp->ReadLatencyFile (latencyFile);
+  /*exp->ReadLatencyFile (latencyFile);
   exp->ReadLocationFile (locationFile);
   exp->ReadRocketfuelTopology (filename);
+  */
+  
+  exp->ReadBriteTopology ("src/brite/examples/conf_files/TD_ASBarabasi_RTWaxman.conf");
+
   exp->IndexNodes ();
   //exp->SetTraceFile (traceFile);
   exp->RunAllScenarios ();

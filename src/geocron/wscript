@@ -25,7 +25,7 @@ def get_all_sources(path):
     return sources, headers
 
 def build(bld):
-    module = bld.create_ns3_module('geocron', ['core', 'network', 'internet', 'applications', 'mobility', 'nix-vector-routing', 'topology-read', 'point-to-point',
+    module = bld.create_ns3_module('geocron', ['core', 'network', 'internet', 'applications', 'mobility', 'nix-vector-routing', 'topology-read', 'point-to-point', 'brite',
                                                #these only needed for Test Suite
                                                'point-to-point-layout'
                                                ])
