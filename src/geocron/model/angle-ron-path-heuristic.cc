@@ -44,9 +44,13 @@ AngleRonPathHeuristic::GetTypeId (void)
 //The function that calculate the angle
 double AngleRonPathHeuristic::GetDistance (double d1, double d2, double d3)
 {
+  if (d1 == 0 or d2 == 0 or d3 == 0)
+    return 0;
+
+  //std::cout << "locations: " << d1 << ", " << d2 << ", " << d3 << std::endl;
   double ang = acos ((d2 * d2 + d1 * d1 - d3 * d3) /
                        (2.0 * d2 * d1));
-  
+  //std::cout << "angle: " << ang << std::endl;
   return ang;
 }
 
@@ -98,7 +102,7 @@ double AngleRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 
   // compute angles with law of cosines
   double a_ang = GetDistance(ab_dist, ac_dist, bc_dist);
-  std::cout<<"the angle is "<<a_ang<<std::endl;
+  //std::cout<<"the angle is "<<a_ang<<std::endl;
   
   // Throw away obtuse triangles and ensure perpDist is in bounds
   //we pick the max distance to be twice the ideal (i.e. ab_dist) so we can easily normalize the error
@@ -114,32 +118,44 @@ double AngleRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   double newLikelihood = 0.0;
 
   newLikelihood = GetInitialLikelihood(a_ang);
-  std::cout<<"likelihood = "<<newLikelihood<<std::endl;
+  //std::cout<<"initial likelihood = "<<newLikelihood<<std::endl;
   NS_ASSERT_MSG (newLikelihood, "newLikelihood gives the wrong answer");
-  
+
+  // set a point to represent the current path being considered
+  vb = peer->location;
+ 
+  // scale likelihood based on the previous attempts
   for (PathsAttemptedIterator itr = m_pathsAttempted.begin();
        itr != m_pathsAttempted.end (); itr++)
     {
       // get a point to represent the current attempted path under consideration
       Ptr<PeerDestination> thisDest = *((*itr)->Begin ());
       vc = (*(thisDest->Begin ()))->location;
+      
+      //std::cout << "vectors are: " << va << ", " << vb << ", " << vc << std::endl;
 
+      ab_dist = CalculateDistance (va, vb);
       ac_dist = CalculateDistance (va, vc);
       bc_dist = CalculateDistance (vb, vc);
-	
-      double thisLh = GetAngleLikelihood (GetDistance (ab_dist, ac_dist, bc_dist));
+      
+      double angle = GetDistance (ab_dist, ac_dist, bc_dist);
+      if (bc_dist == 0)
+	angle = 0;
+      double thisLh = GetAngleLikelihood (angle);
+
+      //std::cout << "scaling by LH " << thisLh << std::endl;
 
       newLikelihood *= thisLh;
     }
 
-  //NS_LOG_DEBUG (
-  std::cout <<
+  NS_LOG_DEBUG (
+  //std::cout <<
 		"source(" << m_source->location.x << "," << m_source->location.y
                 << "), dest(" << destination->location.x << "," << destination->location.y
                 << "), peer(" << peer->location.x << "," << peer->location.y
                 << ")'s LH = " << newLikelihood
-		<< std::endl;
-  //);
+		//<< std::endl;
+  );
 
   return newLikelihood;
 }
@@ -148,6 +164,14 @@ double
 AngleRonPathHeuristic::GetAngleLikelihood (double ang)
 {
   //TODO: implement
-  double pi = 3.14159265;
-  return fabs(cos(ang - pi*0.25));
+  return fabs(sin(ang/2.0));
+}
+
+
+void
+AngleRonPathHeuristic::DoNotifyTimeout (Ptr<RonPath> path, Time time)
+{
+  EnsurePathRegistered (path);
+  SetLikelihood (path, 0.0);
+  m_updatedOnce = false; //so the LHs will be updated next time GetBestPath is called
 }

@@ -22,6 +22,7 @@ private:
   double GetDistance(double d1, double d2, double d3);
   double GetInitialLikelihood (double ang);
   double GetAngleLikelihood (double ang);
+  void DoNotifyTimeout (Ptr<RonPath> path, Time time);
 };
 
 } //namespace
