@@ -1219,6 +1219,14 @@ TestAngleRonPathHeuristic::DoRun (void)
     equality = (*(path) == *(path2));
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
   }
+
+  angle->NotifyTimeout (path, Simulator::Now ());
+
+  path = angle->GetBestPath (dest);
+
+  // now it should be the next best angle option, near the bottom left
+  equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
+  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
