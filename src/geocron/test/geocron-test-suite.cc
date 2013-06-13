@@ -949,7 +949,7 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
 
   // we don't define a rigid tie-breaker, so check that we get both top-right and bottom-left, but not the same one each time
   bool gotTopRight = true;
-  if (path == path1)
+  if (*path == *path1)
     gotTopRight = false;
 
   ortho->NotifyTimeout (path, Simulator::Now ());
@@ -1204,7 +1204,7 @@ TestAngleRonPathHeuristic::DoRun (void)
 
   // we don't define a rigid tie-breaker, so check that we get both top-right and bottom-left, but not the same one each time
   bool gotTopRight = true;
-  if (path == path1)
+  if (*path == *path1)
     gotTopRight = false;
 
   angle->NotifyTimeout (path, Simulator::Now ());
@@ -1223,7 +1223,12 @@ TestAngleRonPathHeuristic::DoRun (void)
   angle->NotifyTimeout (path, Simulator::Now ());
 
   path = angle->GetBestPath (dest);
-
+  
+  // prints don't work...
+  //NS_LOG_DEBUG ( (*((*path->Begin ())->Begin ())) );
+  
+  // Zhipeng: this one is giving us peers[1], i.e. (1,1) instead of the right one...
+  
   // now it should be the next best angle option, near the bottom left
   equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
   NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
@@ -1424,8 +1429,8 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestRonPathHeuristic);
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
-  AddTestCase (new TestAngleRonPathHeuristic);
   AddTestCase (new TestDistRonPathHeuristic);
+  AddTestCase (new TestAngleRonPathHeuristic);
   AddTestCase (new TestFurtherestFirstRonPathHeuristic);
 
   //network application / experiment stuff
