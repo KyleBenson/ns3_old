@@ -1277,20 +1277,28 @@ TestFurtherestFirstRonPathHeuristic::DoRun (void)
   far->BuildPaths (dest);
   far->UpdateLikelihoods (dest);
 
+  Ptr<PeerDestination> expectedDestination;
+
   // TIMEOUT
-  //  ortho->NotifyTimeout (path, Simulator::Now ());
 
   path = far->GetBestPath (dest);
+
+  expectedDestination = Create<PeerDestination> (GridGenerator::GetPeer (4, 4));
 
   //make sure we get the right path
-  equality = (*(path) == *(path2)) or (*(path) == *(path1));
-  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right or bottom left node!");
+  //equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[4]);
+  equality = *(*path->Begin ()) == *expectedDestination;
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom right node!");
+
+  far->NotifyTimeout (path, Simulator::Now ());
 
   path = far->GetBestPath (dest);
 
-  //now it should be peers[2]
-  //equality = *(*path->Begin ()) == *Create<PeerDestination> (peers[2]);
-  //NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  expectedDestination = Create<PeerDestination> (GridGenerator::GetPeer (3, 3));
+
+//make sure we get the right path
+  equality = (*(*path->Begin ()) == *expectedDestination);
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have been next from bottom right, i.e. 3,3!");
 }
 
 //////////////////////////////////////////////////////////////////
@@ -1416,7 +1424,7 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestRonPathHeuristic);
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
-  AddTestCase (new TestAngleRonPathHeuristic);
+  //AddTestCase (new TestAngleRonPathHeuristic);
   AddTestCase (new TestDistRonPathHeuristic);
   AddTestCase (new TestFurtherestFirstRonPathHeuristic);
 
