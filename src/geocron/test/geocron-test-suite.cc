@@ -1409,9 +1409,9 @@ GeocronTestSuite::GeocronTestSuite ()
   AddTestCase (new TestAggregateRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
   AddTestCase (new TestAngleRonPathHeuristic);
-  //AddTestCase (new TestFurtherestFirstRonPathHeuristic);
   AddTestCase (new TestDistRonPathHeuristic);
-  
+  AddTestCase (new TestFurtherestFirstRonPathHeuristic);
+
   //network application / experiment stuff
   AddTestCase (new TestRonHeader);
   AddTestCase (new TestGeocronExperiment);
