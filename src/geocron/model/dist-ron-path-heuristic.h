@@ -20,7 +20,7 @@ public:
 private:
   /** Minimum distance we will permit for peers.
       Necessary for assigning a LH given the distance as we need a bound. */
-  double m_Distance;
+  double m_minDistance;
   virtual double GetLikelihood (Ptr<RonPath> path);
 };
 

@@ -1343,11 +1343,16 @@ TestDistRonPathHeuristic::DoRun (void)
     src = Create<PeerDestination> (peers.front()),
     topRight = Create<PeerDestination> (peers[3]),
     botLeft = Create<PeerDestination> (peers[5]),
+    innerLeft = Create<PeerDestination> (peers[1]),
+    innerRight = Create<PeerDestination> (peers[4]),
     nextBest = Create<PeerDestination> (GridGenerator::GetPeer (4,1));
-  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest);
+  Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest),
+    path4 = Create<RonPath> (dest), path5 = Create<RonPath> (dest);
   path1->AddHop (botLeft, path1->Begin ());
   path2->AddHop (topRight, path2->Begin ());
   path3->AddHop (nextBest, path3->Begin ());
+  path4->AddHop (innerRight, path4->Begin ());
+  path5->AddHop (innerLeft, path5->Begin ());
 
   Ptr<DistRonPathHeuristic> dist = CreateObject<DistRonPathHeuristic> ();
   
@@ -1392,6 +1397,23 @@ TestDistRonPathHeuristic::DoRun (void)
   // now it should be the next best angle option, near the bottom left
   equality = *(path) == *path3;
   NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  
+  bool gotInnerRight = true;
+  if (*path == *path5)
+    gotTopRight = false;
+
+  dist->NotifyTimeout (path, Simulator::Now ());
+
+  path = dist->GetBestPath (dest);
+
+  // now it should be the other one
+  if (gotInnerRight) {
+    equality = (*(path) == *(path4));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have inner right node now!");
+  } else {
+    equality = (*(path) == *(path5));
+    NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have inner left node now!");
+  }
 }
 
 

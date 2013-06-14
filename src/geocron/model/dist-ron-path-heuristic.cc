@@ -33,8 +33,8 @@ DistRonPathHeuristic::GetTypeId (void)
                    MakeStringAccessor (&DistRonPathHeuristic::m_shortName),
                    MakeStringChecker ())
     .AddAttribute ("MaxDistance", "Minimum distance we will permit for peers.",
-                   DoubleValue (5.0),
-                   MakeDoubleAccessor (&DistRonPathHeuristic::m_Distance),
+                   DoubleValue (1.0),
+                   MakeDoubleAccessor (&DistRonPathHeuristic::m_minDistance),
                    MakeDoubleChecker<double> ())
     ;
   //tid.SetAttributeInitialValue ("ShortName", Create<StringValue> ("ortho"));
@@ -48,36 +48,38 @@ double
 DistRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
 {
   NS_ASSERT_MSG (m_source, "You must set the source peer before using the heuristic!");
+  Ptr<RonPeerEntry> peer = (*(*path->Begin ())->Begin ());
+  Ptr<RonPeerEntry> destination = *path->GetDestination ()->Begin ();
   
   Vector3D va = m_source->location;
   std::cout<<"source axis = "<<va.x<<","<<va.y<<std::endl;
-  Vector3D vb = (*(*path->Begin ())->Begin ())->location;
-  std::cout<<"path begin axis = "<<vb.x<<","<<vb.y<<std::endl;
-  double distance = CalculateDistance (va, vb);
-  double m_maxDistance = 8.0;
-  double m_minDistance = 1.0;
+  Vector3D vb = destination->location;
+  std::cout<<"dest axis = "<<vb.x<<","<<vb.y<<std::endl;
+  Vector3D vc = peer->location;
+  std::cout<<"peer axis = "<<vc.x<<","<<vc.y<<std::endl;
+  double sddist = CalculateDistance (va, vb);
+  double distance = CalculateDistance (va, vc);
+
+  double idealDistance = sddist / 2 ;
+  std::cout<<"ideal distance is = "<<idealDistance<<std::endl;
   std::cout<<"the distance is "<<distance<<std::endl;
 
-  if (distance < m_minDistance)
+  if (distance <= m_minDistance)
       return 0;
-  else if(distance < m_Distance and distance > m_minDistance)
+  else if(distance < idealDistance and distance > m_minDistance)
   {
-      double likelihood = 0.1 * 0.4 * (distance - m_minDistance);
+      double likelihood = (distance * distance) / (idealDistance * idealDistance); 
       std::cout<<"likelihood for the small distance is "<<likelihood<<std::endl;
       return likelihood;
   }
-  else if(distance > m_maxDistance)
+  else if(distance >= idealDistance)
   {
-      double likelihood = 0.1 * 0.8 * (distance - m_minDistance);
+      double likelihood = idealDistance / distance ;
       std::cout<<"likelihood for the large distance is "<<likelihood<<std::endl;
       return likelihood;
   }
-  else
-  {
-      double likelihood = 0.1 * (distance - m_minDistance);
-      std::cout<<"likelihood for the normal distance is "<<likelihood<<std::endl;
-      return likelihood;
-  }
+  else return 0;
+  
 
   //TODO: transform to a LH
   //return distance - m_minDistance;
