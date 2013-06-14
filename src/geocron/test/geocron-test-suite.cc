@@ -18,6 +18,44 @@ using namespace ns3;
 
 typedef std::vector<Ptr<RonPeerEntry> > PeerContainer;
 
+
+void PrintPeer (Ptr<RonPeerEntry> peer)
+{
+  std::cout << peer->region << " at " << peer->location  << ", ID: " << peer->id << std::endl;  
+}
+
+void PrintPeer (Ptr<PeerDestination> dest)
+{
+  Ptr<RonPeerEntry> peer = (*dest->Begin ());
+  PrintPeer (peer);
+}
+
+void PrintPeer (Ptr<RonPath> path)
+{
+  Ptr<PeerDestination> dest = (*path->Begin ());
+  PrintPeer (dest);
+}
+
+bool ArePeersEqual (Ptr<RonPeerEntry> peer1, Ptr<RonPeerEntry> peer2)
+{
+  bool equality = *peer1 == *peer2;
+  return equality;
+}
+
+bool ArePeersEqual (Ptr<PeerDestination> dest1, Ptr<PeerDestination> dest2)
+{
+  Ptr<RonPeerEntry> peer1 = *dest1->Begin (), peer2 = *dest2->Begin ();
+  bool equality = ArePeersEqual (peer1, peer2);
+  return equality;
+}
+
+bool ArePeersEqual (Ptr<RonPath> path1, Ptr<RonPath> path2)
+{
+  Ptr<PeerDestination> dest1 = *path1->Begin (), dest2 = *path2->Begin ();
+  bool equality = ArePeersEqual (dest1, dest2);
+  return equality;
+}
+
 class GridGenerator
 {
 public:
@@ -87,8 +125,10 @@ public:
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute ("DataRate", StringValue ("5Mbps"));
     pointToPoint.SetChannelAttribute ("Delay", StringValue ("2ms"));
+
     grid = new PointToPointGridHelper (nrows, ncols, pointToPoint);
-    grid->BoundingBox (0, 0, 10, 10);
+    grid->BoundingBox (0, 0, nrows, ncols);
+
     InternetStackHelper internet;
     grid->InstallStack (internet);
     grid->AssignIpv4Addresses (rowHelper, colHelper);
@@ -945,6 +985,11 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
 
   //make sure we get the right path
   equality = (*(path) == *(path2)) or (*(path) == *(path1));
+
+  Ptr<RonPeerEntry> thisPeer = *(*(path->Begin ()))->Begin ();
+  std::cout << "ortho";
+  PrintPeer (thisPeer);
+
   NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right or bottom left node!");
 
   // we don't define a rigid tie-breaker, so check that we get both top-right and bottom-left, but not the same one each time
@@ -958,10 +1003,10 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
 
   // now it should be the other one
   if (gotTopRight) {
-    equality = (*(path) == *(path1));
+    equality = ArePeersEqual (path, path1);
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom left node now!");
   } else {
-    equality = (*(path) == *(path2));
+    equality = ArePeersEqual (path, path2);
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
   }
 
@@ -1179,7 +1224,7 @@ TestAngleRonPathHeuristic::DoRun (void)
     src = Create<PeerDestination> (peers.front()),
     topRight = Create<PeerDestination> (peers[3]),
     botLeft = Create<PeerDestination> (peers[5]),
-    nextBest = Create<PeerDestination> (GridGenerator::GetPeer (4,1));
+    nextBest = Create<PeerDestination> (peers[2]); // (4,1)
   Ptr<RonPath> path, path1 = Create<RonPath> (dest), path2 = Create<RonPath> (dest), path3 = Create<RonPath> (dest);
   path1->AddHop (botLeft, path1->Begin ());
   path2->AddHop (topRight, path2->Begin ());
@@ -1230,10 +1275,11 @@ TestAngleRonPathHeuristic::DoRun (void)
   //NS_LOG_DEBUG ( (*((*path->Begin ())->Begin ())) );
   
   // Zhipeng: this one is giving us peers[1], i.e. (1,1) instead of the right one...
-  
+
   // now it should be the next best angle option, near the bottom left
-  equality = *(path) == *path3;
-  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  equality = ArePeersEqual (path, path3);
+
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "next path should be peers[2], i.e. (4,1)");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1474,10 +1520,10 @@ GeocronTestSuite::GeocronTestSuite ()
   //heuristics
   AddTestCase (new TestRonPathHeuristic);
   AddTestCase (new TestAggregateRonPathHeuristic);
+  AddTestCase (new TestAngleRonPathHeuristic);
   AddTestCase (new TestOrthogonalRonPathHeuristic);
   AddTestCase (new TestDistRonPathHeuristic);
   AddTestCase (new TestFurtherestFirstRonPathHeuristic);
-  AddTestCase (new TestAngleRonPathHeuristic);
 
   //network application / experiment stuff
   AddTestCase (new TestRonHeader);

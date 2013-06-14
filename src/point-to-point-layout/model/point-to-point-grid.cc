@@ -204,10 +204,14 @@ PointToPointGridHelper::BoundingBox (double ulx, double uly,
     }
   double xAdder = xDist / m_xSize;
   double yAdder = yDist / m_ySize;
-  double yLoc = yDist / 2;
+  // Not sure why this is here, but we don't really want it...
+  //double yLoc = xDist / 2;
+  double yLoc = 0;
   for (uint32_t i = 0; i < m_ySize; ++i)
     {
-      double xLoc = xDist / 2;
+      // Not sure why this is here, but we don't really want it...
+      //double xLoc = xDist / 2;
+      double xLoc = 0;
       for (uint32_t j = 0; j < m_xSize; ++j)
         {
           Ptr<Node> node = GetNode (i, j);

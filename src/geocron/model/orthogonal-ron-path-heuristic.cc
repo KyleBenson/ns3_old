@@ -87,7 +87,7 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   // double half_ab_dist = 0.5*ab_dist;
   // double ac_ideal_dist = sqrt (2.0) * half_ab_dist;
   // double ideal_dist = sqrt (ac_ideal_dist * ac_ideal_dist - half_ab_dist * half_ab_dist);
-  double ideal_dist = abs(0.5*ab_dist);
+  double ideal_dist = fabs(0.5*ab_dist);
 
   // compute angles with law of cosines
   double c_ang = acos ((ac_dist * ac_dist + bc_dist * bc_dist - ab_dist * ab_dist) /
@@ -98,7 +98,10 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
                        (2.0 * ac_dist * ab_dist));
 
   // find perpendicular distances using law of sines
-  double perpDist = abs(ac_dist * sin (a_ang));
+  double perpDist = fabs(ac_dist * sin (a_ang));
+
+  //std::cout << "Path from " << m_source->location << " to " << destination->location << " thru " << peer->location <<
+  //" makes C angle " << c_ang << std::endl;
 
   // Throw away obtuse triangles and ensure perpDist is in bounds
   //we pick the max distance to be twice the ideal (i.e. ab_dist) so we can easily normalize the error
@@ -113,35 +116,42 @@ OrthogonalRonPathHeuristic::GetLikelihood (Ptr<RonPath> path)
   //-exp ensures 0<=e<=1 and further penalizes deviations from the ideal
   // std::cout << "ideal_dist=" << ideal_dist <<std::endl;
   // std::cout << "c_ang=" << c_ang <<std::endl;
-  // double ang_err = exp(-1*abs((c_ang - orthogonal) / orthogonal));
-  // double dist_err = exp(-1*abs((perpDist - ideal_dist) / ideal_dist));
+  // double ang_err = exp(-1*fabs((c_ang - orthogonal) / orthogonal));
+  // double dist_err = exp(-1*fabs((perpDist - ideal_dist) / ideal_dist));
 
   //since we threw away obtuse triangles, the max angular error is 45 deg
-  //double ang_err = (abs((c_ang - orthogonal) / (pi/4.0)));
+  //double ang_err = (fabs((c_ang - orthogonal) / (pi/4.0)));
   //double ideal_ang = orthogonal / 2.0; //taking angle a
   double ideal_ang = orthogonal; //taking angle c
-  //double ang_err = abs(ideal_ang - a_ang);
-  double ang_err = abs(ideal_ang - c_ang);
+  //double ang_err = fabs(ideal_ang - a_ang);
+  double ang_err = fabs(ideal_ang - c_ang);
   double norm_ang_err = (ang_err) / ideal_ang;
   norm_ang_err = norm_ang_err * norm_ang_err; //square to further penalize ones farther away from ideal
 
   NS_ASSERT_MSG (norm_ang_err <= 1.0, "angle error not properly normalized: " << norm_ang_err);
   NS_ASSERT_MSG (norm_ang_err >= 0.0, "angle error not properly normalized: " << norm_ang_err);
 
-  double dist_err = abs(abs(perpDist) - abs(ideal_dist));
+  double dist_err = fabs(fabs(perpDist) - fabs(ideal_dist));
   double norm_dist_err = (dist_err) / ideal_dist;
   norm_dist_err = norm_dist_err * norm_dist_err; //square to further penalize ones farther away from ideal
 
   NS_ASSERT_MSG (norm_dist_err <= 1.0, "distance error not properly normalized: " << norm_dist_err);
   NS_ASSERT_MSG (norm_dist_err >= 0.0, "distance error not properly normalized: " << norm_dist_err);
 
+  //std::cout << "dist_err=" << dist_err << ", ang_err=" << ang_err << std::endl;
+  //std::cout << "orthogonal=" << orthogonal << ", ang_err=" << ang_err << std::endl;
+
   double newLikelihood = 0.5*((1.0 - norm_dist_err) + (1.0 - norm_ang_err));
   //double newLikelihood = (0.8*(1.0 - norm_dist_err) + 0.2*(1.0 - norm_ang_err));
 
-  NS_LOG_DEBUG ("source(" << m_source->location.x << "," << m_source->location.y
-                << "), dest(" << destination->location.x << "," << destination->location.y
-                << "), peer(" << peer->location.x << "," << peer->location.y
-                << ")'s LH = " << newLikelihood);
+  NS_LOG_DEBUG (
+  //std::cout << 
+    "source(" << m_source->location.x << "," << m_source->location.y
+            << "), dest(" << destination->location.x << "," << destination->location.y
+            << "), peer(" << peer->location.x << "," << peer->location.y
+            << ")'s LH = " << newLikelihood
+    //<<std::endl;
+                );
 
   return newLikelihood;
 }
