@@ -1441,8 +1441,9 @@ TestDistRonPathHeuristic::DoRun (void)
   path = dist->GetBestPath (dest);
   
   // now it should be the next best angle option, near the bottom left
+  PrintPeer (path);
   equality = *(path) == *path3;
-  NS_TEST_ASSERT_MSG_NE (equality, true, "next path should be peers[2], i.e. (4,1)");
+  NS_TEST_ASSERT_MSG_EQ (equality, true, "next path should be peers[2], i.e. (4,1)");
   
   bool gotInnerRight = true;
   if (*path == *path5)
