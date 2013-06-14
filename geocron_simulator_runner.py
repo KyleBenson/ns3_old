@@ -10,7 +10,7 @@ from os import system
 #from os.path import isdir
 #from os import listdir
 
-default_runs=100
+default_runs=20
 default_start=0 # num to start run IDs on
 default_nprocs=8
 default_as_choices=['3356', #level3
@@ -25,7 +25,7 @@ default_heuristics=['rand',
                     'ortho',
                     'newreg',
                     'close',
-                    #'far',
+                    'far',
                     'angle',
                     'dist',
                     ]

@@ -987,8 +987,6 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
   equality = (*(path) == *(path2)) or (*(path) == *(path1));
 
   Ptr<RonPeerEntry> thisPeer = *(*(path->Begin ()))->Begin ();
-  std::cout << "ortho";
-  PrintPeer (thisPeer);
 
   NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right or bottom left node!");
 
@@ -1441,7 +1439,6 @@ TestDistRonPathHeuristic::DoRun (void)
   path = dist->GetBestPath (dest);
   
   // now it should be the next best angle option, near the bottom left
-  PrintPeer (path);
   equality = *(path) == *path3;
   NS_TEST_ASSERT_MSG_EQ (equality, true, "next path should be peers[2], i.e. (4,1)");
   
