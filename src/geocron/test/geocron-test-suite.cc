@@ -1003,10 +1003,10 @@ TestOrthogonalRonPathHeuristic::DoRun (void)
 
   // now it should be the other one
   if (gotTopRight) {
-    equality = (*(path) == *(path1));
+    equality = ArePeersEqual (path, path1);
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have bottom left node now!");
   } else {
-    equality = (*(path) == *(path2));
+    equality = ArePeersEqual (path, path2);
     NS_TEST_ASSERT_MSG_EQ (equality, true, "returned path should have top right node now!");
   }
 
