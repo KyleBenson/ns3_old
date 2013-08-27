@@ -67,6 +67,27 @@ Vector2D::Vector2D ()
   NS_LOG_FUNCTION (this);
 }
 
+bool
+Vector3D::operator!= (const Vector3D &vector) const
+{
+  return !(*this == vector);
+}
+bool
+Vector2D::operator!= (const Vector2D &vector) const
+{
+  return !(*this == vector);
+}
+bool
+Vector3D::operator== (const Vector3D &vector) const
+{
+  return x == vector.x && y == vector.y && z == vector.z;
+}
+bool
+Vector2D::operator== (const Vector2D &vector) const
+{
+  return x == vector.x && y == vector.y;
+}
+
 double
 CalculateDistance (const Vector3D &a, const Vector3D &b)
 {

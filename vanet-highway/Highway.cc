@@ -80,7 +80,7 @@ namespace ns3 {
         m_routingMap = std::map<int, TurningType > ();
 
         //Create the transfer list
-        transferList = new list<Ptr<Vehicle> >();
+        transferList = new std::list<Ptr<Vehicle> >();
     }
 
     //Cleans up memeory
@@ -252,7 +252,7 @@ namespace ns3 {
         //For each location from the laneOffset for as many lanes as
         //possible
         int start = laneOffset;
-        int end = min(laneOffset + frontHighway->GetNumberOfLanes(), m_numberOfLanes);
+        int end = fmin(laneOffset + frontHighway->GetNumberOfLanes(), m_numberOfLanes);
         for (int i = start; i < end; i++) {
             //Assign the highway and the offset
             m_frontHighways[i] = frontHighway;
@@ -284,7 +284,7 @@ namespace ns3 {
             return;
         }
         int start = laneOffset;
-        int end = min(laneOffset + backHighway->GetNumberOfLanes(), m_numberOfLanes);
+        int end = fmin(laneOffset + backHighway->GetNumberOfLanes(), m_numberOfLanes);
         for (int i = start; i < end; i++) {
             m_backHighways[i] = backHighway;
             m_backOffsets[i] = backOffset;
@@ -303,7 +303,7 @@ namespace ns3 {
             return;
         }
         int start = laneOffset;
-        int end = min(laneOffset + rightHighway->GetNumberOfLanes(), m_numberOfLanes);
+        int end = fmin(laneOffset + rightHighway->GetNumberOfLanes(), m_numberOfLanes);
         for (int i = start; i < end; i++) {
             m_rightHighways[i] = rightHighway;
             m_rightOffsets[i] = rightOffset;
@@ -331,7 +331,7 @@ namespace ns3 {
             return;
         }
         int start = laneOffset;
-        int end = min(laneOffset + leftHighway->GetNumberOfLanes(), m_numberOfLanes);
+        int end = fmin(laneOffset + leftHighway->GetNumberOfLanes(), m_numberOfLanes);
         for (int i = start; i < end; i++) {
             m_leftHighways[i] = leftHighway;
             m_leftOffsets[i] = leftOffset;
@@ -1083,7 +1083,7 @@ namespace ns3 {
 
     void Highway::HandleTransfers() {
         //For each vehicle in the transfer list
-        for (list<Ptr<Vehicle> >::iterator it = transferList->begin(); it != transferList->end(); it++) {
+        for (std::list<Ptr<Vehicle> >::iterator it = transferList->begin(); it != transferList->end(); it++) {
             Ptr<Vehicle> rm = (*it);
             //If there is no highway to move the vehicle to
             if (!HandleTransfer(rm)) {

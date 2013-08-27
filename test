@@ -1,0 +1,11 @@
+#!/bin/bash
+#name='geocron_test_results.html'
+name='geocron_test_results.xml'
+#./test.py -s geocron -w $name --verbose
+if [ "$1" == "-d" ]
+then ./waf --command-template="gdb %s" --run "test-runner"
+else ./test.py -s geocron -x $name --verbose
+fi
+
+less $name
+#gnome-open $name

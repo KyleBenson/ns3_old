@@ -23,7 +23,8 @@
 
 #include "ns3/nstime.h"
 #include "topology-reader.h"
-#include <map>
+//#include <map>
+#include "boost/unordered_map.hpp"
 
 namespace ns3 {
 
@@ -61,8 +62,9 @@ public:
    */
   virtual NodeContainer Read (void);
 
-  static std::map<std::string, std::string> ReadLatencies (std::string filename);
-
+  //static std::map<std::string, std::string> ReadLatencies (std::string filename);
+  typedef boost::unordered_map<std::string,std::string> LatenciesMap;
+  static LatenciesMap ReadLatencies (std::string filename);
 
 private:
   RocketfuelTopologyReader (const RocketfuelTopologyReader&);
