@@ -63,7 +63,6 @@ public:
 
   static std::map<std::string, std::string> ReadLatencies (std::string filename);
 
-
 private:
   RocketfuelTopologyReader (const RocketfuelTopologyReader&);
   RocketfuelTopologyReader& operator= (const RocketfuelTopologyReader&);
@@ -73,8 +72,6 @@ private:
   // Parser for the weights.* file available at:
   // http://www.cs.washington.edu/research/networking/rocketfuel/maps/weights-dist.tar.gz
   NodeContainer GenerateFromWeightsFile (int argc, char *argv[]);
-  // Attempts to find the alias file for the given input map file and builds a map of aliases
-  void TryBuildAliases ();
 
   enum RF_FileType
   {

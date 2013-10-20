@@ -86,7 +86,7 @@ ChannelListPriv::DoGet (void)
     {
       ptr = CreateObject<ChannelListPriv> ();
       Config::RegisterRootNamespaceObject (ptr);
-      //Simulator::ScheduleDestroy (&ChannelListPriv::Delete);
+      Simulator::ScheduleDestroy (&ChannelListPriv::Delete);
     }
   return &ptr;
 }

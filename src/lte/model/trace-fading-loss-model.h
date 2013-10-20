@@ -49,7 +49,7 @@ public:
 
   static TypeId GetTypeId ();
   
-  virtual void DoStart (void);
+  virtual void DoInitialize (void);
 
   /**
    * \brief The couple of mobility mnode that form a fading channel realization
@@ -123,6 +123,10 @@ private:
   uint8_t m_rbNum;
   mutable Time m_lastWindowUpdate;
   uint8_t m_timeGranularity;
+  mutable uint64_t m_currentStream;
+  mutable uint64_t m_lastStream;
+  uint64_t m_streamSetSize;
+  mutable bool m_streamsAssigned;
   
 };
 

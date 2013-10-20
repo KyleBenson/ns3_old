@@ -23,7 +23,7 @@
 #define AP_WIFI_MAC_H
 
 #include "regular-wifi-mac.h"
-
+#include "ht-capabilities.h"
 #include "amsdu-subframe-header.h"
 #include "supported-rates.h"
 
@@ -117,11 +117,12 @@ private:
   void SendProbeResp (Mac48Address to);
   void SendAssocResp (Mac48Address to, bool success);
   void SendOneBeacon (void);
+  HtCapabilities GetHtCapabilities (void) const;
   SupportedRates GetSupportedRates (void) const;
   void SetBeaconGeneration (bool enable);
   bool GetBeaconGeneration (void) const;
   virtual void DoDispose (void);
-  virtual void DoStart (void);
+  virtual void DoInitialize (void);
 
   Ptr<DcaTxop> m_beaconDca;
   Time m_beaconInterval;

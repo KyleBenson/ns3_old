@@ -165,9 +165,6 @@ private:
   /* total neighbors used for nix-vector to determine
    * number of bits */
   uint32_t m_totalNeighbors;
-
-  /* If true, BFS will follow down links and down interfaces */
-  bool m_followDownEdges;
 };
 } // namespace ns3
 
