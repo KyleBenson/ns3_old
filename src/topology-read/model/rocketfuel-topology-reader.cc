@@ -22,6 +22,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <sstream>
+#include <algorithm>
 #include <regex.h>
 
 #include "ns3/log.h"
@@ -169,6 +170,8 @@ RocketfuelTopologyReader::ReadLatencies (std::string filename)
       
       regfree (&regex);
     }
+  return weights;
+}
 
 static inline void
 PrintNodeInfo (std::string & uid, std::string & loc, bool dns, bool bb,
@@ -530,5 +533,3 @@ RocketfuelTopologyReader::Read (void)
 }
 
 } /* namespace ns3 */
-
-
