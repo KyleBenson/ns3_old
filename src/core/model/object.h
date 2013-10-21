@@ -63,6 +63,9 @@ struct ObjectDeleter
 class Object : public SimpleRefCount<Object,ObjectBase,ObjectDeleter>
 {
 public:
+  /**
+   * Get the type ID.
+   */
   static TypeId GetTypeId (void);
 
   /**
@@ -90,9 +93,9 @@ public:
     Ptr<const Object> Next (void);
 private:
     friend class Object;
-    AggregateIterator (Ptr<const Object> object);
-    Ptr<const Object> m_object;
-    uint32_t m_current;
+    AggregateIterator (Ptr<const Object> object);  //!< Constructor
+    Ptr<const Object> m_object;                    //!< Parent Object
+    uint32_t m_current;                            //!< Current position in parent's aggegrates
   };
 
   Object ();
@@ -153,14 +156,24 @@ private:
   AggregateIterator GetAggregateIterator (void) const;
 
   /**
-   * This method calls the virtual DoStart method on all the objects
-   * aggregated to this object. DoStart will be called only once over
+   * This method calls the virtual DoInitialize method on all the objects
+   * aggregated to this object. DoInitialize will be called only once over
    * the lifetime of an object, just like DoDispose is called only
    * once.
    *
-   * \sa DoStart
+   * \sa DoInitialize
    */
-  void Start (void);
+  void Initialize (void);
+
+  /**
+   * This method calls the virtual Reset method on all the objects
+   * aggregated to this object. Reset will be called only once over
+   * the lifetime of an object, just like DoDispose is called only
+   * once.
+   *
+   * \sa Reset
+   */
+  void Reset (void);
 
 protected:
   /**
@@ -172,15 +185,25 @@ protected:
    */
   virtual void NotifyNewAggregate (void);
   /**
-   * This method is called only once by Object::Start. If the user
-   * calls Object::Start multiple times, DoStart is called only the
+   * This method is called only once by Object::Initialize. If the user
+   * calls Object::Initialize multiple times, DoInitialize is called only the
    * first time.
    *
    * Subclasses are expected to override this method and _chain up_
    * to their parent's implementation once they are done. It is
    * safe to call GetObject and AggregateObject from within this method.
    */
-  virtual void DoStart (void);
+  virtual void DoInitialize (void);
+  /**
+   * This method is called only once by Object::Reset. If the user
+   * calls Object::Reset multiple times, DoStart is called only the
+   * first time.
+   *
+   * Subclasses are expected to override this method and _chain up_
+   * to their parent's implementation once they are done. It is
+   * safe to call GetObject and AggregateObject from within this method.
+   */
+  virtual void DoReset (void);
   /**
    * This method is called by Object::Dispose or by the object's 
    * destructor, whichever comes first.
@@ -241,8 +264,27 @@ private:
     Object *buffer[1];
   };
 
+  /**
+   * Find an object of TypeId tid in the aggregates of this Object.
+   *
+   * \param tid the TypeId we're looking for
+   * \return the matching Object, if it is found
+   */
   Ptr<Object> DoGetObject (TypeId tid) const;
+  /**
+   * \return is reference count non zero
+   */
   bool Check (void) const;
+  /**
+   * \return Do any of our aggregates have non zero reference count?
+   *
+   * In some cases, when an event is scheduled against a subclass of
+   * Object, and if no one owns a reference directly to this object, the
+   * object is alive, has a refcount of zero and the method ran when the
+   * event expires runs against the raw pointer which means that we are
+   * manipulating an object with a refcount of zero.  So, instead we
+   * check the aggregate reference count.
+   */
   bool CheckLoose (void) const;
   /**
    * \param tid an TypeId
@@ -262,6 +304,12 @@ private:
   */
   void Construct (const AttributeConstructionList &attributes);
 
+  /**
+   * Keep the list of aggregates in most-recently-used order
+   *
+   * \param aggregates the list of aggregated objects
+   * \param i the most recently used entry in the list
+   */
   void UpdateSortedArray (struct Aggregates *aggregates, uint32_t i) const;
   /**
    * Attempt to delete this object. This method iterates
@@ -281,10 +329,10 @@ private:
    */
   bool m_disposed;
   /**
-   * Set to true once the DoStart method has run,
+   * Set to true once the DoInitialize method has run,
    * false otherwise
    */
-  bool m_started;
+  bool m_initialized;
   /**
    * a pointer to an array of 'aggregates'. i.e., a pointer to
    * each object aggregated to this object is stored in this 

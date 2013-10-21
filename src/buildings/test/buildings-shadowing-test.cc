@@ -27,6 +27,9 @@
 #include <ns3/building.h>
 #include <ns3/enum.h>
 #include <ns3/buildings-helper.h>
+#include <ns3/mobility-model.h>
+#include <ns3/mobility-building-info.h>
+#include <ns3/constant-position-mobility-model.h>
 
 #include "buildings-shadowing-test.h"
 
@@ -54,13 +57,13 @@ BuildingsShadowingTestSuite::BuildingsShadowingTestSuite ()
   LogComponentEnable ("BuildingsShadowingTest", LOG_LEVEL_ALL);
 
   // Test #1 Outdoor Model
-  AddTestCase (new BuildingsShadowingTestCase (1, 2, 148.86, 7.0, "Outdoor Shadowing"));
+  AddTestCase (new BuildingsShadowingTestCase (1, 2, 148.86, 7.0, "Outdoor Shadowing"), TestCase::QUICK);
 
   // Test #2 Indoor model
-  AddTestCase (new BuildingsShadowingTestCase (5, 6, 88.5724, 8.0, "Indoor Shadowing"));
+  AddTestCase (new BuildingsShadowingTestCase (5, 6, 88.5724, 8.0, "Indoor Shadowing"), TestCase::QUICK);
 
   // Test #3 Indoor -> Outdoor
-  AddTestCase (new BuildingsShadowingTestCase (9, 10, 85.0012, 8.6, "Indoor -> Outdoor Shadowing"));
+  AddTestCase (new BuildingsShadowingTestCase (9, 10, 85.0012, 8.6, "Indoor -> Outdoor Shadowing"), TestCase::QUICK);
 
 }
 
@@ -142,62 +145,62 @@ BuildingsShadowingTestCase::CreateMobilityModel (uint16_t index)
   double hb = 30;
   double henbHeight = 10.0;
 
-  Ptr<BuildingsMobilityModel> mm;
+  Ptr<MobilityModel> mm;
   
   switch (index)
     {
     case 1:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (0.0, 0.0, hb));
       break;
 
     case 2:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (2000, 0.0, hm));
       break;
 
     case 3:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (100, 0.0, hm));
       break;
 
     case 4:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (900, 0.0, hm));
       break;
 
     case 5:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-5, 0.0, hm));
       break;
 
     case 6:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-5, 30, henbHeight));
       break;
 
     case 7:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-2000, 0.0, hm));
       break;
 
     case 8:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-100, 0.0, hm));
       break;
 
     case 9:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (0, 0.0, hm));
       break;
 
     case 10:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-100, 0.0, henbHeight));
       break;
 
     case 11:
-      mm = CreateObject<BuildingsMobilityModel> ();
+      mm = CreateObject<ConstantPositionMobilityModel> ();
       mm->SetPosition (Vector (-500, 0.0, henbHeight));
       break;
 
@@ -205,6 +208,8 @@ BuildingsShadowingTestCase::CreateMobilityModel (uint16_t index)
       mm = 0;
       break;
     }
+  Ptr<MobilityBuildingInfo> buildingInfo = CreateObject<MobilityBuildingInfo> ();
+  mm->AggregateObject (buildingInfo); // operation usually done by BuildingsHelper::Install
   BuildingsHelper::MakeConsistent (mm); 
   return mm;
 }

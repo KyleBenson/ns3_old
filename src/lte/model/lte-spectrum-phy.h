@@ -39,6 +39,8 @@
 #include "ns3/random-variable-stream.h"
 #include <map>
 #include <ns3/ff-mac-common.h>
+#include <ns3/lte-harq-phy.h>
+#include <ns3/lte-common.h>
 
 namespace ns3 {
 
@@ -58,10 +60,16 @@ struct TbId_t
   
 struct tbInfo_t
 {
+  uint8_t ndi;
   uint16_t size;
   uint8_t mcs;
   std::vector<int> rbBitmap;
+  uint8_t harqProcessId;
+  uint8_t rv;
+  double mi;
+  bool downlink;
   bool corrupt;
+  bool harqFeedbackSent;
 };
 
 typedef std::map<TbId_t, tbInfo_t> expectedTbs_t;
@@ -113,6 +121,25 @@ typedef Callback< void, std::list<Ptr<LteControlMessage> > > LtePhyRxCtrlEndOkCa
 */
 typedef Callback< void > LtePhyRxCtrlEndErrorCallback;
 
+/**
+* This method is used by the LteSpectrumPhy to notify the UE PHY that a
+* PSS has been received
+*/
+typedef Callback< void, uint16_t, Ptr<SpectrumValue> > LtePhyRxPssCallback;
+
+
+/**
+* This method is used by the LteSpectrumPhy to notify the PHY about
+* the status of a certain DL HARQ process
+*/
+typedef Callback< void, DlInfoListElement_s > LtePhyDlHarqFeedbackCallback;
+
+/**
+* This method is used by the LteSpectrumPhy to notify the PHY about
+* the status of a certain UL HARQ process
+*/
+typedef Callback< void, UlInfoListElement_s > LtePhyUlHarqFeedbackCallback;
+
 
 
 /**
@@ -154,6 +181,8 @@ public:
   void StartRxData (Ptr<LteSpectrumSignalParametersDataFrame> params);
   void StartRxCtrl (Ptr<SpectrumSignalParameters> params);
 
+  void SetHarqPhyModule (Ptr<LteHarqPhy> harq);
+
   /**
    * set the Power Spectral Density of outgoing signals in W/Hz.
    *
@@ -167,6 +196,12 @@ public:
    * (Watt, Pascal...) per Hz.
    */
   void SetNoisePowerSpectralDensity (Ptr<const SpectrumValue> noisePsd);
+
+  /** 
+   * reset the internal state
+   * 
+   */
+  void Reset ();
  
   /**
    * set the AntennaModel to be used
@@ -192,13 +227,13 @@ public:
   * Start a transmission of control frame in DL
   *
   *
-  * @param dlDci the burst of DL-DCIs to be transmitted
-  * @param ulDci the burst of UL-DCIs to be transmitted
+  * @param ctrlMsgList the burst of contrl messages to be transmitted
+  * @param pss the flag for transmitting the primary synchronization signal
   *
   * @return true if an error occurred and the transmission was not
   * started, false otherwise.
   */
-  bool StartTxDlCtrlFrame (std::list<Ptr<LteControlMessage> > ctrlMsgList);
+  bool StartTxDlCtrlFrame (std::list<Ptr<LteControlMessage> > ctrlMsgList, bool pss);
   
   
   /**
@@ -254,6 +289,30 @@ public:
   void SetLtePhyRxCtrlEndErrorCallback (LtePhyRxCtrlEndErrorCallback c);
 
   /**
+  * set the callback for the reception of the PSS as part
+  * of the interconnections between the LteSpectrumPhy and the UE PHY
+  *
+  * @param c the callback
+  */
+  void SetLtePhyRxPssCallback (LtePhyRxPssCallback c);
+
+  /**
+  * set the callback for the DL HARQ feedback as part of the 
+  * interconnections betweenthe LteSpectrumPhy and the PHY
+  *
+  * @param c the callback
+  */
+  void SetLtePhyDlHarqFeedbackCallback (LtePhyDlHarqFeedbackCallback c);
+
+  /**
+  * set the callback for the UL HARQ feedback as part of the
+  * interconnections betweenthe LteSpectrumPhy and the PHY
+  *
+  * @param c the callback
+  */
+  void SetLtePhyUlHarqFeedbackCallback (LtePhyUlHarqFeedbackCallback c);
+
+  /**
    * \brief Set the state of the phy layer
    * \param newState the state
    */
@@ -267,12 +326,36 @@ public:
   void SetCellId (uint16_t cellId);
 
 
+  /**
+  *
+  *
+  * \param p the new LteSinrChunkProcessor to be added to the RS power 
+  * \processing chain
+  */
+  void AddRsPowerChunkProcessor (Ptr<LteSinrChunkProcessor> p);
+  
   /** 
   * 
   * 
   * \param p the new LteSinrChunkProcessor to be added to the data processing chain
   */
   void AddDataSinrChunkProcessor (Ptr<LteSinrChunkProcessor> p);
+
+  /**
+  *  LteSinrChunkProcessor devoted to evaluate intefrerence + noise power 
+  *  in control symbols of the subframe
+  *
+  * \param p the new LteSinrChunkProcessor to be added to the data processing chain
+  */
+  void AddInterferenceCtrlChunkProcessor (Ptr<LteSinrChunkProcessor> p);
+
+  /**
+  *  LteSinrChunkProcessor devoted to evaluate intefrerence + noise power
+  *  in data symbols of the subframe
+  *
+  * \param p the new LteSinrChunkProcessor to be added to the data processing chain
+  */
+  void AddInterferenceDataChunkProcessor (Ptr<LteSinrChunkProcessor> p);
   
   
   /** 
@@ -286,13 +369,17 @@ public:
   * 
   * 
   * \param rnti the rnti of the source of the TB
+  * \param ndi new data indicator flag
   * \param size the size of the TB
   * \param mcs the MCS of the TB
   * \param map the map of RB(s) used
   * \param layer the layer (in case of MIMO tx)
+  * \param harqId the id of the HARQ process (valid only for DL)
+  * \param downlink true when the TB is for DL
   */
-  void AddExpectedTb (uint16_t  rnti, uint16_t size, uint8_t mcs, std::vector<int> map, uint8_t layer);
-  
+  void AddExpectedTb (uint16_t  rnti, uint8_t ndi, uint16_t size, uint8_t mcs, std::vector<int> map, uint8_t layer, uint8_t harqId, uint8_t rv, bool downlink);
+
+
   /** 
   * 
   * 
@@ -307,6 +394,13 @@ public:
   */
   void SetTransmissionMode (uint8_t txMode);
   
+
+  /** 
+   * 
+   * \return the previously set channel
+   */
+  Ptr<SpectrumChannel> GetChannel ();
+
   friend class LteUePhy;
   
  /**
@@ -360,6 +454,7 @@ private:
   
   LtePhyRxCtrlEndOkCallback     m_ltePhyRxCtrlEndOkCallback;
   LtePhyRxCtrlEndErrorCallback  m_ltePhyRxCtrlEndErrorCallback;
+  LtePhyRxPssCallback  m_ltePhyRxPssCallback;
 
   Ptr<LteInterference> m_interferenceData;
   Ptr<LteInterference> m_interferenceCtrl;
@@ -375,8 +470,33 @@ private:
   bool m_ctrlErrorModelEnabled; // when true (default) the phy error model is enabled for DL ctrl frame
   
   uint8_t m_transmissionMode; // for UEs: store the transmission mode
+  uint8_t m_layersNum;
   std::vector <double> m_txModeGain; // duplicate value of LteUePhy
+
+  Ptr<LteHarqPhy> m_harqPhyModule;
+  LtePhyDlHarqFeedbackCallback m_ltePhyDlHarqFeedbackCallback;
+  LtePhyUlHarqFeedbackCallback m_ltePhyUlHarqFeedbackCallback;
+
+
+  /**
+   * Trace information regarding PHY stats from DL Rx perspective
+   * PhyReceptionStatParameters (see lte-common.h)
+   */
+  TracedCallback<PhyReceptionStatParameters> m_dlPhyReception;
+
   
+  /**
+   * Trace information regarding PHY stats from UL Rx perspective
+   * PhyReceptionStatParameters (see lte-common.h)
+   */
+  TracedCallback<PhyReceptionStatParameters> m_ulPhyReception;
+
+  EventId m_endTxEvent;
+  EventId m_endRxDataEvent;
+  EventId m_endRxDlCtrlEvent;
+  EventId m_endRxUlSrsEvent;
+  
+
 };
 
 

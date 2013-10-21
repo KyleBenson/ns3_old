@@ -434,6 +434,29 @@ Ipv4L3ClickProtocol::RemoveAddress (uint32_t i, uint32_t addressIndex)
   return false;
 }
 
+bool
+Ipv4L3ClickProtocol::RemoveAddress (uint32_t i, Ipv4Address address)
+{
+  NS_LOG_FUNCTION (this << i << address);
+
+  if (address == Ipv4Address::GetLoopback())
+    {
+      NS_LOG_WARN ("Cannot remove loopback address.");
+      return false;
+    }
+  Ptr<Ipv4Interface> interface = GetInterface (i);
+  Ipv4InterfaceAddress ifAddr = interface->RemoveAddress (address);
+  if (ifAddr != Ipv4InterfaceAddress ())
+    {
+      if (m_routingProtocol != 0)
+        {
+          m_routingProtocol->NotifyRemoveAddress (i, ifAddr);
+        }
+      return true;
+    }
+  return false;
+}
+
 Ipv4Address
 Ipv4L3ClickProtocol::SelectSourceAddress (Ptr<const NetDevice> device,
                                           Ipv4Address dst, Ipv4InterfaceAddress::InterfaceAddressScope_e scope)
@@ -609,9 +632,9 @@ Ipv4L3ClickProtocol::AddIpv4Interface (Ptr<Ipv4Interface>interface)
   return index;
 }
 
-// XXX when should we set ip_id?   check whether we are incrementing
-// m_identification on packets that may later be dropped in this stack
-// and whether that deviates from Linux
+/// \todo when should we set ip_id?   check whether we are incrementing
+/// m_identification on packets that may later be dropped in this stack
+/// and whether that deviates from Linux
 Ipv4Header
 Ipv4L3ClickProtocol::BuildHeader (
   Ipv4Address source,

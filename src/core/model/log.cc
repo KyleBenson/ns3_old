@@ -281,6 +281,7 @@ LogComponent::GetLevelLabel(const enum LogLevel level) const
     }
   else if (level == LOG_WARN)
     {
+      // whitespace left at the end for aligment
       return "WARN ";
     }
   else if (level == LOG_DEBUG)
@@ -289,6 +290,7 @@ LogComponent::GetLevelLabel(const enum LogLevel level) const
     }
   else if (level == LOG_INFO)
     {
+      // whitespace left at the end for aligment
       return "INFO ";
     }
   else if (level == LOG_FUNCTION)
@@ -556,8 +558,10 @@ static void CheckEnvironmentVariables (void)
 void LogSetTimePrinter (LogTimePrinter printer)
 {
   g_logTimePrinter = printer;
-  // This is the only place where we are more or less sure that all log variables
-  // are registered. See bug 1082 for details.
+  /** \internal
+   *  This is the only place where we are more or less sure that all log variables
+   * are registered. See \bugid{1082} for details.
+   */
   CheckEnvironmentVariables(); 
 }
 LogTimePrinter LogGetTimePrinter (void)

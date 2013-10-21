@@ -28,6 +28,7 @@
 #include "ns3/ipv6.h"
 #include "ns3/ipv6-address.h"
 #include "ns3/ipv6-header.h"
+#include "ns3/ipv6-pmtu-cache.h"
 
 namespace ns3
 {
@@ -249,6 +250,14 @@ public:
   bool RemoveAddress (uint32_t interfaceIndex, uint32_t addressIndex);
 
   /**
+   * \brief Remove a specified Ipv6 address from an interface.
+   * \param interfaceIndex interface index
+   * \param address Ipv6Address to be removed from the interface
+   * \returns true if the operation succeeded
+   */
+  bool RemoveAddress (uint32_t interface, Ipv6Address address);
+
+  /**
    * \brief Set metric for an interface.
    * \param i index
    * \param metric
@@ -268,6 +277,13 @@ public:
    * \return MTU
    */
   uint16_t GetMtu (uint32_t i) const;
+
+  /**
+   * \brief Set the Path MTU for the specified IPv6 destination address.
+   * \param dst Ipv6 destination address
+   * \param pmtu the Path MTU
+   */
+  virtual void SetPmtu (Ipv6Address dst, uint32_t pmtu);
 
   /**
    * \brief Is specified interface up ?
@@ -420,19 +436,21 @@ private:
 
   /**
    * \brief Forward a packet.
+   * \param idev Pointer to ingress network device
    * \param rtentry route 
    * \param p packet to forward
    * \param header IPv6 header to add to the packet
    */
-  void IpForward (Ptr<Ipv6Route> rtentry, Ptr<const Packet> p, const Ipv6Header& header);
+  void IpForward (Ptr<const NetDevice> idev, Ptr<Ipv6Route> rtentry, Ptr<const Packet> p, const Ipv6Header& header);
 
   /**
    * \brief Forward a packet in multicast.
+   * \param idev Pointer to ingress network device
    * \param mrtentry route 
    * \param p packet to forward
    * \param header IPv6 header to add to the packet
    */
-  void IpMulticastForward (Ptr<Ipv6MulticastRoute> mrtentry, Ptr<const Packet> p, const Ipv6Header& header);
+  void IpMulticastForward (Ptr<const NetDevice> idev, Ptr<Ipv6MulticastRoute> mrtentry, Ptr<const Packet> p, const Ipv6Header& header);
 
   /**
    * \brief Deliver a packet.
@@ -475,6 +493,18 @@ private:
   virtual bool GetIpForward () const;
 
   /**
+   * \brief Set IPv6 MTU discover state.
+   * \param mtuDiscover IPv6 MTU discover enabled or not
+   */
+  virtual void SetMtuDiscover (bool mtuDiscover);
+
+  /**
+   * \brief Get IPv6 MTU discover state.
+   * \return MTU discover state (enabled or not)
+   */
+  virtual bool GetMtuDiscover (void) const;
+
+  /**
    * \brief Set the ICMPv6 Redirect sending state.
    * \param sendIcmpv6Redirect ICMPv6 Redirect sending enabled or not
    */
@@ -495,6 +525,16 @@ private:
    * \brief Forwarding packets (i.e. router mode) state.
    */
   bool m_ipForward;
+
+  /**
+   * \brief MTU Discover (i.e. Path MTU) state.
+   */
+  bool m_mtuDiscover;
+
+  /**
+   * \brief Path MTU Cache.
+   */
+  Ptr<Ipv6PmtuCache> m_pmtuCache;
 
   /**
    * \brief List of transport protocol.

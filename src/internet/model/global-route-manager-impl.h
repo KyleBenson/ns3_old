@@ -40,7 +40,7 @@ class CandidateQueue;
 class Ipv4GlobalRouting;
 
 /**
- * @brief Vertex used in shortest path first (SPF) computations. See RFC 2328,
+ * @brief Vertex used in shortest path first (SPF) computations. See \RFC{2328},
  * Section 16.
  *
  * Each router in the simulation is associated with an SPFVertex object.  When
@@ -695,7 +695,7 @@ private:
  * Then, it can compute shortest paths on a per-node basis to all routers, 
  * and finally configure each of the node's forwarding tables.
  *
- * The design is guided by OSPFv2 RFC 2328 section 16.1.1 and quagga ospfd.
+ * The design is guided by OSPFv2 \RFC{2328} section 16.1.1 and quagga ospfd.
  */
 class GlobalRouteManagerImpl
 {
@@ -706,7 +706,7 @@ public:
  * @brief Delete all static routes on all nodes that have a
  * GlobalRouterInterface
  *
- * TODO:  separate manually assigned static routes from static routes that
+ * \todo  separate manually assigned static routes from static routes that
  * the global routing code injects, and only delete the latter
  * @internal
  *

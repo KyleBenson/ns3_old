@@ -111,10 +111,10 @@ WifiTest::RunOne (void)
   CreateOne (Vector (5.0, 0.0, 0.0), channel);
   CreateOne (Vector (5.0, 0.0, 0.0), channel);
 
+  Simulator::Stop (Seconds (10.0));
+
   Simulator::Run ();
   Simulator::Destroy ();
-
-  Simulator::Stop (Seconds (10.0));
 }
 
 void
@@ -147,7 +147,6 @@ WifiTest::DoRun (void)
   m_propDelay.SetTypeId ("ns3::RandomPropagationDelayModel");
   m_mac.SetTypeId ("ns3::AdhocWifiMac");
   RunOne ();
-  Simulator::Destroy ();
 }
 
 //-----------------------------------------------------------------------------
@@ -179,6 +178,10 @@ public:
 };
 
 //-----------------------------------------------------------------------------
+/**
+ * \internal
+ * See \bugid{991}
+ */
 class InterferenceHelperSequenceTest : public TestCase
 {
 public:
@@ -313,6 +316,9 @@ InterferenceHelperSequenceTest::DoRun (void)
  * backoff again. As a result, the _actual_ backoff experience by frame 2 is less likely to be 0
  * since that would require two successions of 0 backoff (one that generates the virtual collision and
  * one after the virtual collision).
+ *
+ * \internal
+ * See \bugid{555}
  */
 
 class Bug555TestCase : public TestCase
@@ -428,7 +434,6 @@ Bug555TestCase::DoRun (void)
 }
 
 //-----------------------------------------------------------------------------
-
 class WifiTestSuite : public TestSuite
 {
 public:
@@ -438,10 +443,10 @@ public:
 WifiTestSuite::WifiTestSuite ()
   : TestSuite ("devices-wifi", UNIT)
 {
-  AddTestCase (new WifiTest);
-  AddTestCase (new QosUtilsIsOldPacketTest);
-  AddTestCase (new InterferenceHelperSequenceTest); // Bug 991
-  AddTestCase (new Bug555TestCase); // Bug 555
+  AddTestCase (new WifiTest, TestCase::QUICK);
+  AddTestCase (new QosUtilsIsOldPacketTest, TestCase::QUICK);
+  AddTestCase (new InterferenceHelperSequenceTest, TestCase::QUICK); // Bug 991
+  AddTestCase (new Bug555TestCase, TestCase::QUICK); // Bug 555
 }
 
 static WifiTestSuite g_wifiTestSuite;
