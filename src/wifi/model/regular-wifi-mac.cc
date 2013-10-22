@@ -75,15 +75,15 @@ RegularWifiMac::~RegularWifiMac ()
 }
 
 void
-RegularWifiMac::DoStart ()
+RegularWifiMac::DoInitialize ()
 {
   NS_LOG_FUNCTION (this);
 
-  m_dca->Start ();
+  m_dca->Initialize ();
 
   for (EdcaQueues::iterator i = m_edca.begin (); i != m_edca.end (); ++i)
     {
-      i->second->Start ();
+      i->second->Initialize ();
     }
 }
 
@@ -120,6 +120,7 @@ RegularWifiMac::SetWifiRemoteStationManager (Ptr<WifiRemoteStationManager> stati
 {
   NS_LOG_FUNCTION (this << stationManager);
   m_stationManager = stationManager;
+  m_stationManager->SetHtSupported (GetHtSupported());
   m_low->SetWifiRemoteStationManager (stationManager);
 
   m_dca->SetWifiRemoteStationManager (stationManager);
@@ -244,6 +245,30 @@ RegularWifiMac::GetQosSupported () const
 {
   return m_qosSupported;
 }
+void
+RegularWifiMac::SetHtSupported (bool enable)
+{
+  NS_LOG_FUNCTION (this);
+  m_htSupported = enable;
+}
+
+bool
+RegularWifiMac::GetHtSupported () const
+{
+  return m_htSupported;
+}
+void
+RegularWifiMac::SetCtsToSelfSupported(bool enable)
+{
+  NS_LOG_FUNCTION (this);
+  m_low->SetCtsToSelfSupported (enable);
+}
+
+bool
+RegularWifiMac::GetCtsToSelfSupported () const
+{
+   return  m_low->GetCtsToSelfSupported ();
+}
 
 void
 RegularWifiMac::SetSlot (Time slotTime)
@@ -284,6 +309,18 @@ Time
 RegularWifiMac::GetEifsNoDifs (void) const
 {
   return m_dcfManager->GetEifsNoDifs ();
+}
+void
+RegularWifiMac::SetRifs (Time rifs)
+{
+  NS_LOG_FUNCTION (this << rifs);
+  m_low->SetRifs (rifs);
+}
+
+Time
+RegularWifiMac::GetRifs (void) const
+{
+  return m_low->GetRifs();
 }
 
 void
@@ -512,10 +549,13 @@ RegularWifiMac::Receive (Ptr<Packet> packet, const WifiMacHeader *hdr)
 
             default:
               NS_FATAL_ERROR ("Unsupported Action field in Block Ack Action frame");
+              return;
             }
+
 
         default:
           NS_FATAL_ERROR ("Unsupported Action frame received");
+          return;
         }
     }
   NS_FATAL_ERROR ("Don't know how to handle frame (type=" << hdr->GetType ());
@@ -606,6 +646,18 @@ RegularWifiMac::GetTypeId (void)
                    MakeBooleanAccessor (&RegularWifiMac::SetQosSupported,
                                         &RegularWifiMac::GetQosSupported),
                    MakeBooleanChecker ())
+    .AddAttribute ("HtSupported",
+                   "This Boolean attribute is set to enable 802.11n support at this STA",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&RegularWifiMac::SetHtSupported,
+                                        &RegularWifiMac::GetHtSupported),
+                   MakeBooleanChecker ())
+   .AddAttribute ("CtsToSelfSupported",
+                   "Use CTS to Self when using a rate that is not in the basic set rate",
+                   BooleanValue (false),
+                   MakeBooleanAccessor (&RegularWifiMac::SetCtsToSelfSupported,
+                                        &RegularWifiMac::GetCtsToSelfSupported),
+                    MakeBooleanChecker ())
     .AddAttribute ("DcaTxop", "The DcaTxop object",
                    PointerValue (),
                    MakePointerAccessor (&RegularWifiMac::GetDcaTxop),
@@ -660,6 +712,8 @@ RegularWifiMac::FinishConfigureStandard (enum WifiPhyStandard standard)
     case WIFI_PHY_STANDARD_80211g:
     case WIFI_PHY_STANDARD_80211_10MHZ:
     case WIFI_PHY_STANDARD_80211_5MHZ:
+    case WIFI_PHY_STANDARD_80211n_5GHZ:
+    case WIFI_PHY_STANDARD_80211n_2_4GHZ:
       cwmin = 15;
       cwmax = 1023;
       break;

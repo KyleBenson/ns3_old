@@ -27,6 +27,8 @@
 // see 36.213 section 8
 #define UL_PUSCH_TTIS_DELAY 4
 
+#define HARQ_PERIOD 7
+
 namespace ns3 {
 
 
@@ -114,6 +116,105 @@ class TransmissionModesLayers
   static uint8_t TxMode2LayerNum (uint8_t txMode);
 };
 
+
+struct PhyTransmissionStatParameters
+{
+  int64_t  m_timestamp; // in millisecond
+  uint16_t m_cellId;
+  uint64_t m_imsi;
+  uint16_t m_rnti;
+  uint8_t  m_txMode;
+  uint8_t  m_layer;
+  uint8_t  m_mcs;
+  uint16_t m_size;
+  uint8_t  m_rv;
+  uint8_t  m_ndi;
+};
+
+
+struct PhyReceptionStatParameters
+{
+  int64_t  m_timestamp; // in millisecond
+  uint16_t m_cellId;
+  uint64_t m_imsi;
+  uint16_t m_rnti;
+  uint8_t  m_txMode;
+  uint8_t  m_layer;
+  uint8_t  m_mcs;
+  uint16_t m_size;
+  uint8_t  m_rv;
+  uint8_t  m_ndi;
+  uint8_t  m_correctness;
+};
+
+
+/**
+ * Implements the E-UTRA measurement mappings defined in  3GPP TS
+ * 36.133 section 9.1 E-UTRAN measurements 
+ * 
+ */
+class EutranMeasurementMapping
+{
+public:
+  /** 
+   * converts an RSRP range to dBm as per 
+   * 3GPP TS 36.133 section 9.1.4 RSRP Measurement Report Mapping  
+   *
+   * \param range the RSRP range value
+   * 
+   * \return the corresponding RSRP value in dBm
+   */
+  static double RsrpRange2Dbm (uint8_t range);
+
+  /** 
+   * convert an RSRP value in dBm to the corresponding range as per 
+   * 3GPP TS 36.133 section 9.1.4 RSRP Measurement Report Mapping 
+   * 
+   * \param dbm the RSRP value in dBm
+   * 
+   * \return the corresponding range
+   */
+  static uint8_t Dbm2RsrpRange (double dbm);
+
+  /** 
+   * converts an RSRQ range to dB as per 
+   * 3GPP TS 36.133 section 9.1.7 RSRQ Measurement Report Mapping
+   *
+   * \param range the RSRQ range value
+   * 
+   * \return the corresponding RSRQ value in dB
+   */
+  static double RsrqRange2Db (uint8_t range);
+
+  /** 
+   * convert an RSRQ value in dB to the corresponding range as per 
+   * 3GPP TS 36.133 section 9.1.7 RSRQ Measurement Report Mapping
+   * 
+   * \param db the RSRQ value in dB
+   * 
+   * \return the corresponding range
+   */
+  static uint8_t Db2RsrqRange (double db);  
+
+  /** 
+   * Quantize an RSRP value according to the measurement mapping of TS 36.133
+   * 
+   * \param v RSRP value in dBm
+   * 
+   * \return the quantized RSRP value in dBm
+   */
+  static double QuantizeRsrp (double v);
+
+  /** 
+   * Quantize an RSRQ value according to the measurement mapping of TS 36.133
+   * 
+   * \param v RSRQ value in dB
+   * 
+   * \return the quantized RSRQ value in dB
+   */
+  static double QuantizeRsrq(double v);
+
+};
 
 }; // namespace ns3
 

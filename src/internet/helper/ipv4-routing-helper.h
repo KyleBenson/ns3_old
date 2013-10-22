@@ -17,12 +17,14 @@
  *
  * Author: Mathieu Lacage <mathieu.lacage@sophia.inria.fr>
  */
+
 #ifndef IPV4_ROUTING_HELPER_H
 #define IPV4_ROUTING_HELPER_H
 
 #include "ns3/ptr.h"
 #include "ns3/nstime.h"
 #include "ns3/output-stream-wrapper.h"
+#include "ns3/ipv4-list-routing.h"
 
 namespace ns3 {
 
@@ -107,10 +109,46 @@ public:
    */
   void PrintRoutingTableEvery (Time printInterval, Ptr<Node> node, Ptr<OutputStreamWrapper> stream) const;
 
+  /**
+   * \brief Request a specified routing protocol <T> from Ipv4RoutingProtocol protocol
+   *
+   * If protocol is Ipv4ListRouting, then protocol will be searched in the list,
+   * otherwise a simple DynamicCast will be performed
+   *
+   * \param protocol Smart pointer to Ipv4RoutingProtocol object
+   * \return a Smart Pointer to the requested protocol (zero if the protocol can't be found)
+   */
+  template<class T>
+  static Ptr<T> GetRouting (Ptr<Ipv4RoutingProtocol> protocol);
+  
 private:
   void Print (Ptr<Node> node, Ptr<OutputStreamWrapper> stream) const;
   void PrintEvery (Time printInterval, Ptr<Node> node, Ptr<OutputStreamWrapper> stream) const;
 };
+
+
+template<class T>
+Ptr<T> Ipv4RoutingHelper::GetRouting (Ptr<Ipv4RoutingProtocol> protocol)
+{
+  Ptr<T> ret = DynamicCast<T> (protocol);
+  if (ret == 0)
+    {
+      // trying to check if protocol is a list routing
+      Ptr<Ipv4ListRouting> lrp = DynamicCast<Ipv4ListRouting> (protocol);
+      if (lrp != 0)
+        {
+          for (uint32_t i = 0; i < lrp->GetNRoutingProtocols ();  i++)
+            {
+              int16_t priority;
+              ret = GetRouting<T> (lrp->GetRoutingProtocol (i, priority)); // potential recursion, if inside ListRouting is ListRouting
+              if (ret != 0)
+                break;
+            }
+        }
+    }
+
+  return ret;
+}
 
 } // namespace ns3
 

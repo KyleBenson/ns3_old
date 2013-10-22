@@ -190,7 +190,21 @@ the link budget calculations (including interference) corresponding to the topol
 test case, and outputs the resulting SINR and spectral efficiency. The
 latter is then used to determine (using the same procedure adopted for 
 :ref:`sec-lte-amc-tests`. We note that the test vector
-contains separate values for uplink and downlink. 
+contains separate values for uplink and downlink.
+
+
+
+UE Measurements Tests
+-----------------------------
+
+The test suite `lte-ue-measurements`` provides system tests recreating an
+inter-cell interference scenario identical of the one defined for `lte-interference`` test-suite. However, in this test the quantities to be tested are represented by RSRP and RSRQ measurements performed by the UE in two different points of the stack: the source, which is UE PHY layer, and the destination, that is the eNB RRC.
+
+The test vectors are obtained by use of a dedicated octave script
+(available in
+`src/lte/test/reference/lte-ue-measurements.m`), which does
+the link budget calculations (including interference) corresponding to the topology of each
+test case, and outputs the resulting RSRP and RSRQ. The obtained values are then used for checking the correctness of the UE Measurements at PHY layer, while they have to converted according to 3GPP formatting for checking they correctness at eNB RRC level.
 
 
 
@@ -369,7 +383,7 @@ at the given SNR, while reference throughput value for other UEs by zero.
 Let :math:`\tau` be the TTI duration, :math:`B` the transmission
 bandwidth configuration in number of RBs, :math:`M` the modulation and
 coding scheme in use at the given SNR and :math:`S(M, B)` be the
-transport block size as defined in [TS36.213]_. The reference
+transport block size as defined in [TS36213]_. The reference
 throughput :math:`T` in bit/s achieved by each UE is calculated as 
 
 .. math::
@@ -559,16 +573,16 @@ Physical Error Model
 --------------------
 
 
-The test suite ``lte-phy-error-model`` generates different test cases for evaluating both data and control error models. For what concern the data, the test consists of nine test cases with single eNB and a various number of UEs, all having the same Radio Bearer specification. Each test is designed for evaluating the error rate perceived by a specific TB size in order to verify that it corresponds to the expected values according to the BLER generated for CB size analog to the TB size. This means that, for instance, the test will check that the performance of a TB of :math:`N` bits is analogous to the one of a a CB size of :math:`N` bits by collecting the performance of a user which has been forced the generation of a such TB size according to the distance to eNB. In order to significantly test the BER at MAC level, we modified the Adaptive Modulation and Coding (AMC) module, the ``LteAmc`` class, for making it less robust to channel conditions by adding a configurable BER parameter (called ``Ber`` in the ns3 attribute system) which enable the selection of the desired BER at MAC level when choosing the MCS to be used. In detail, the AMC module has been forced to select the AMC considering a BER of 0.01 (instead of the standard value equal to 0.00005). We note that, these values do not reflect actual BER since they come from an analytical bound which do not consider all the transmission chain aspects; therefore the resulted BER might be different. 
+The test suite ``lte-phy-error-model`` generates different test cases for evaluating both data and control error models. For what concern the data, the test consists of nine test cases with single eNB and a various number of UEs, all having the same Radio Bearer specification. Each test is designed for evaluating the error rate perceived by a specific TB size in order to verify that it corresponds to the expected values according to the BLER generated for CB size analog to the TB size. This means that, for instance, the test will check that the performance of a TB of :math:`N` bits is analogous to the one of a a CB size of :math:`N` bits by collecting the performance of a user which has been forced the generation of a such TB size according to the distance to eNB. In order to significantly test the BLER at MAC level, we configured the Adaptive Modulation and Coding (AMC) module, the ``LteAmc`` class, for making it less robust to channel conditions by using the PiroEW2010 AMC model and configuring it to select the MCS considering a target BER of 0.03 (instead of the default value of 0.00005). We note that these values do not reflect the actual BER, since they come from an analytical bound which does not consider all the transmission chain aspects; therefore the BER and BLER actually experienced at the reception of a TB is in general different. 
 
 The parameters of the nine test cases are reported in the following:
 
- #. 4 UEs placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 256 bits, that in turns produce a BER of 0.33 (see point A in figure :ref:`fig-mcs-2-test`).
- #. 2 UEs placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 528 bits, that in turns produce a BER of 0.11 (see point B in figure :ref:`fig-mcs-2-test`).
- #. 1 UE placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 1088 bits, that in turns produce a BER of 0.02 (see point C in figure :ref:`fig-mcs-2-test`).
- #. 1 UE placed 600 meters far from the eNB, which implies the use of MCS 12 (SINR of 4.43 dB) and a TB of 4800 bits, that in turns produce a BER of 0.3 (see point D in figure :ref:`fig-mcs-12-test`).
- #. 3 UEs placed 600 meters far from the eNB, which implies the use of MCS 12 (SINR of 4.43 dB) and a TB of 1632 bits, that in turns produce a BER of 0.55 (see point E in figure :ref:`fig-mcs-12-test`).
- #. 1 UE placed 470 meters far from the eNB, which implies the use of MCS 16 (SINR of 8.48 dB) and a TB of 7272 bits (segmented in 2 CBs of 3648 and 3584 bits), that in turns produce a BER of 0.14, since each CB has CBLER equal to 0.075 (see point F in figure :ref:`fig-mcs-14-test`).
+ #. 4 UEs placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 256 bits, that in turns produce a BLER of 0.33 (see point A in figure :ref:`fig-mcs-2-test`).
+ #. 2 UEs placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 528 bits, that in turns produce a BLER of 0.11 (see point B in figure :ref:`fig-mcs-2-test`).
+ #. 1 UE placed 1800 meters far from the eNB, which implies the use of MCS 2 (SINR of -5.51 dB) and a TB of 1088 bits, that in turns produce a BLER of 0.02 (see point C in figure :ref:`fig-mcs-2-test`).
+ #. 1 UE placed 600 meters far from the eNB, which implies the use of MCS 12 (SINR of 4.43 dB) and a TB of 4800 bits, that in turns produce a BLER of 0.3 (see point D in figure :ref:`fig-mcs-12-test`).
+ #. 3 UEs placed 600 meters far from the eNB, which implies the use of MCS 12 (SINR of 4.43 dB) and a TB of 1632 bits, that in turns produce a BLER of 0.55 (see point E in figure :ref:`fig-mcs-12-test`).
+ #. 1 UE placed 470 meters far from the eNB, which implies the use of MCS 16 (SINR of 8.48 dB) and a TB of 7272 bits (segmented in 2 CBs of 3648 and 3584 bits), that in turns produce a BLER of 0.14, since each CB has CBLER equal to 0.075 (see point F in figure :ref:`fig-mcs-14-test`).
 
 
 .. _fig-mcs-2-test:
@@ -594,15 +608,42 @@ The parameters of the nine test cases are reported in the following:
    BLER for test 6.
 
 
-The test verifies that in each case the expected number of packets received correct corresponds to a Bernoulli distribution with a confidence interval of 95%, where the probability of success in each trail is :math:`1-BER` and :math:`n` is the total number of packet sent.
+The test verifies that in each case the expected number of packets received correct corresponds to a Bernoulli distribution with a confidence interval of 99%, where the probability of success in each trail is :math:`p=1-BER` and :math:`n` is the total number of packet sent.
 
 The error model of PCFICH-PDDCH channels consists of 4 test cases with a single UE and several eNBs, where the UE is connected to only one eNB in order to have the remaining acting as interfering ones. The errors on data are disabled in order to verify only the ones due to erroneous decodification of PCFICH-PDCCH. The test verifies that the error on the data received respects the decodification error probability of the PCFICH-PDCCH with a tolerance of 0.1 due to the errors that might be produced in quantizing the MI and the error curve. As before, the system has been forced on working in a less conservative fashion in the AMC module for appreciating the results in border situations. The parameters of the 4 tests cases are reported in the following:
 
- #. 2 eNBs placed 1078 meters far from the UE, which implies a SINR of -2.00 dB and a TB of 217 bits, that in turns produce a BER of 0.007.
- #. 3 eNBs placed 1078 meters far from the UE, which implies a SINR of -4.00 dB and a TB of 217 bits, that in turns produce a BER of 0.045.
- #. 4 eNBs placed 1078 meters far from the UE, which implies a SINR of -6.00 dB and a TB of 133 bits, that in turns produce a BER of 0.206.
- #. 5 eNBs placed 1078 meters far from the UE, which implies a SINR of -7.00 dB and a TB of 81 bits, that in turns produce a BER of 0.343.
- 
+ #. 2 eNBs placed 1078 meters far from the UE, which implies a SINR of -2.00 dB and a TB of 217 bits, that in turns produce a BLER of 0.007.
+ #. 3 eNBs placed 1078 meters far from the UE, which implies a SINR of -4.00 dB and a TB of 217 bits, that in turns produce a BLER of 0.045.
+ #. 4 eNBs placed 1078 meters far from the UE, which implies a SINR of -6.00 dB and a TB of 133 bits, that in turns produce a BLER of 0.206.
+ #. 5 eNBs placed 1078 meters far from the UE, which implies a SINR of -7.00 dB and a TB of 81 bits, that in turns produce a BLER of 0.343.
+
+
+HARQ Model
+----------
+
+The test suite ``lte-harq`` includes two tests for evaluating the HARQ model and the related extension in the error model. The test consists on checking whether the amount of bytes received during the simulation corresponds to the expected ones according to the values of transport block and the HARQ dynamics. In detail, the test checks whether the throughput obtained after one HARQ retransmission is the expeted one. For evaluating the expected throughput the expected TB delivering time has been evaluated according to the following formula:
+
+.. math::
+
+   \mathrm{T} = P_s^1 \times 1 + P_s^2 \times 2 + (1-P_s^2) \times 3
+
+where :math:`P_s^i` is the probability of receiving with success the HARQ block at the attempt :math:`i` (i.e., the RV with 3GPP naming). According to the scenarios, in the test we always have :math:`P_s^1` equal to 0.0, while :math:`P_s^2` varies in the two tests, in detail:
+
+
+.. math::
+
+   \mathrm{T_{test-1}} = 0.0 \times 1 + 0.926 \times 2 + 0.074 \times 3 = 2.074
+
+   \mathrm{T_{test-2}} = 0.0 \times 1 + 0.752 \times 2 + 0.248 \times 3 = 2.248
+
+The expected throughput is calculted by counting the number of transmission slots available during the simulation (e.g., the number of TTIs) and the size of the TB in the simulation, in detail:
+
+.. math::
+
+   \mathrm{Thr_{test-i}} = \frac{TTI_{NUM}}{T_{test-i}} TB_{size} = \left\{ \begin{array}{lll} \dfrac{1000}{2.074}66 = 31822\mbox{ bps} & \mbox{ for test-1} \\ & \\ \dfrac{1000}{2.248}472 = 209964\mbox{ bps} & \mbox{ for test-2}\end{array} \right.
+
+where :math:`TTI_{NUM}` is the total number of TTIs in 1 second.
+The test is performed both for Round Robin scheduler. The test passes if the measured throughput matches with the reference throughput within a relative tolerance of 0.1. This tolerance is needed to account for the transient behavior at the beginning of the simulation and the on-fly blocks at the end of the simulation.
 
 
 MIMO Model
@@ -668,6 +709,78 @@ transmitted by the RLC instance, both the size and the content of the
 PDU are verified to check for an exact match with the test vector.
 
 
+RRC
+---
+
+The test suite ``lte-rrc`` tests the correct functionality of the following aspects:
+ 
+ #. MAC Random Access
+ #. RRC System Information Acquisition
+ #. RRC Connection Establishment 
+ #. RRC Reconfiguration
+
+The test suite considers a type of scenario with a single eNB and multiple UEs that are instructed to connect to the eNB. Each test case implement an instance of this scenario with specific values of the following parameters:
+
+ - number of UEs
+ - number of Data Radio Bearers to be activated for each UE
+ - time :math:`t^c_0` at which the first UE is instructed to start connecting to the eNB
+ - time interval :math:`d^i` between the start of connection of UE :math:`n` and UE :math:`n+1`; the time at which user :math:`n` connects is thus determined as :math:`t^c_n = t^c_0 + n d^i` sdf
+ - a boolean flag indicating whether the ideal or the real RRC protocol model is used
+
+Each test cases passes if a number of test conditions are positively evaluated for each UE after a delay :math:`d^e` from the time it started connecting to the eNB. The delay :math:`d^e` is determined as 
+
+.. math::
+
+   d^e = d^{si} + d^{ra} + d^{ce} + d^{cr}
+
+where:
+
+ - :math:`d^{si}` is the max delay necessary for the acquisition of System Information. We set it to 90ms accounting for 10ms for the MIB acquisition and 80ms for the subsequent SIB2 acquisition
+ - :math:`d^{ra}` is the delay for the MAC Random Access (RA)
+   procedure. This depends on preamble collisions as well as on the
+   availability of resources for the UL grant allocation. The total amount of
+   necessary RA attempts depends on preamble collisions and failures
+   to allocate the UL grant because of lack of resources. The number
+   of collisions depends on the number of UEs that try to access
+   simultaneously; we estimated that for a :math:`0.99` RA success
+   probability, 5 attempts are sufficient for up to 20 UEs, and 10
+   attempts for up to 50 UEs. For the UL
+   grant, considered the system bandwidth and the
+   default MCS used for the UL grant (MCS 0), at most 4 UL grants can
+   be assigned in a TTI; so for :math:`n` UEs trying to
+   do RA simultaneously the max number of attempts due to the UL grant
+   issue is :math:`\lceil n/4 \rceil`. The time for
+   a RA attempt  is determined by 3ms + the value of
+   LteEnbMac::RaResponseWindowSize, which defaults to 3ms, plus 1ms
+   for the scheduling of the new transmission.
+ - :math:`d^{ce}` is the delay required for the transmission of RRC CONNECTION
+   SETUP + RRC CONNECTION SETUP COMPLETED. We consider a round trip
+   delay of 10ms plus :math:`\lceil 2n/4 \rceil` considering that 2
+   RRC packets have to be transmitted and that at most 4 such packets
+   can be transmitted per TTI.
+ - :math:`d^{cr}` is the delay required for eventually needed RRC
+   CONNECTION RECONFIGURATION transactions. The number of transactions needed is
+   1 for each bearer activation. Similarly to what done for
+   :math:`d^{ce}`, for each transaction we consider a round trip 
+   delay of 10ms plus :math:`\lceil 2n/4 \rceil`.
+   delay of 20ms.
+
+The conditions that are evaluated for a test case to pass are, for
+each UE:
+
+ - the eNB has the context of the UE (identified by the RNTI value
+   retrieved from the UE RRC)
+ - the RRC state of the UE at the eNB is CONNECTED_NORMALLY
+ - the RRC state at the UE is CONNECTED_NORMALLY
+ - the UE is configured with the CellId, DlBandwidth, UlBandwidth,
+   DlEarfcn and UlEarfcn of the eNB
+ - the IMSI of the UE stored at the eNB is correct
+ - the number of active Data Radio Bearers is the expected one, both
+   at the eNB and at the UE
+ - for each Data Radio Bearer, the following identifiers match between
+   the UE and the eNB: EPS bearer id, DRB id, LCID
+
+ 
 
 
 
@@ -747,4 +860,135 @@ test passes if all the following conditions are satisfied:
    RadioBearer instance  
 
 
+X2 handover
+-----------
 
+The test suite ``lte-x2-handover`` checks the correct functionality of the X2 handover procedure. The scenario being tested is a topology with two eNBs connected by an X2 interface. Each test case is a particular instance of this scenario defined by the following parameters:
+
+ - the number of UEs that are initially attached to the first eNB
+ - the number of EPS bearers activated for each UE
+ - a list of handover events to be triggered, where each event is defined by:
+   + the start time of the handover trigger
+   + the index of the UE doing the handover
+   + the index of the source eNB
+   + the index of the target eNB
+ - a boolean flag indicating whether the target eNB admits the handover or not
+ - a boolean flag indicating whether the ideal RRC protocol is to be used instead of the real RRC protocol
+ - the type of scheduler to be used (RR or PF)
+
+Each test case passes if the following conditions are true:
+
+ - at time 0.06s, the test CheckConnected verifies that each UE is connected to the first eNB
+ - for each event in the handover list:
+
+   + at the indicated event start time, the indicated UE is connected to the indicated source eNB
+   + 0.1s after the start time, the indicated UE is connected to the indicated target eNB
+   + 0.6s after the start time, for each active EPS bearer, the uplink and downlink sink applications of the indicated UE have achieved a number of bytes which is at least half the number of bytes transmitted by the corresponding source applications
+
+The condition "UE is connected to eNB" is evaluated positively if and only if all the following conditions are met:
+
+ - the eNB has the context of the UE (identified by the RNTI value
+   retrieved from the UE RRC)
+ - the RRC state of the UE at the eNB is CONNECTED_NORMALLY
+ - the RRC state at the UE is CONNECTED_NORMALLY
+ - the UE is configured with the CellId, DlBandwidth, UlBandwidth,
+   DlEarfcn and UlEarfcn of the eNB
+ - the IMSI of the UE stored at the eNB is correct
+ - the number of active Data Radio Bearers is the expected one, both
+   at the eNB and at the UE
+ - for each Data Radio Bearer, the following identifiers match between
+   the UE and the eNB: EPS bearer id, DRB id, LCID
+
+
+Automatic X2 handover
+---------------------
+
+The test suite ``lte-x2-handover-measures`` checks the correct functionality of the handover
+algorithm. The scenario being tested is a topology with two, three or four eNBs connected by
+an X2 interface. The eNBs are located in a straight line in the X-axes. A UE moves along the
+X-axes going from the neighbourhood of one eNB to the next eNB. Each test case is a particular
+instance of this scenario defined by the following parameters:
+
+ - the number of eNBs in the X-axes
+ - the number of EPS bearers activated for the UE
+ - a list of check point events to be triggered, where each event is defined by:
+   + the time of the first check point event
+   + the time of the last check point event
+   + interval time between two check point events
+   + the index of the UE doing the handover
+   + the index of the eNB where the UE must be connected
+ - a boolean flag indicating whether the ideal RRC protocol is to be used instead of the
+   real RRC protocol
+ - the type of scheduler to be used (RR or PF)
+
+Each test case passes if the following conditions are true:
+
+ - at time 0.08s, the test CheckConnected verifies that each UE is connected to the first eNB
+ - for each event in the check point list:
+
+   + at the indicated check point time, the indicated UE is connected to the indicated eNB
+   + 0.5s after the check point, for each active EPS bearer, the uplink and downlink sink
+     applications of the UE have achieved a number of bytes which is at least half the number
+     of bytes transmitted by the corresponding source applications
+
+The condition "UE is connected to eNB" is evaluated positively if and only if all the following conditions are met:
+
+ - the eNB has the context of the UE (identified by the RNTI value 
+   retrieved from the UE RRC)
+ - the RRC state of the UE at the eNB is CONNECTED_NORMALLY
+ - the RRC state at the UE is CONNECTED_NORMALLY
+ - the UE is configured with the CellId, DlBandwidth, UlBandwidth, 
+   DlEarfcn and UlEarfcn of the eNB
+ - the IMSI of the UE stored at the eNB is correct
+ - the number of active Data Radio Bearers is the expected one, both
+   at the eNB and at the UE
+ - for each Data Radio Bearer, the following identifiers match between
+   the UE and the eNB: EPS bearer id, DRB id, LCID
+
+
+Handover delays
+---------------
+
+Handover procedure consists of several message exchanges between UE, source
+eNodeB, and target eNodeB over both RRC protocol and X2 interface. Test suite
+``lte-handover-delay`` verifies that this procedure consistently spends the
+same amount of time.
+
+The test suite will run several handover test cases. Eact test case is an
+individual simulation featuring a handover at a specified time in simulation.
+For example, the handover in the first test case is invoked at time +0.100s,
+while in the second test case it is at +0.101s. There are 10 test cases, each
+testing a different subframe in LTE. Thus the last test case has the handover
+at +0.109s.
+
+The simulation scenario in the test cases is as follow:
+
+ - EPC is enabled
+ - 2 eNodeBs with circular (isotropic) antenna, separated by 1000 meters
+ - 1 static UE positioned exactly in the center between the eNodeBs
+ - no application installed
+ - no channel fading
+ - default path loss model (Friis)
+ - 0.300s simulation duration
+
+The test case runs as follow. At the beginning of the simulation, the UE is
+attached to the first eNodeB. Then at the time specified by the test case input
+argument, a handover request will be explicitly issued to the second eNodeB.
+The test case will then record the starting time, wait until the handover is
+completed, and then record the completion time. If the difference between the
+completion time and starting time is less than a predefined threshold, then the
+test passes.
+
+A typical handover in the current ns-3 implementation takes 4.2141 ms when using
+Ideal RRC protocol model, and 19.9283 ms when using Real RRC protocol model.
+Accordingly, the test cases use 5 ms and 20 ms as the maximum threshold values.
+The test suite runs 10 test cases with Ideal RRC protocol model and 10 test
+cases with Real RRC protocol model. More information regarding these models can
+be found in Section :ref:`sec-rrc-protocol-models`.
+
+The motivation behind using subframes as the main test parameters is the fact
+that subframe index is one of the factors for calculating RA-RNTI, which is used
+by Random Access during the handover procedure. The test cases verify this
+computation, utilizing the fact that the handover will be delayed when this
+computation is broken. In the default simulation configuration, the handover
+delay observed because of a broken RA-RNTI computation is typically 6 ms.
