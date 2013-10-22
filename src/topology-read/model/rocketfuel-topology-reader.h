@@ -81,6 +81,8 @@ private:
   };
   enum RF_FileType GetFileType (const char *);
 
+  void TryBuildAliases (void);
+
   // end class RocketfuelTopologyReader
 };
 
