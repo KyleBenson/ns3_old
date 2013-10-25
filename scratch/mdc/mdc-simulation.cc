@@ -30,12 +30,19 @@
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
 
+#include <boost/property_tree/ptree.hpp>
+#include <boost/property_tree/xml_parser.hpp>
+#include <boost/foreach.hpp>
+#include <boost/property_tree/ptree_fwd.hpp>
+
+
 /**
  * Creates a simulation environment for a wireless sensor network and event-driven
  * data being collected by a mobile data collector (MDC).
  */
 
-using namespace ns3;
+using
+	namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE ("MdcSimulation");
 
@@ -111,6 +118,7 @@ MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
 int 
 main (int argc, char *argv[])
 {
+
   int verbose = 0;
   uint32_t nSensors = 10;
   uint32_t nMdcs = 1;
@@ -124,10 +132,46 @@ main (int argc, char *argv[])
   double simStartTime = 1.0;
   double simEndTime = 10.0;
 
+
+  //TODO:: Need to figure out where to put this file.
+  std::string filename = "/u01/ns3/workspace/ns-allinone-3.18/ns-3.18/scratch/mdc/mdcconfig.xml";
+  CommandLine cmd;
+  cmd.AddValue ("configfile", "Fully-qualified Configuration File", filename);
+  cmd.Parse (argc,argv);
+
+  // Loads config_settings from the specified XML file
+  using boost::property_tree::ptree;
+  // Create an empty property tree object
+  boost::property_tree::ptree pt;
+
+  // Load the XML file into the property tree. If reading fails
+  // (cannot open file, parse error), an exception is thrown.
+  read_xml(filename, pt);
+
+  nSensors = pt.get("mdc.startup-options.sensors", 10);
+  nMdcs = pt.get("mdc.startup-options.mdcs",1);
+  nEvents = pt.get("mdc.startup-options.events",1);
+  dataSize = pt.get("mdc.startup-options.data_size",1024);
+  eventRadius = pt.get("mdc.startup-options.event_radius",5.0);
+  mdcSpeed = pt.get("mdc.startup-options.mdc_speed",3.0);
+  sendFullData = pt.get("mdc.startup-options.send_full_data",true);
+  boundaryLength = pt.get("mdc.startup-options.boundary",1000);
+  traceFile = pt.get("mdc.startup-options.trace_file","");
+  simStartTime = pt.get("mdc.startup-options.sim_start_time",1.0);
+  simEndTime = pt.get("mdc.startup-options.sim_end_time",10.0);
+
+  verbose = pt.get("mdc.startup-options.verbose",0);
+
+  // Position on the tree containing all log levels
+  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging");
+  boost::property_tree::ptree ptModule;
+
+
+  /* Commented by Ranga and replaced with boost.property_tree calls 20131024
   CommandLine cmd;
   cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
   cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
-  cmd.AddValue ("events", "Number of events to occur", nEvents);
+  cmd.AddValue ("evennts", "Number of events to occur", nEvents);
   cmd.AddValue ("data_size", "Size (in bytes) of full sensed event data", dataSize);
   cmd.AddValue ("event_radius", "Radius of affect of the events", eventRadius);
   cmd.AddValue ("mdc_speed", "Speed (in m/s) of the MDCs", mdcSpeed);
@@ -138,6 +182,7 @@ main (int argc, char *argv[])
   cmd.AddValue ("time", "End time in seconds", simEndTime);
 
   cmd.Parse (argc,argv);
+  */
 
   if (verbose >= 1)
     {

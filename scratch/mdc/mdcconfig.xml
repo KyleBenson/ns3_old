@@ -1,0 +1,71 @@
+<mdc>
+   <startup-options>
+      <sensors>10</sensors> <!-- "Number of sensor nodes" -->
+      <mdcs>1</mdcs> <!-- "Number of mobile data collectors (MDCs)" -->
+      <events>1</events> <!-- "Number of events to occur" -->
+      <data_size>1024</data_size> <!-- "Size (in bytes) of full sensed event data" -->
+      <event_radius>5.0</event_radius> <!-- "Radius of affect of the events" -->
+      <mdc_speed>3.0</mdc_speed> <!-- "Speed (in m/s) of the MDCs" -->
+      <send_full_data>true</send_full_data> <!-- "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs" -->
+      <verbose>1</verbose> <!-- "Enable verbose logging" -->
+      <boundary>10</boundary> <!-- "Length of (one side) of the square bounding box for the geographic region under study (in meters)" -->
+      <trace_file></trace_file> <!-- "File to write traces to" -->
+      <sim_start_time>1.0</sim_end_time> <!-- "Start time in seconds" -->
+      <sim_end_time>10.0</sim_end_time> <!-- "End time in seconds" -->      
+   </startup-options>
+
+   <verbose-logging>
+      <module>
+         <name>OnOffApplication</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>MdcSimulation</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>PacketSink</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>BasicEnergySource</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>MdcEventSensorApplication</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>MdcHelper</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>MdcCollectorApplication</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>MdcSink</name>
+         <level>LOG_LEVEL_FUNCTION</level>
+      </module>
+      <module>
+         <name>Socket</name>
+         <level>LOG_LEVEL_LOGIC</level>
+      </module>
+      <module>
+         <name>TcpSocket</name>
+         <level>LOG_LEVEL_LOGIC</level>
+      </module>
+      <module>
+         <name>TcpTahoe</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>TcpNewReno</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+      <module>
+         <name>TcpReno</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
+   </verbose-logging>
+</mdc>
