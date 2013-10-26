@@ -115,6 +115,21 @@ MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
   NS_LOG_INFO (s.str ());
 }
 
+/// This function translates the Log level string specified in the mdcconfig file to equivalent enum values
+static LogLevel
+TranslateLogLevel (std::string l_str)
+{
+	LogLevel l = LOG_NONE;
+	if (l_str.compare("LOG_LEVEL_ERROR") == 0) l = LOG_LEVEL_ERROR;
+	else if (l_str.compare("LOG_LEVEL_WARN") == 0) l = LOG_LEVEL_WARN;
+	else if (l_str.compare("LOG_LEVEL_DEBUG") == 0) l = LOG_LEVEL_DEBUG;
+	else if (l_str.compare("LOG_LEVEL_INFO") == 0) l = LOG_LEVEL_INFO;
+	else if (l_str.compare("LOG_LEVEL_FUNCTION") == 0) l = LOG_LEVEL_FUNCTION;
+	else if (l_str.compare("LOG_LEVEL_LOGIC") == 0) l = LOG_LEVEL_LOGIC;
+	else if (l_str.compare("LOG_LEVEL_ALL") == 0) l = LOG_LEVEL_ALL;
+	return l;
+}
+
 int 
 main (int argc, char *argv[])
 {
@@ -133,10 +148,9 @@ main (int argc, char *argv[])
   double simEndTime = 10.0;
 
 
-  //TODO:: Need to figure out where to put this file.
-  std::string filename = "/u01/ns3/workspace/ns-allinone-3.18/ns-3.18/scratch/mdc/mdcconfig.xml";
+  std::string filename = "mdcconfig.xml";
   CommandLine cmd;
-  cmd.AddValue ("configfile", "Fully-qualified Configuration File", filename);
+  cmd.AddValue ("configfile", "Configuration File", filename);
   cmd.Parse (argc,argv);
 
   // Loads config_settings from the specified XML file
@@ -163,60 +177,67 @@ main (int argc, char *argv[])
   verbose = pt.get("mdc.startup-options.verbose",0);
 
   // Position on the tree containing all log levels
-  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging");
-  boost::property_tree::ptree ptModule;
+  if (verbose>=1)
+  {
+	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.1");
+	  boost::property_tree::ptree ptModule;
+	  std::string modName;
+	  std::string modLevel;
 
+	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
+	  {
+		modName = "";
+		modLevel = "";
 
-  /* Commented by Ranga and replaced with boost.property_tree calls 20131024
-  CommandLine cmd;
-  cmd.AddValue ("sensors", "Number of sensor nodes", nSensors);
-  cmd.AddValue ("mdcs", "Number of mobile data collectors (MDCs)", nMdcs);
-  cmd.AddValue ("evennts", "Number of events to occur", nEvents);
-  cmd.AddValue ("data_size", "Size (in bytes) of full sensed event data", dataSize);
-  cmd.AddValue ("event_radius", "Radius of affect of the events", eventRadius);
-  cmd.AddValue ("mdc_speed", "Speed (in m/s) of the MDCs", mdcSpeed);
-  cmd.AddValue ("send_full_data", "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs", sendFullData);
-  cmd.AddValue ("verbose", "Enable verbose logging", verbose);
-  cmd.AddValue ("boundary", "Length of (one side) of the square bounding box for the geographic region under study (in meters)", boundaryLength);
-  cmd.AddValue ("trace_file", "File to write traces to", traceFile);
-  cmd.AddValue ("time", "End time in seconds", simEndTime);
+	    ptModule = pos->second; // This is the module entry with 2 elements
+	    modName = ptModule.get<std::string>("name");
+	    modLevel = ptModule.get<std::string>("level");
+	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
+	    ++pos;
 
-  cmd.Parse (argc,argv);
-  */
+	  }
+  }
+  if (verbose>=2)
+  {
+	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.2");
+	  boost::property_tree::ptree ptModule;
+	  std::string modName;
+	  std::string modLevel;
 
-  if (verbose >= 1)
-    {
-      //LogComponentEnable ("OnOffApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcSimulation", LOG_LEVEL_INFO);
-      //LogComponentEnable ("PacketSink", LOG_LEVEL_INFO);
-      //LogComponentEnable ("BasicEnergySource", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcHelper", LOG_LEVEL_INFO);
-    }
+	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
+	  {
+		modName = "";
+		modLevel = "";
 
-  if (verbose >= 2)
-    {
-      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_INFO);
-      LogComponentEnable ("MdcSink", LOG_LEVEL_FUNCTION);
-      //LogComponentEnable ("PacketSink", LOG_LEVEL_LOGIC);      
-      //LogComponentEnable ("MdcEventSensorApplication", LOG_LEVEL_LOGIC);
-      //LogComponentEnable ("MdcHelper", LOG_LEVEL_LOGIC);
-    }
+	    ptModule = pos->second; // This is the module entry with 2 elements
+	    modName = ptModule.get<std::string>("name");
+	    modLevel = ptModule.get<std::string>("level");
+	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
+	    ++pos;
 
-  if (verbose >= 3)
-    {
-      LogComponentEnable ("Socket", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("MdcCollectorApplication", LOG_LEVEL_LOGIC);
-      LogComponentEnable ("TcpSocket", LOG_LEVEL_LOGIC);
+	  }
+  }
+  if (verbose>=3)
+  {
+	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.3");
+	  boost::property_tree::ptree ptModule;
+	  std::string modName;
+	  std::string modLevel;
 
-      LogComponentEnable ("Socket", LOG_LEVEL_INFO);
-      LogComponentEnable ("TcpSocket", LOG_LEVEL_INFO);
-      LogComponentEnable ("TcpTahoe", LOG_LEVEL_INFO);
-      LogComponentEnable ("TcpNewReno", LOG_LEVEL_INFO);
-      LogComponentEnable ("TcpReno", LOG_LEVEL_INFO);
-      LogComponentEnable ("PacketSink", LOG_LEVEL_FUNCTION);
-      LogComponentEnable ("Socket", LOG_LEVEL_FUNCTION);
-    }
+	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
+	  {
+		modName = "";
+		modLevel = "";
+
+	    ptModule = pos->second; // This is the module entry with 2 elements
+	    modName = ptModule.get<std::string>("name");
+	    modLevel = ptModule.get<std::string>("level");
+	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
+	    ++pos;
+
+	  }
+  }
+
 
   // Open trace file if requested
   bool tracing = false;

@@ -7,7 +7,7 @@
       <event_radius>5.0</event_radius> <!-- "Radius of affect of the events" -->
       <mdc_speed>3.0</mdc_speed> <!-- "Speed (in m/s) of the MDCs" -->
       <send_full_data>true</send_full_data> <!-- "Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs" -->
-      <verbose>1</verbose> <!-- "Enable verbose logging" -->
+      <verbose>2</verbose> <!-- "Enable verbose logging" -->
       <boundary>10</boundary> <!-- "Length of (one side) of the square bounding box for the geographic region under study (in meters)" -->
       <trace_file></trace_file> <!-- "File to write traces to" -->
       <sim_start_time>1.0</sim_end_time> <!-- "Start time in seconds" -->
@@ -15,9 +15,10 @@
    </startup-options>
 
    <verbose-logging>
+   <1>
       <module>
          <name>OnOffApplication</name>
-         <level>LOG_LEVEL_INFO</level>
+         <level>LOG_NONE</level>
       </module>
       <module>
          <name>MdcSimulation</name>
@@ -25,11 +26,11 @@
       </module>
       <module>
          <name>PacketSink</name>
-         <level>LOG_LEVEL_INFO</level>
+         <level>LOG_NONE</level>
       </module>
       <module>
          <name>BasicEnergySource</name>
-         <level>LOG_LEVEL_INFO</level>
+         <level>LOG_NONE</level>
       </module>
       <module>
          <name>MdcEventSensorApplication</name>
@@ -39,6 +40,8 @@
          <name>MdcHelper</name>
          <level>LOG_LEVEL_INFO</level>
       </module>
+   </1>
+   <2>
       <module>
          <name>MdcCollectorApplication</name>
          <level>LOG_LEVEL_INFO</level>
@@ -48,7 +51,25 @@
          <level>LOG_LEVEL_FUNCTION</level>
       </module>
       <module>
+         <name>PacketSink</name>
+         <level>LOG_NONE</level>
+      </module>
+      <module>
+         <name>MdcEventSensorApplication</name>
+         <level>LOG_NONE</level>
+      </module>
+      <module>
+         <name>MdcHelper</name>
+         <level>LOG_NONE</level>
+      </module>
+   </2>
+   <3>
+      <module>
          <name>Socket</name>
+         <level>LOG_LEVEL_FUNCTION</level>
+      </module>
+      <module>
+         <name>MdcCollectorApplication</name>
          <level>LOG_LEVEL_LOGIC</level>
       </module>
       <module>
@@ -67,5 +88,11 @@
          <name>TcpReno</name>
          <level>LOG_LEVEL_INFO</level>
       </module>
+      <module>
+         <name>PacketSink</name>
+         <level>LOG_LEVEL_FUNCTION</level>
+      </module>
+   </3>
    </verbose-logging>
 </mdc>
+
