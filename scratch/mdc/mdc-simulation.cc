@@ -29,11 +29,7 @@
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
-
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
-#include <boost/foreach.hpp>
-#include <boost/property_tree/ptree_fwd.hpp>
+#include "mdc-config.h"
 
 
 /**
@@ -115,21 +111,6 @@ MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
   NS_LOG_INFO (s.str ());
 }
 
-/// This function translates the Log level string specified in the mdcconfig file to equivalent enum values
-static LogLevel
-TranslateLogLevel (std::string l_str)
-{
-	LogLevel l = LOG_NONE;
-	if (l_str.compare("LOG_LEVEL_ERROR") == 0) l = LOG_LEVEL_ERROR;
-	else if (l_str.compare("LOG_LEVEL_WARN") == 0) l = LOG_LEVEL_WARN;
-	else if (l_str.compare("LOG_LEVEL_DEBUG") == 0) l = LOG_LEVEL_DEBUG;
-	else if (l_str.compare("LOG_LEVEL_INFO") == 0) l = LOG_LEVEL_INFO;
-	else if (l_str.compare("LOG_LEVEL_FUNCTION") == 0) l = LOG_LEVEL_FUNCTION;
-	else if (l_str.compare("LOG_LEVEL_LOGIC") == 0) l = LOG_LEVEL_LOGIC;
-	else if (l_str.compare("LOG_LEVEL_ALL") == 0) l = LOG_LEVEL_ALL;
-	return l;
-}
-
 int 
 main (int argc, char *argv[])
 {
@@ -147,96 +128,23 @@ main (int argc, char *argv[])
   double simStartTime = 1.0;
   double simEndTime = 10.0;
 
+  // Instantiate the singleton class MdcConfig and get its reference
+  MdcConfig *mdcConfig = MdcConfig::getInstance();
 
-  std::string filename = "mdcconfig.xml";
-  CommandLine cmd;
-  cmd.AddValue ("configfile", "Configuration File", filename);
-  cmd.Parse (argc,argv);
-
-  // Loads config_settings from the specified XML file
-  using boost::property_tree::ptree;
-  // Create an empty property tree object
-  boost::property_tree::ptree pt;
-
-  // Load the XML file into the property tree. If reading fails
-  // (cannot open file, parse error), an exception is thrown.
-  read_xml(filename, pt);
-
-  nSensors = pt.get("mdc.startup-options.sensors", 10);
-  nMdcs = pt.get("mdc.startup-options.mdcs",1);
-  nEvents = pt.get("mdc.startup-options.events",1);
-  dataSize = pt.get("mdc.startup-options.data_size",1024);
-  eventRadius = pt.get("mdc.startup-options.event_radius",5.0);
-  mdcSpeed = pt.get("mdc.startup-options.mdc_speed",3.0);
-  sendFullData = pt.get("mdc.startup-options.send_full_data",true);
-  boundaryLength = pt.get("mdc.startup-options.boundary",1000);
-  traceFile = pt.get("mdc.startup-options.trace_file","");
-  simStartTime = pt.get("mdc.startup-options.sim_start_time",1.0);
-  simEndTime = pt.get("mdc.startup-options.sim_end_time",10.0);
-
-  verbose = pt.get("mdc.startup-options.verbose",0);
-
-  // Position on the tree containing all log levels
-  if (verbose>=1)
-  {
-	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.1");
-	  boost::property_tree::ptree ptModule;
-	  std::string modName;
-	  std::string modLevel;
-
-	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
-	  {
-		modName = "";
-		modLevel = "";
-
-	    ptModule = pos->second; // This is the module entry with 2 elements
-	    modName = ptModule.get<std::string>("name");
-	    modLevel = ptModule.get<std::string>("level");
-	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
-	    ++pos;
-
-	  }
-  }
-  if (verbose>=2)
-  {
-	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.2");
-	  boost::property_tree::ptree ptModule;
-	  std::string modName;
-	  std::string modLevel;
-
-	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
-	  {
-		modName = "";
-		modLevel = "";
-
-	    ptModule = pos->second; // This is the module entry with 2 elements
-	    modName = ptModule.get<std::string>("name");
-	    modLevel = ptModule.get<std::string>("level");
-	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
-	    ++pos;
-
-	  }
-  }
-  if (verbose>=3)
-  {
-	  boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.verbose-logging.3");
-	  boost::property_tree::ptree ptModule;
-	  std::string modName;
-	  std::string modLevel;
-
-	  for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
-	  {
-		modName = "";
-		modLevel = "";
-
-	    ptModule = pos->second; // This is the module entry with 2 elements
-	    modName = ptModule.get<std::string>("name");
-	    modLevel = ptModule.get<std::string>("level");
-	    LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
-	    ++pos;
-
-	  }
-  }
+  // At this point, the default values are not used.
+  // TODO: Check with Kyle on how we should implement the default values
+  nSensors = mdcConfig->getIntProperty("mdc.Sensors");
+  nMdcs = mdcConfig->getIntProperty("mdc.MDCs");
+  nEvents = mdcConfig->getIntProperty("mdc.Events");
+  dataSize = mdcConfig->getIntProperty("mdc.DataSize");
+  eventRadius = mdcConfig->getFloatProperty("mdc.EventRadius");
+  mdcSpeed = mdcConfig->getFloatProperty("mdc.MdcSpeed");
+  sendFullData = mdcConfig->getBoolProperty("mdcSendFullData");
+  boundaryLength = mdcConfig->getIntProperty("mdc.Boundary");
+  traceFile = mdcConfig->getStringProperty("mdc.TraceFile");
+  simStartTime = mdcConfig->getFloatProperty("mdc.SimStartTime");
+  simEndTime = mdcConfig->getFloatProperty("mdc.SimEndTime");
+  verbose = mdcConfig->getIntProperty("mdc.Verbose");
 
 
   // Open trace file if requested
