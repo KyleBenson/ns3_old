@@ -37,7 +37,7 @@ class MdcConfig
 		static bool instanceFlag;
 		static MdcConfig *instance;
 		// Private constructor
-		MdcConfig() {}
+		MdcConfig() {};
 
 		void processConfigFile (std::string fileName);
 		LogLevel translateLogLevel (std::string l_str);
@@ -53,6 +53,11 @@ class MdcConfig
 		float getFloatProperty (std::string propName);
 		bool getBoolProperty (std::string propName);
 		std::string getStringProperty (std::string propName);
+		// Overloaded get...Property methods to apply default values provided
+		int getIntProperty (std::string propName, int defaultInt);
+		float getFloatProperty (std::string propName, float defaultFloat);
+		bool getBoolProperty (std::string propName, bool defaultBool);
+		std::string getStringProperty (std::string propName, std::string defaultString);
 	    ~MdcConfig() { instanceFlag = false;}
 
 };

@@ -115,7 +115,7 @@ int
 main (int argc, char *argv[])
 {
 
-  int verbose = 0;
+  int verbose = 1;
   uint32_t nSensors = 10;
   uint32_t nMdcs = 1;
   uint32_t nEvents = 1;
@@ -131,20 +131,21 @@ main (int argc, char *argv[])
   // Instantiate the singleton class MdcConfig and get its reference
   MdcConfig *mdcConfig = MdcConfig::getInstance();
 
-  // At this point, the default values are not used.
+  // At this point, the default values are not obtained from outside the program.
   // TODO: Check with Kyle on how we should implement the default values
-  nSensors = mdcConfig->getIntProperty("mdc.Sensors");
-  nMdcs = mdcConfig->getIntProperty("mdc.MDCs");
-  nEvents = mdcConfig->getIntProperty("mdc.Events");
-  dataSize = mdcConfig->getIntProperty("mdc.DataSize");
-  eventRadius = mdcConfig->getFloatProperty("mdc.EventRadius");
-  mdcSpeed = mdcConfig->getFloatProperty("mdc.MdcSpeed");
-  sendFullData = mdcConfig->getBoolProperty("mdcSendFullData");
-  boundaryLength = mdcConfig->getIntProperty("mdc.Boundary");
-  traceFile = mdcConfig->getStringProperty("mdc.TraceFile");
-  simStartTime = mdcConfig->getFloatProperty("mdc.SimStartTime");
-  simEndTime = mdcConfig->getFloatProperty("mdc.SimEndTime");
-  verbose = mdcConfig->getIntProperty("mdc.Verbose");
+  // We could assign default values from the commandline parameters also.
+  nSensors = mdcConfig->getIntProperty("mdc.Sensors",10);
+  nMdcs = mdcConfig->getIntProperty("mdc.MDCs",1);
+  nEvents = mdcConfig->getIntProperty("mdc.Events",1);
+  dataSize = mdcConfig->getIntProperty("mdc.DataSize",1024);
+  eventRadius = mdcConfig->getFloatProperty("mdc.EventRadius",5.0);
+  mdcSpeed = mdcConfig->getFloatProperty("mdc.MdcSpeed",3.0);
+  sendFullData = mdcConfig->getBoolProperty("mdcSendFullData",true);
+  boundaryLength = mdcConfig->getIntProperty("mdc.Boundary",100.0);
+  traceFile = mdcConfig->getStringProperty("mdc.TraceFile","");
+  simStartTime = mdcConfig->getFloatProperty("mdc.SimStartTime",1.0);
+  simEndTime = mdcConfig->getFloatProperty("mdc.SimEndTime",10.0);
+  verbose = mdcConfig->getIntProperty("mdc.Verbose",1);
 
 
   // Open trace file if requested

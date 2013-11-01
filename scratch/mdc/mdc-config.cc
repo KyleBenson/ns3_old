@@ -116,14 +116,22 @@ void MdcConfig::processConfigFile (std::string fileName)
  */
 int MdcConfig::getIntProperty (std::string propName)
 {
-	int ipropValue = 0;
+	return MdcConfig::getIntProperty(propName, 0);
+}
+
+/**
+ * This method returns the value of the MdcConfig property as an int.
+ */
+int MdcConfig::getIntProperty (std::string propName, int defaultInt)
+{
+	int ipropValue = defaultInt;
 	std::map<std::string, PropValue >::iterator mapIt;
 
 	mapIt = m_configMap.find(propName);
 	if (mapIt == m_configMap.end())
 	{
 		// Key was not found
-		ipropValue = 0;
+		ipropValue = defaultInt;
 	}
 	else
 	{
@@ -138,14 +146,22 @@ int MdcConfig::getIntProperty (std::string propName)
  */
 float MdcConfig::getFloatProperty (std::string propName)
 {
-	float fpropValue = 0;
+	return MdcConfig::getFloatProperty (propName, 0);
+}
+
+/**
+ * This method returns the value of the MdcConfig property as a float
+ */
+float MdcConfig::getFloatProperty (std::string propName, float defaultFloat)
+{
+	float fpropValue = defaultFloat;
 	std::map<std::string, PropValue >::iterator mapIt;
 
 	mapIt = m_configMap.find(propName);
 	if (mapIt == m_configMap.end())
 	{
 		// Key was not found
-		fpropValue = 0.0;
+		fpropValue = defaultFloat;
 	}
 	else
 	{
@@ -160,14 +176,22 @@ float MdcConfig::getFloatProperty (std::string propName)
  */
 bool MdcConfig::getBoolProperty (std::string propName)
 {
-	bool bpropValue = false;
+	return MdcConfig::getBoolProperty (propName, false);
+}
+
+/**
+ * This method returns the value of the MdcConfig property as an bool.
+ */
+bool MdcConfig::getBoolProperty (std::string propName, bool defaultBool)
+{
+	bool bpropValue = defaultBool;
 	std::map<std::string, PropValue >::iterator mapIt;
 
 	mapIt = m_configMap.find(propName);
 	if (mapIt == m_configMap.end())
 	{
 		// Key was not found
-		bpropValue = false;
+		bpropValue = defaultBool;
 	}
 	else
 	{
@@ -185,14 +209,22 @@ bool MdcConfig::getBoolProperty (std::string propName)
  */
 std::string MdcConfig::getStringProperty (std::string propName)
 {
-	std::string spropValue = "";
+	return MdcConfig::getStringProperty(propName, "");
+}
+
+/**
+ * This method returns the value of the MdcConfig property as an string.
+ */
+std::string MdcConfig::getStringProperty (std::string propName, std::string defaultString)
+{
+	std::string spropValue = defaultString;
 	std::map<std::string, PropValue >::iterator mapIt;
 
 	mapIt = m_configMap.find(propName);
 	if (mapIt == m_configMap.end())
 	{
 		// Key was not found
-		spropValue = "";
+		spropValue = defaultString;
 	}
 	else
 	{
