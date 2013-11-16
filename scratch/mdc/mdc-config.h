@@ -55,7 +55,7 @@ class MdcConfig
    * type that will give you access to your desired primitive.
    */
   template <class AVType, class PrimType>
-  PrimType GetProperty (std::string propName)//, std::string defaultValue = "")
+  PrimType GetProperty (std::string propName, Ptr<const AttributeChecker> checker)//, std::string defaultValue = "")
   {
     std::map<std::string, PropValue >::iterator mapIt;
 
@@ -73,30 +73,30 @@ class MdcConfig
       }
 
     AVType intermediate;
-    bool success = intermediate.DeserializeFromString (mapIt->second->Get (), NULL);
-    NS_ASSERT_MSG (success, "Error accessing PropValue: " << mapIt->second->Get ());
+    bool success = intermediate.DeserializeFromString (mapIt->second->Get (), checker);
+    NS_ASSERT_MSG (success, "Error accessing PropValue: " << mapIt->second->Get () << " for key " << propName);
 
     return intermediate.Get ();
   }
 
   int GetIntProperty (std::string propName)
   {
-    return GetProperty<IntegerValue, int> (propName);
+    return GetProperty<IntegerValue, int> (propName, MakeUintegerChecker<uint32_t> ());
   }
 
   double GetDoubleProperty (std::string propName)
   {
-    return GetProperty<DoubleValue, double> (propName);
+    return GetProperty<DoubleValue, double> (propName, MakeDoubleChecker<double> ());
   }
 
   bool GetBoolProperty (std::string propName)
   {
-    return GetProperty<BooleanValue, bool> (propName);
+    return GetProperty<BooleanValue, bool> (propName, MakeBooleanChecker ());
   }
 
   std::string GetStringProperty (std::string propName)
   {
-    return GetProperty<StringValue, std::string> (propName);
+    return GetProperty<StringValue, std::string> (propName, MakeStringChecker ());
   }
 
   ~MdcConfig() { instanceFlag = false;}
