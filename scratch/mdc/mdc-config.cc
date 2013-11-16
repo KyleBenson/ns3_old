@@ -39,13 +39,13 @@ MdcConfig* MdcConfig::instance = NULL;
  * Calling this method will automatically instantiate the singleton and
  * subsequent calls will only return references to this object.
  */
-MdcConfig* MdcConfig::getInstance()
+MdcConfig* MdcConfig::GetInstance()
 {
 	if (!instanceFlag)
 	{
 		instance = new MdcConfig();
 		instanceFlag = true;
-		instance->processConfigFile("mdcconfig.xml");
+		instance->ProcessConfigFile("mdcconfig.xml");
 		return instance;
 	}
 	else
@@ -55,7 +55,7 @@ MdcConfig* MdcConfig::getInstance()
 /**
  * This is the place where the XML file is parsed and all the parameters are registered as a map.
  */
-void MdcConfig::processConfigFile (std::string fileName)
+void MdcConfig::ProcessConfigFile (std::string fileName)
 {
 //  NS_LOG_FUNCTION_NOARGS ();
 
@@ -71,174 +71,42 @@ void MdcConfig::processConfigFile (std::string fileName)
   boost::property_tree::ptree ptLogLevels = pt.get_child("mdc.startup-options");
   boost::property_tree::ptree ptOptionParam;
   std::string opName;
-  std::string opDescription;
-  std::string opDataType;
   std::string opValue;
 
   m_configMap.clear(); // empty the map before filling it with the values from the XML file
 
   for (ptree::iterator pos = ptLogLevels.begin(); pos != ptLogLevels.end();)
   {
-	opName = "";
-	opDescription = "";
-	opDataType = "";
-	opValue = "";
+    opName = "";
+    opValue = "";
 
-    ptOptionParam = pos->second; // This is the option parameter entry with 4 elements
+    ptOptionParam = pos->second; // This is the option parameter entry
 
     opName = ptOptionParam.get<std::string>("name");
-    opDescription = ptOptionParam.get<std::string>("description");
-    opDataType = ptOptionParam.get<std::string>("data-type");
     opValue = ptOptionParam.get<std::string>("value");
 
-	std::pair<std::string,PropValue> opEntry;
-	opEntry.first = opName;
-	opEntry.second.propDescription = opDescription;
-	opEntry.second.propDataTypeStr = opDataType;
-	opEntry.second.propValueStr = opValue;
+    // Turn strings into AttributeValue representations
+    std::pair<std::string,PropValue> opEntry;
+    opEntry.first = opName;
+    opEntry.second = Create<StringValue> (opValue);
 
-	m_configMapIt = m_configMap.end();
-	m_configMap.insert(m_configMapIt, opEntry);
+    // Store them
+    m_configMapIt = m_configMap.end();
+    m_configMap.insert(m_configMapIt, opEntry);
 
     ++pos;
-
   }
 
   // Now capture the verbose level and accordingly, set the trace options.
-  int verbose = getIntProperty("mdc.Verbose");
-  setVerboseTraceOptions(pt, verbose);
-
-
-}
-
-/**
- * This method returns the value of the MdcConfig property as an int.
- */
-int MdcConfig::getIntProperty (std::string propName)
-{
-	return MdcConfig::getIntProperty(propName, 0);
-}
-
-/**
- * This method returns the value of the MdcConfig property as an int.
- */
-int MdcConfig::getIntProperty (std::string propName, int defaultInt)
-{
-	int ipropValue = defaultInt;
-	std::map<std::string, PropValue >::iterator mapIt;
-
-	mapIt = m_configMap.find(propName);
-	if (mapIt == m_configMap.end())
-	{
-		// Key was not found
-		ipropValue = defaultInt;
-	}
-	else
-	{
-		sscanf(mapIt->second.propValueStr.c_str(),"%d",&ipropValue);
-	}
-
-	return ipropValue;
-}
-
-/**
- * This method returns the value of the MdcConfig property as a float
- */
-float MdcConfig::getFloatProperty (std::string propName)
-{
-	return MdcConfig::getFloatProperty (propName, 0);
-}
-
-/**
- * This method returns the value of the MdcConfig property as a float
- */
-float MdcConfig::getFloatProperty (std::string propName, float defaultFloat)
-{
-	float fpropValue = defaultFloat;
-	std::map<std::string, PropValue >::iterator mapIt;
-
-	mapIt = m_configMap.find(propName);
-	if (mapIt == m_configMap.end())
-	{
-		// Key was not found
-		fpropValue = defaultFloat;
-	}
-	else
-	{
-		sscanf(mapIt->second.propValueStr.c_str(),"%f",&fpropValue);
-	}
-
-	return fpropValue;
-}
-
-/**
- * This method returns the value of the MdcConfig property as an bool.
- */
-bool MdcConfig::getBoolProperty (std::string propName)
-{
-	return MdcConfig::getBoolProperty (propName, false);
-}
-
-/**
- * This method returns the value of the MdcConfig property as an bool.
- */
-bool MdcConfig::getBoolProperty (std::string propName, bool defaultBool)
-{
-	bool bpropValue = defaultBool;
-	std::map<std::string, PropValue >::iterator mapIt;
-
-	mapIt = m_configMap.find(propName);
-	if (mapIt == m_configMap.end())
-	{
-		// Key was not found
-		bpropValue = defaultBool;
-	}
-	else
-	{
-		if (mapIt->second.propValueStr.compare("true") == 0)
-			bpropValue = true;
-		else
-			bpropValue = false;
-	}
-
-	return bpropValue;
-}
-
-/**
- * This method returns the value of the MdcConfig property as an string.
- */
-std::string MdcConfig::getStringProperty (std::string propName)
-{
-	return MdcConfig::getStringProperty(propName, "");
-}
-
-/**
- * This method returns the value of the MdcConfig property as an string.
- */
-std::string MdcConfig::getStringProperty (std::string propName, std::string defaultString)
-{
-	std::string spropValue = defaultString;
-	std::map<std::string, PropValue >::iterator mapIt;
-
-	mapIt = m_configMap.find(propName);
-	if (mapIt == m_configMap.end())
-	{
-		// Key was not found
-		spropValue = defaultString;
-	}
-	else
-	{
-		spropValue = mapIt->second.propValueStr;
-	}
-
-	return spropValue;
+  int verbose = GetIntProperty("mdc.Verbose");
+  SetVerboseTraceOptions(pt, verbose);
 }
 
 /**
  * This method simply translates the string literal corresponding to the Log Level
  * into equivalent numeric values defined in the ns3 code.
  */
-LogLevel MdcConfig::translateLogLevel (std::string l_str)
+LogLevel MdcConfig::TranslateLogLevel (std::string l_str)
 {
 	LogLevel l = LOG_NONE;
 	if (l_str.compare("LOG_LEVEL_ERROR") == 0) l = LOG_LEVEL_ERROR;
@@ -255,7 +123,7 @@ LogLevel MdcConfig::translateLogLevel (std::string l_str)
  * This is the method that reads all the verbose trace options defined
  * and applies them to the relevant modules.
  */
-void MdcConfig::setVerboseTraceOptions(boost::property_tree::ptree pt, int verbose)
+void MdcConfig::SetVerboseTraceOptions(boost::property_tree::ptree pt, int verbose)
 {
 	boost::property_tree::ptree ptLogLevels;
 	boost::property_tree::ptree ptModule;
@@ -275,7 +143,7 @@ void MdcConfig::setVerboseTraceOptions(boost::property_tree::ptree pt, int verbo
 			ptModule = pos->second; // This is the module entry with 2 elements
 			modName = ptModule.get<std::string>("name");
 			modLevel = ptModule.get<std::string>("level");
-			LogComponentEnable (modName.c_str(), translateLogLevel(modLevel));
+			LogComponentEnable (modName.c_str(), TranslateLogLevel(modLevel));
 			++pos;
 
 		}

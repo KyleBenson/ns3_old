@@ -15,18 +15,16 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/property_tree/ptree_fwd.hpp>
 
-
+#include <ns3/string.h>
+#include <ns3/double.h>
+#include <ns3/integer.h>
+#include <ns3/boolean.h>
 
 namespace ns3 {
 
 /* A Configuration class for the Mobile Data Collector (MDC) sensors, collectors, and sinks.
  */
-typedef struct {
-	std::string propValueStr;
-	std::string propDataTypeStr;
-	std::string propDescription;
-} PropValue;
-
+typedef Ptr<StringValue> PropValue;
 
 class MdcConfig
 {
@@ -39,27 +37,69 @@ class MdcConfig
 		// Private constructor
 		MdcConfig() {};
 
-		void processConfigFile (std::string fileName);
-		LogLevel translateLogLevel (std::string l_str);
-		void setVerboseTraceOptions(boost::property_tree::ptree pt, int verbose);
+		void ProcessConfigFile (std::string fileName);
+		LogLevel TranslateLogLevel (std::string l_str);
+		void SetVerboseTraceOptions(boost::property_tree::ptree pt, int verbose);
 
 		// These two are to prevent the compiler generating the copy constructor
 		MdcConfig(MdcConfig const& copy);
 		MdcConfig& operator=(MdcConfig const& copy);
 
 	public:
-		static MdcConfig* getInstance();
-		int getIntProperty (std::string propName);
-		float getFloatProperty (std::string propName);
-		bool getBoolProperty (std::string propName);
-		std::string getStringProperty (std::string propName);
-		// Overloaded get...Property methods to apply default values provided
-		int getIntProperty (std::string propName, int defaultInt);
-		float getFloatProperty (std::string propName, float defaultFloat);
-		bool getBoolProperty (std::string propName, bool defaultBool);
-		std::string getStringProperty (std::string propName, std::string defaultString);
-	    ~MdcConfig() { instanceFlag = false;}
+		static MdcConfig* GetInstance();
 
+  /**
+   * This method returns the value of the MdcConfig property as a std::string,
+   * or whatever type you specify in the two template arguments.
+   * Note that you must specify the intermediate ns3::AttributeValue derived
+   * type that will give you access to your desired primitive.
+   */
+  template <class AVType, class PrimType>
+  PrimType GetProperty (std::string propName)//, std::string defaultValue = "")
+  {
+    std::map<std::string, PropValue >::iterator mapIt;
+
+    mapIt = m_configMap.find(propName);
+    if (mapIt == m_configMap.end())
+      {
+        NS_ASSERT_MSG (false, "Property Key " << propName << " not found!");
+        // Key was not found
+        // Get the default if one wasn't specified, otherwise use the default argument passed here
+        /* TODO:
+           if (defaultValue != "")
+          ipropValue = GetDefaultValue (propName);
+        else
+        ipropValue = defaultValue; */
+      }
+
+    AVType intermediate;
+    bool success = intermediate.DeserializeFromString (mapIt->second->Get (), NULL);
+    NS_ASSERT_MSG (success, "Error accessing PropValue: " << mapIt->second->Get ());
+
+    return intermediate.Get ();
+  }
+
+  int GetIntProperty (std::string propName)
+  {
+    return GetProperty<IntegerValue, int> (propName);
+  }
+
+  double GetDoubleProperty (std::string propName)
+  {
+    return GetProperty<DoubleValue, double> (propName);
+  }
+
+  bool GetBoolProperty (std::string propName)
+  {
+    return GetProperty<BooleanValue, bool> (propName);
+  }
+
+  std::string GetStringProperty (std::string propName)
+  {
+    return GetProperty<StringValue, std::string> (propName);
+  }
+
+  ~MdcConfig() { instanceFlag = false;}
 };
 
 } //namespace ns3

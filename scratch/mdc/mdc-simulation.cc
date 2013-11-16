@@ -129,23 +129,23 @@ main (int argc, char *argv[])
   double simEndTime = 10.0;
 
   // Instantiate the singleton class MdcConfig and get its reference
-  MdcConfig *mdcConfig = MdcConfig::getInstance();
+  MdcConfig *mdcConfig = MdcConfig::GetInstance();
 
   // At this point, the default values are not obtained from outside the program.
   // TODO: Check with Kyle on how we should implement the default values
   // We could assign default values from the commandline parameters also.
-  nSensors = mdcConfig->getIntProperty("mdc.Sensors",10);
-  nMdcs = mdcConfig->getIntProperty("mdc.MDCs",1);
-  nEvents = mdcConfig->getIntProperty("mdc.Events",1);
-  dataSize = mdcConfig->getIntProperty("mdc.DataSize",1024);
-  eventRadius = mdcConfig->getFloatProperty("mdc.EventRadius",5.0);
-  mdcSpeed = mdcConfig->getFloatProperty("mdc.MdcSpeed",3.0);
-  sendFullData = mdcConfig->getBoolProperty("mdcSendFullData",true);
-  boundaryLength = mdcConfig->getIntProperty("mdc.Boundary",100.0);
-  traceFile = mdcConfig->getStringProperty("mdc.TraceFile","");
-  simStartTime = mdcConfig->getFloatProperty("mdc.SimStartTime",1.0);
-  simEndTime = mdcConfig->getFloatProperty("mdc.SimEndTime",10.0);
-  verbose = mdcConfig->getIntProperty("mdc.Verbose",1);
+  nSensors = mdcConfig->GetIntProperty("mdc.Sensors");//,10);
+  nMdcs = mdcConfig->GetIntProperty("mdc.MDCs");//,1);
+  nEvents = mdcConfig->GetIntProperty("mdc.Events");//,1);
+  dataSize = mdcConfig->GetIntProperty("mdc.DataSize");//,1024);
+  eventRadius = mdcConfig->GetDoubleProperty("mdc.EventRadius");//,5.0);
+  mdcSpeed = mdcConfig->GetDoubleProperty("mdc.MdcSpeed");//,3.0);
+  sendFullData = mdcConfig->GetBoolProperty("mdc.SendFullData");//,true);
+  boundaryLength = mdcConfig->GetIntProperty("mdc.Boundary");//,100.0);
+  traceFile = mdcConfig->GetStringProperty("mdc.TraceFile");//,"");
+  simStartTime = mdcConfig->GetDoubleProperty("mdc.SimStartTime");//,1.0);
+  simEndTime = mdcConfig->GetDoubleProperty("mdc.SimEndTime");//,10.0);
+  verbose = mdcConfig->GetIntProperty("mdc.Verbose");//,1);
 
 
   // Open trace file if requested
