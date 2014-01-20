@@ -18,12 +18,12 @@ class MdcHeader : public Header
 public:
   enum Flags// : uint16_t
     {
-      sensorDataNotify,
-      sensorFullData,
-      sensorDataReply,
-      mdcDataRequest,
-      mdcDataForward,
-      sinkRouteUpdate
+      sensorDataNotify, // Sensor telling Sink(in the implementation) that it has data to send... maybe we change this to Sensor sed=nding this message to MDC
+      sensorFullData, // Sensor sends all the data to the Sink directly. This gets done only if sendFullData bool is true
+      sensorDataReply, // Sensor responds to MDC with data
+      mdcDataRequest, // MDC Broadcasts the beacon
+      mdcDataForward, // MDC to Sink
+      sinkRouteUpdate // **** Not implemented
     };
 
   explicit MdcHeader ();
@@ -37,8 +37,8 @@ public:
   Ipv4Address GetDest (void) const;
   Ipv4Address GetOrigin (void) const;
 
-  uint32_t GetData (void) const;
-  void SetData (uint32_t size);
+  uint32_t GetData (void) const; // Returns the size of the message
+  void SetData (uint32_t size); // Sets the size of the message
   uint32_t GetSeq () const;
   void SetSeq (uint32_t newSeq);
   uint32_t GetXPosition () const;
@@ -58,14 +58,14 @@ public:
   virtual uint32_t GetSerializedSize (void) const;
 
 private:
-  Flags m_flags;
-  uint16_t m_data;
-  uint16_t m_id;
-  uint32_t m_xPos;
-  uint32_t m_yPos;
-  uint32_t m_dest;
-  uint32_t m_origin;
-  uint32_t m_seq;
+  Flags m_flags;		// Indicates the type of the message
+  uint16_t m_data; 		// Size of the data packet TODO: Call it dataSize
+  uint16_t m_id;		// Unique identifier for the node sending the message
+  uint32_t m_xPos;		// ?? X-Position value that can be used as appropriate
+  uint32_t m_yPos;		// ?? Y-Position value that can be used as appropriate
+  uint32_t m_dest;		// Host Order Destination ipv4 address
+  uint32_t m_origin;	// Host Order Source ipv4 address
+  uint32_t m_seq;		// Sequence number of the message sent by the node
 };
 
 #define MDC_HEADER_SIZE 26

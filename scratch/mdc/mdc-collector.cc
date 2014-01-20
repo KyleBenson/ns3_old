@@ -240,12 +240,17 @@ MdcCollector::ScheduleTransmit (Time dt)
   m_events.push_front (Simulator::Schedule (dt, &MdcCollector::Send, this));
 }
 
+/*
+ * This is the one of the two 'sending' functions of the MDC. Note that the other is 'Forward' below.
+ * MDC sends either the broadcast beacon or the messages collected from all the sensors destined to the sink.
+ * This function handles the broadcast beacon part.
+ */
 void 
 MdcCollector::Send ()
 {
   NS_LOG_FUNCTION_NOARGS ();
 
-  NS_LOG_INFO ("MDC (node " << GetNode ()->GetId () << ") sending data request packet.");
+  NS_LOG_INFO ("COLL Node#" << GetNode ()->GetId () << " sending data request packet.");
 
   Ptr<Packet> p = Create<Packet> ();
 
@@ -275,14 +280,22 @@ MdcCollector::Send ()
   //if (m_udpSensorSocket->SendTo (p, 0, InetSocketAddress(m_sinkAddress, m_port)) <= 0)
   //NS_LOG_INFO ("packet not sent correctly");
 
+  // Why this? Well, we want beacons to go out at m_interval durations
+  // This will queue up the next beacon send event and this function gets called again.
   m_events.push_front (Simulator::Schedule (m_interval, &MdcCollector::Send, this));
 }
 
+
+/*
+ * This is the callback function of the MDC and handles the reading of the TCP segments coming from the sensors.
+ */
 void 
 MdcCollector::HandleRead (Ptr<Socket> socket)
 {
+  // We index all the packets from the sensors so that the packet segments even if they arrive mixed up, we are able to handle it.
   Ptr<Packet> fullPacket = m_partialPacket[socket];
-  Ptr<Packet> packet;
+  //TODO: rename packet -> segment
+  Ptr<Packet> packet; // a temp variable holding the segment coming from the sender.
   Address from;
 
   if (socket == m_sinkSocket)
@@ -291,66 +304,114 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
       return;
     }
 
-  // If we already had a full header, we already fired traces about it
-  bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
+  if (fullPacket->GetSize () > 0)
+	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
+			  << " From a PriorRecv already has " << fullPacket->GetSize ()
+			  << " B from this socket on Node. "  << socket->GetNode()->GetId());
 
+  // If we already had a full header, we already fired traces about it
+  // a boolean that simply triggers a logic to send traces or not.
+//TODO:  bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
+
+  // Prepare to format a new header here.
   MdcHeader head;
   head.SetData (0);  // for if condition for removing completed packets
 
-  if (alreadyNotified)
+//TODO:  if (alreadyNotified)
+  if (fullPacket->GetSize () > 0)
     {
       fullPacket->PeekHeader (head);
     }
   
+  // compute the packetsize of the forwarding packet
   uint32_t packetSize;
   packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
-  
-  while (packet = socket->RecvFrom (from))
+  if (packetSize != UINT_MAX)
+	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
+		  << " Computed PacketSize= " << packetSize
+		  << " B from this socket on Node. " << socket->GetNode()->GetId());
+  else
+	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
+		  << " PacketSize is unknown. First Segment expected."
+		  );
+
+  // Repeat this until the socket has no more data to send.
+
+  while (packet = socket->RecvFrom (from)) // Repeat for each segment recd on the socket
     {
       NS_LOG_LOGIC ("Reading packet from socket.");
       
       if (InetSocketAddress::IsMatchingType (from))
         {
+          NS_LOG_LOGIC ("**COLL Node#" << GetNode ()->GetId ()
+        		  << " Processing " << packet->GetSize());
+
           fullPacket->AddAtEnd (packet);
+          // Now your fullPacket should contain the partialPacket for the socket if any + this new segment added to it.
           
+          // extract as many segments as possible from the stream
           while (fullPacket->GetSize () >= MDC_HEADER_SIZE)
           {
+        	// Which means that there may be more segments to process
             Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
             
             // Start of a new packet
-            if (!alreadyNotified)
-              //if (m_expectedBytes[socket] == 0)
+// TODO:       This will generate a trace for each and every segment. May want the comment back
+// TODO:    if (!alreadyNotified)
               {
                 fullPacket->PeekHeader (head);
-                //m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
-                alreadyNotified = true;
+//TODO:                alreadyNotified = true;
+
+                //TODO: Trace function does not display Source/dest pair!
                 m_forwardTrace (packet);
 
-                NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " received " << head.GetPacketType () 
-                             << " from " << source << " destined for " << head.GetDest ());
+                NS_LOG_LOGIC ("***COLL Node#" << GetNode ()->GetId ()
+                		<< " received and processed segment " << packet->GetSize ()
+                		<< " B of type "<< head.GetPacketType ()
+                		<< " [FullPacket= " << fullPacket->GetSize() << " B "
+                		<< " PacketSizeShouldBe= " << packetSize << " B] "
+                        << " from " << source << " destined for " << head.GetDest ());
               }
             
             // Remove completed transfers
-            if (fullPacket->GetSize () >= packetSize)            
+            // OK Here we think that the sender may have combined portions of two packets on to the same segment.
+            // In other words a segment just received contains a part of the previous packet and a portion of the next packet.
+            // Segments have not been demarcated when they are transmitted from the sensor and so it is our job to handle it cleanly.
+            if (fullPacket->GetSize () >= packetSize)
+            // The fullPacket has a complete packet now.
+            //    but there may be some more from the next pkt
               {
-
+            	// extract just the portion of the packet that and leave the rest in the fullPacket
                 fullPacket->RemoveAtStart (packetSize);
-                alreadyNotified = false;
+//TODO:                alreadyNotified = false;
 
-                NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " completed forwarding packet from " << source );
+                NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
+                		<< " Segment recd from " << source <<
+                		" contained info for more than one packet. Moving " << fullPacket->GetSize()
+                		<< " B to partialPacket buffer.");
               }
-            else
+            else  // Meaning that there may be more segments to read from the socket
               break;
 
-            //m_expectedBytes[socket] -= packet->GetSize ();
             
-          }
+          } // end of while
           
+          // Now that the segment is ready, just forward it.
           ForwardPacket (packet);
 
-          //NS_LOG_INFO ("MDC expecting " << m_expectedBytes[socket] << " more bytes.");
-        }
-    }
+
+          // A segment has been forwarded... Now it looks like there are more segments
+          if (fullPacket->GetSize () <= packetSize)
+        	  NS_LOG_LOGIC ("***COLL Node#" << GetNode ()->GetId ()
+        			  << "[ NewFullPacketSize=" << fullPacket->GetSize ()
+        			  << "  PartialPacketSize=" << m_partialPacket[socket]->GetSize()
+                      << "]."
+                      );
+        }// end of if
+    } // end of while socket has no more data
+  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
+		  << " End of Data from socket [PartialPacketSize=" << m_partialPacket[socket]->GetSize()
+          << " B ]");
 }
 
 /*void
@@ -368,11 +429,16 @@ MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
   m_udpSensorSocket->SendTo (packet, 0, from);
   }*/
 
+
+/*
+ * This is the callback method called to forward the packets over to the Sink
+ */
 void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
   NS_LOG_LOGIC ("Forwarding packet");
 
+  //TODO: Why is this being done?
   packet->RemoveAllPacketTags ();
   packet->RemoveAllByteTags ();
 
@@ -393,6 +459,9 @@ MdcCollector::GetAddress () const
   return m_address;
 }
 
+/*
+ * A callback that accepts connections from the sensor and talk
+ */
 void
 MdcCollector::HandleAccept (Ptr<Socket> s, const Address& from)
 {
@@ -400,6 +469,8 @@ MdcCollector::HandleAccept (Ptr<Socket> s, const Address& from)
   s->SetRecvCallback (MakeCallback (&MdcCollector::HandleRead, this));
 
   //m_expectedBytes[s] = 0;
+  // create buffer for segments to be reassembled into full packets later,
+  // starting with an empty placeholder packet
   m_partialPacket[s] = Create<Packet> ();
 }
 

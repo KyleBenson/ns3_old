@@ -112,7 +112,7 @@ MdcPacketForward (TraceConstData * constData, Ptr<const Packet> packet)
 }
 
 int 
-main (int argc, char *argv[])
+main_commented (int argc, char *argv[])
 {
 
   int verbose = 1;
@@ -357,6 +357,11 @@ main (int argc, char *argv[])
   mdcApps.Start (Seconds (simStartTime));
   mdcApps.Stop (Seconds (simEndTime));
 
+
+  /*
+   * This tracing could be done in the helper itself but we can leave it as it is now
+   */
+
   if (verbose)
     {
       //NS_LOG_INFO ("MDCs talk to sink at " << sinkMdcInterface.GetAddress (0, 0));
@@ -377,6 +382,10 @@ main (int argc, char *argv[])
   sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
   sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (eventRadius));
 
+  /*
+   * The sensor app here then creates all the events. Again, this might be done in an event helper class but keep this for now.
+   */
+
   if (nEvents > 1)
     sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (simStartTime, simEndTime));
   else
@@ -386,6 +395,9 @@ main (int argc, char *argv[])
   sensorApps.Start (Seconds (simStartTime));
   sensorApps.Stop (Seconds (simEndTime));
 
+  /*
+   * Verbose tracing like before done for MDCs.
+   */
   for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
        itr != sensorApps.End (); itr++)
     {

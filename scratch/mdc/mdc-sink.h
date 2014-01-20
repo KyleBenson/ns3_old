@@ -91,8 +91,14 @@ private:
 
   // In the case of TCP, each socket accept returns a new socket, so the 
   // listening socket is stored seperately from the accepted sockets
+  /*
+   * We initially assume that the Sink is capable of communicating to the sensor directly as well as to the MDC.
+   * That is why you will see the sensor sockets here.
+   * The Sensor socket is listen-only and is designed here only to tell the sensor if there is some data to be picked up by a roaming MDC.
+   */
   Ptr<Socket>     m_mdcSocket;
   Ptr<Socket>     m_sensorSocket;
+
   std::map<uint32_t, Ptr<Socket> > m_acceptedSockets; //the accepted MDC sockets
   std::map<uint32_t, Ptr<MobilityModel> > m_mobilityModels;
 
@@ -102,10 +108,11 @@ private:
 
   Address         m_mdcLocal;        // Local address to bind to for talking with MDCs
   Address         m_sensorLocal;        // Local address to bind to for talking with sensors
+
   uint32_t        m_totalRx;      // Total bytes received
   TracedCallback<Ptr<const Packet>, const Address &> m_rxTrace;
 
-  bool m_waypointRouting;
+  bool m_waypointRouting;//TODO: We may want to set a policy explicitly and not just a boolean here
 };
 
 } // namespace ns3

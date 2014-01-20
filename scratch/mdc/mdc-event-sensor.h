@@ -163,13 +163,17 @@ private:
   void CheckTimeout (uint32_t seq, Address dest);
   void ScheduleTimeout (uint32_t seq, Address dest);*/
 
+  // TODO: Check with Kyle...
+  // We have two packet sizes here... m_size and m_dataSize...
+  // if m_dataSize == 0 then the packet is formatted within m_data
+  // if m_dataSize !=0 then somehow there is a check to see if the two sizes are the same... wierd.
   uint32_t m_size; //used if dataSize == 0
   uint32_t m_dataSize;
   uint8_t *m_data;
 
   RandomVariable m_randomEventDetectionDelay;
-  bool m_sendFullData;
-  uint32_t m_nOutstandingReadings;
+  bool m_sendFullData; // A flag to tell the sensor to send the notifications only or send the full packet of information
+  uint32_t m_nOutstandingReadings; // Counts the number of events scheduled by the sensor
 
   Ipv4Address m_sinkAddress;
   Ipv4Address m_address;

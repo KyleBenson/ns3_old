@@ -131,6 +131,10 @@ MdcEventSensor::DoDispose (void)
   Application::DoDispose ();
 }
 
+/*
+ * The event sensor sends notifications on the UDP socket as there is no necessity to have a reliability of transfer for them.
+ *
+ */
 void 
 MdcEventSensor::StartApplication (void)
 {
@@ -215,6 +219,12 @@ MdcEventSensor::CancelEvents ()
     Simulator::Cancel (*itr);
 }
 
+/*
+ * Deletes the content of the packet buffer if one exists and then...
+ * Fills the Packet buffer with the string passed called "fill"
+ * Sets the packet size attributes accordingly.
+ * The new packet will be the size of the string provided (+1)
+ */
 void 
 MdcEventSensor::SetFill (std::string fill)
 {
@@ -222,7 +232,7 @@ MdcEventSensor::SetFill (std::string fill)
 
   uint32_t dataSize = fill.size () + 1;
 
-  if (dataSize != m_dataSize)
+  if (dataSize != m_dataSize) // re-allocate the entire packet buffer
     {
       delete [] m_data;
       m_data = new uint8_t [dataSize];
@@ -238,10 +248,13 @@ MdcEventSensor::SetFill (std::string fill)
   m_size = dataSize;
 }
 
+/*
+ * This method fills the packet with a specific character all the way till the dataSize.
+ */
 void 
 MdcEventSensor::SetFill (uint8_t fill, uint32_t dataSize)
 {
-  if (dataSize != m_dataSize)
+  if (dataSize != m_dataSize)// re-allocate the entire packet buffer
     {
       delete [] m_data;
       m_data = new uint8_t [dataSize];
@@ -256,10 +269,13 @@ MdcEventSensor::SetFill (uint8_t fill, uint32_t dataSize)
   m_size = dataSize;
 }
 
+/*
+ * This method fills the packet with a specific character all the way till the dataSize.
+ */
 void 
 MdcEventSensor::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 {
-  if (dataSize != m_dataSize)
+  if (dataSize != m_dataSize)// re-allocate the entire packet buffer
     {
       delete [] m_data;
       m_data = new uint8_t [dataSize];
@@ -268,9 +284,12 @@ MdcEventSensor::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
 
   if (fillSize >= dataSize)
     {
-      memcpy (m_data, fill, dataSize);
+      memcpy (m_data, fill, dataSize); // Just don't go beyond the dataSize specified
+      // TODO: m_size is not set here???
       return;
     }
+
+  // TODO: Can we not use the SetFill a specific char to a specific size instead of this convoluted logic?
 
   //
   // Do all but the final fill.
@@ -293,6 +312,9 @@ MdcEventSensor::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
   m_size = dataSize;
 }
 
+/*
+ * The data packet buffer content is released and the size set to a specific value as a side-effect of this.
+ */
 void 
 MdcEventSensor::SetDataSize (uint32_t dataSize)
 {
@@ -309,6 +331,9 @@ MdcEventSensor::SetDataSize (uint32_t dataSize)
   m_size = dataSize;
 }
 
+/*
+ * Getter for the m_size parameter.
+ */
 uint32_t 
 MdcEventSensor::GetDataSize (void) const
 {
@@ -316,12 +341,20 @@ MdcEventSensor::GetDataSize (void) const
   return m_size;
 }
 
+/* This tells the simulator to schedule a event detection at a specific simulation time
+ * Whether the sensor here acts on the event or not is a decision that is done in the CheckEventDetection
+ */
 void
 MdcEventSensor::ScheduleEventDetection (Time t, SensedEvent event)
 {
   m_events.push_front (Simulator::Schedule (t, &MdcEventSensor::CheckEventDetection, this, event));
 }
 
+/*
+ * Events are all setup globally and every sensor knows about the events.
+ * When the event occurs, they also have a physical location of the event... An event has 3 other attributes... [time, location, size]
+ * This logic then determines if the sensor is within the area or not and then if it is, then simulate that the event was detected by the sensor.
+ */
 void
 MdcEventSensor::CheckEventDetection (SensedEvent event)
 {
@@ -336,13 +369,19 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
       //
       //It seems realistic enough as the sensor could check for recent data requests and reply
       //to them when done processing anyway...
+
       ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), InetSocketAddress(m_sinkAddress, m_port));
 
+	  // Typically, on the previous ScheduleTransmit call we expect the sensor to simply send a notification to the sink that
+      // an event has occurred and we keep track of the count of such notifications sent.
       if (!m_sendFullData)
         m_nOutstandingReadings++;
     }
 }
 
+/*
+ * Just pushes an event at the address to the simulator
+ */
 void 
 MdcEventSensor::ScheduleTransmit (Time dt, Address address)
 {
@@ -350,6 +389,12 @@ MdcEventSensor::ScheduleTransmit (Time dt, Address address)
   m_events.push_front (Simulator::Schedule (dt, &MdcEventSensor::Send, this, address, 0));
 }
 
+/*
+ * This sends a message to the destination and updates a message sequence number
+ *
+ * TODO: What if the sensor has more data and the MDC hasn't picked up the packet yet?
+ * TODO: Should we implement this with m_data being a Vector of packets?
+ */
 void 
 MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
 {
@@ -367,28 +412,34 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   Ipv4Address destAddr = InetSocketAddress::ConvertFrom (dest).GetIpv4 ();
   MdcHeader::Flags flags;
 
+  /*
+   * If the sensor is sending to the sink then a small packet of info is sent to the sink and not the full message
+   * Perhaps we will change it to a scenario where the sensor does not send anything anywhere but sits there waiting for the MDC to come along.
+   * May not want to remove the send to Sink option completely.
+   */
   if (destAddr == m_sinkAddress)
     {
       flags = (m_sendFullData ? MdcHeader::sensorFullData : MdcHeader::sensorDataNotify);
     }
   else
-    flags = MdcHeader::sensorDataReply;
+    flags = MdcHeader::sensorDataReply; // Thus means the sensor is sending to a MDC in reply to a mdcDataRequest message
 
-  MdcHeader head (m_sinkAddress, flags);
+  MdcHeader head (m_sinkAddress, flags); // ultimate destination is the sink anyway
   head.SetSeq (seq);
-  head.SetOrigin (m_address);
-  head.SetId (GetNode ()->GetId ());
+  head.SetOrigin (m_address); // address of this sensor
+  head.SetId (GetNode ()->GetId ()); // The id of this sensor
 
   Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-  head.SetPosition (pos.x, pos.y);
+  head.SetPosition (pos.x, pos.y); // The position attribute of this sensor
 
   Ptr<Packet> p;
-  if (!m_sendFullData and destAddr == m_sinkAddress)
+  //TODO: We may want to identify the conditions better... esp. if the destination address needs to be other than the sink.
+  if (!m_sendFullData and destAddr == m_sinkAddress) // Just the notification message and so there is no data
     {
       p = Create<Packet> (0);
       head.SetData (0);
     }
-  else
+  else // This means that you need to send the fulldata somehow. In any case the destination is the sinkAddress.
     {
       // If only notifying of an event and not sending the full data,
       // don't add fill and set the data size to be 0.
@@ -442,12 +493,18 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
     m_udpSocket->SendTo (p, 0, dest);
 }
 
+/*
+ * A callback function called when the sensor needs to read something
+ */
 void 
 MdcEventSensor::HandleRead (Ptr<Socket> socket)
 {
   Ptr<Packet> packet;
   Address from;
 
+  /*
+   * This is in case there are multiple packets to handle
+   */
   while (packet = socket->RecvFrom (from))
     {
       NS_LOG_LOGIC ("Reading packet from socket. " << m_nOutstandingReadings << " outstanding readings.");
@@ -464,6 +521,7 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
             {
               return;
               //ProcessAck (packet, source);
+              // TODO: Perhaps check for a mdcDataRequest message send to the sensor directly and simply respond with a sensorDataReply here.
             }
 
           // Else it was a broadcast from an MDC
@@ -476,6 +534,8 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
                   for (int i = m_nOutstandingReadings; i > 0; i--)
                     {
                       ScheduleTransmit (Seconds (i*0.1 + 0.1), from);
+                      //TODO: Stagger the events based on the message sizes... add the transmission delay and processing time.
+                      // We may not really need this but think about it.
                       m_nOutstandingReadings--;
                     }
                 }
@@ -489,6 +549,10 @@ MdcEventSensor::GetAddress () const
 {
   return m_address;
 }
+
+/*
+ * Kyle may have removed this code... he was trying to implement the reliability aspect.
+ */
   /*
 void
 MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)

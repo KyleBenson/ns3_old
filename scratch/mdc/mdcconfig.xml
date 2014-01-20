@@ -4,7 +4,7 @@
       <name>mdc.Sensors</name>
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
-      <value>10</value>
+      <value>5</value>
    </param> 
    <param> 
       <name>mdc.MDCs</name>
@@ -16,13 +16,13 @@
       <name>mdc.Events</name>
       <description>Number of events to occur</description>
       <data-type>int</data-type>
-      <value>1</value>
+      <value>10</value>
    </param> 
    <param> 
       <name>mdc.DataSize</name>
       <description>Size (in bytes) of full sensed event data</description>
       <data-type>int</data-type>
-      <value>1024</value>
+      <value>5000</value>
    </param> 
    <param> 
       <name>mdc.EventRadius</name>
@@ -37,40 +37,58 @@
       <value>3.0</value>
    </param> 
    <param> 
+      <name>mdc.MdcPause</name>
+      <description>Pause duration of the MDCs in seconds</description>
+      <data-type>float</data-type>
+      <value>1.0</value>
+   </param> 
+   <param> 
       <name>mdc.SendFullData</name>
       <description>Whether to send the full data upon event detection or simply a notification and then send the full data to the MDCs</description>
       <data-type>boolean</data-type>
-       <value>false</value>
+      <value>false</value>
    </param> 
    <param> 
       <name>mdc.Verbose</name>
       <description>Verbose Logging Level</description>
       <data-type>int</data-type>
-      <value>2</value>
+      <value>1</value>
    </param> 
    <param> 
       <name>mdc.Boundary</name>
       <description>Length of (one side) of the square bounding box for the geographic region under study (in meters)</description>
       <data-type>int</data-type>
-      <value>10</value>
+      <value>25</value>
    </param> 
    <param> 
       <name>mdc.TraceFile</name>
       <description>File to write traces to</description>
       <data-type>string</data-type>
-      <value></value>
+      <value>mdcTraceFile.txt</value>
    </param> 
    <param> 
       <name>mdc.SimStartTime</name>
       <description>Simulation Start Time in seconds</description>
       <data-type>float</data-type>
-       <value>1.0</value>
+      <value>1.0</value>
    </param> 
    <param> 
       <name>mdc.SimEndTime</name>
       <description>Simulation End Time in seconds</description>
       <data-type>float</data-type>
-       <value>10.0</value>
+      <value>100.0</value>
+   </param> 
+   <param> 
+      <name>mdc.TotalSimTime</name>
+      <description>Total Simulation Time in seconds</description>
+      <data-type>float</data-type>
+      <value>100.0</value>
+   </param> 
+   <param> 
+      <name>mdc.Pcap</name>
+      <description>Whether to capture the pcap traces during the simulation</description>
+      <data-type>boolean</data-type>
+      <value>true</value>
    </param> 
    </startup-options>
 
@@ -102,11 +120,20 @@
          <name>MdcHelper</name>
          <level>LOG_LEVEL_INFO</level>
       </module>
+      <module>
+         <name>MdcCollectorApplication</name>
+         <!-- <level>LOG_LEVEL_LOGIC</level> -->
+         <level>LOG_LEVEL_INFO</level> 
+      </module>
+      <module>
+         <name>PC3SimpleExample</name>
+         <level>LOG_LEVEL_INFO</level>
+      </module>
    </1>
    <2>
       <module>
          <name>MdcCollectorApplication</name>
-         <level>LOG_LEVEL_INFO</level>
+         <level>LOG_LEVEL_FUNCTION</level>
       </module>
       <module>
          <name>MdcSink</name>
@@ -123,6 +150,10 @@
       <module>
          <name>MdcHelper</name>
          <level>LOG_NONE</level>
+      </module>
+      <module>
+         <name>PC3SimpleExample</name>
+         <level>LOG_LEVEL_FUNCTION</level>
       </module>
    </2>
    <3>
@@ -153,6 +184,10 @@
       <module>
          <name>PacketSink</name>
          <level>LOG_LEVEL_FUNCTION</level>
+      </module>
+      <module>
+         <name>PC3SimpleExample</name>
+         <level>LOG_LEVEL_LOGIC</level>
       </module>
    </3>
    </verbose-logging>

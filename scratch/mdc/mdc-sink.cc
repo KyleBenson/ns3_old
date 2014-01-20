@@ -17,6 +17,9 @@
  *
  * Author:  Tom Henderson (tomhend@u.washington.edu)
  */
+/*
+ * RRAJ - Find the diffs between SocketRead and SocketAccept
+ */
 #include "ns3/address.h"
 #include "ns3/address-utils.h"
 #include "ns3/ipv4.h"
@@ -38,7 +41,6 @@
 #include <climits>
 #include "mdc-sink.h"
 #include "mdc-header.h"
-
 using namespace std;
 
 namespace ns3 {
@@ -99,6 +101,10 @@ void MdcSink::DoDispose (void)
 
 
 // Application Methods
+/*
+ * Here we create the two sockets, the MDC socket and the Sensor socket.
+ * Establish the callback functions on these sockets
+ */
 void MdcSink::StartApplication ()    // Called at time specified by Start
 {
   NS_LOG_FUNCTION (this);
@@ -115,7 +121,7 @@ void MdcSink::StartApplication ()    // Called at time specified by Start
       m_sensorSocket = Socket::CreateSocket (GetNode (), UdpSocketFactory::GetTypeId ());
       m_sensorSocket->Bind (m_sensorLocal);
       m_sensorSocket->Listen ();
-      m_sensorSocket->ShutdownSend ();
+      m_sensorSocket->ShutdownSend (); // The Sensor socket is listen-only. The sink does not send anything to the sensor
     }
 
   m_mdcSocket->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
@@ -129,6 +135,9 @@ void MdcSink::StartApplication ()    // Called at time specified by Start
   m_sensorSocket->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
 }
 
+/*
+ * Clean up before stopping
+ */
 void MdcSink::StopApplication ()     // Called at time specified by Stop
 {
   NS_LOG_FUNCTION (this);
@@ -152,15 +161,25 @@ void MdcSink::StopApplication ()     // Called at time specified by Stop
     }
 }
 
+
+/*
+ * This is a socket callback function that gets called.
+ * The functionality changes depending upon whether the socket is a sensorSocket or a MdcSocket
+ * If this is an MDC socket, we look for a previously held partial packet and process it accordingly.
+ * Previously held packets are stored in a map called m_partialPacket and is indexed by the socket id.
+ */
 void MdcSink::HandleRead (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
-
+  // fullPacket is set to blank if it is a sensor socket as there is no likelihood of a partial packet ever
+  // recd from sensor.
+  // By our def. the sensor packet is always small enough to fit into a TCP segment.
   Ptr<Packet> fullPacket = (socket == m_sensorSocket ? Create<Packet> () : m_partialPacket[socket]);
   Ptr<Packet> packet;
   Address from;
 
   // If we already had a full header, we already fired traces about it
+  // We fire a trace of a packet recd when the first segment of the packet arrives.
   bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
 
   MdcHeader head;
@@ -174,11 +193,11 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
   uint32_t packetSize;
   packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
   
-  while ((packet = socket->RecvFrom (from)))
+  while ((packet = socket->RecvFrom (from))) // Read a TCP segment from the socket
     {
       fullPacket->AddAtEnd (packet);
 
-      if (packet->GetSize () == 0)
+      if (packet->GetSize () == 0) // This was just an empty segment somehow. So ignore it.
         { //EOF
           break;
         }
@@ -187,32 +206,32 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
         {
           Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
             
-          // Start of a new packet
-          if (!alreadyNotified)
+
+          if (!alreadyNotified) // Start of a new segment
             //if (m_expectedBytes[socket] == 0)
             {
               fullPacket->PeekHeader (head);
               //m_expectedBytes[socket] = head.GetData () + head.GetSerializedSize () - packet->GetSize ();
               alreadyNotified = true;
-              m_rxTrace (packet, from);
+              m_rxTrace (packet, from); // This writes a trace output that the first segment of a message was received and processed.
 
               if (InetSocketAddress::IsMatchingType (from))
                 {
-                  NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                               << "s packet sink received "
-                               <<  packet->GetSize () << " bytes from "
+                  NS_LOG_INFO ("SINK-Time " << Simulator::Now ().GetSeconds ()
+                               << "s Received "
+                               <<  packet->GetSize () << "B from "
                                << InetSocketAddress::ConvertFrom(from).GetIpv4 ()
                                << " port " << InetSocketAddress::ConvertFrom (from).GetPort ()
-                               << " total Rx " << m_totalRx << " bytes");
+                               << " total Rx " << fullPacket->GetSize() << "B");
                 }
               else if (Inet6SocketAddress::IsMatchingType (from))
                 {
-                  NS_LOG_INFO ("At time " << Simulator::Now ().GetSeconds ()
-                               << "s packet sink received "
-                               <<  packet->GetSize () << " bytes from "
+                  NS_LOG_INFO ("SINK-Time " << Simulator::Now ().GetSeconds ()
+                               << "s Received "
+                               <<  packet->GetSize () << "B from "
                                << Inet6SocketAddress::ConvertFrom(from).GetIpv6 ()
                                << " port " << Inet6SocketAddress::ConvertFrom (from).GetPort ()
-                               << " total Rx " << m_totalRx << " bytes");
+                               << " total Rx " << fullPacket->GetSize()  << "B");
                 }
             }
             
@@ -226,7 +245,7 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
                   head.GetFlags () == MdcHeader::sensorDataReply)
                 m_totalRx += packetSize;
       
-              NS_LOG_INFO ("MDC " << GetNode ()->GetId () << " completed forwarding packet from " << source );
+              NS_LOG_INFO ("SINK " << GetNode ()->GetId () << " completed forwarding packet from " << source );
             }
           else
             break;
@@ -234,20 +253,29 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
     }
 }
 
+/*
+ * This is a normal socket close callback function registered on the socket
+ */
 void MdcSink::HandlePeerClose (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
 }
  
+/*
+ * This is a socket close callback function registered when there is an error
+ */
 void MdcSink::HandlePeerError (Ptr<Socket> socket)
 {
   NS_LOG_FUNCTION (this << socket);
 }
  
-
+/*
+ * The socket callback function registered and invoked when a connection from the 'from' ip address is received.
+ * A new secket is created and the HandleRead callback function is attached to it.
+ */
 void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 {
-  NS_LOG_FUNCTION (this << s << from << Seconds (Simulator::Now ()));
+  NS_LOG_FUNCTION (this->GetTypeId() << s << from << Seconds (Simulator::Now ()));
   s->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
 
   // Get the mobility model associated with the MDC so that we know all their locations
