@@ -248,9 +248,7 @@ MdcCollector::ScheduleTransmit (Time dt)
 void 
 MdcCollector::Send ()
 {
-  NS_LOG_FUNCTION_NOARGS ();
-
-  NS_LOG_INFO ("COLL Node#" << GetNode ()->GetId () << " sending data request packet.");
+  NS_LOG_FUNCTION("COLL Node#" << GetNode ()->GetId () << " sending data request beacon.");
 
   Ptr<Packet> p = Create<Packet> ();
 
@@ -292,6 +290,7 @@ MdcCollector::Send ()
 void 
 MdcCollector::HandleRead (Ptr<Socket> socket)
 {
+  NS_LOG_FUNCTION_NOARGS();
   // We index all the packets from the sensors so that the packet segments even if they arrive mixed up, we are able to handle it.
   Ptr<Packet> fullPacket = m_partialPacket[socket];
   //TODO: rename packet -> segment
@@ -326,14 +325,14 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
   // compute the packetsize of the forwarding packet
   uint32_t packetSize;
   packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
-  if (packetSize != UINT_MAX)
-	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
-		  << " Computed PacketSize= " << packetSize
-		  << " B from this socket on Node. " << socket->GetNode()->GetId());
-  else
+  if (packetSize == UINT_MAX)
 	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
 		  << " PacketSize is unknown. First Segment expected."
 		  );
+  //else
+	//  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
+	//	  << " Computed PacketSize= " << packetSize
+	//	  << " B from this socket on Node. " << socket->GetNode()->GetId());
 
   // Repeat this until the socket has no more data to send.
 
@@ -354,9 +353,12 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
           {
         	// Which means that there may be more segments to process
             Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+            fullPacket->PeekHeader (head);
+            packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+
             
+            /************* Changing the notification to after the last segment is recd *****
             // Start of a new packet
-// TODO:       This will generate a trace for each and every segment. May want the comment back
 // TODO:    if (!alreadyNotified)
               {
                 fullPacket->PeekHeader (head);
@@ -372,20 +374,34 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
                 		<< " PacketSizeShouldBe= " << packetSize << " B] "
                         << " from " << source << " destined for " << head.GetDest ());
               }
+            *******************************************************************************/
             
             // Remove completed transfers
             // OK Here we think that the sender may have combined portions of two packets on to the same segment.
             // In other words a segment just received contains a part of the previous packet and a portion of the next packet.
             // Segments have not been demarcated when they are transmitted from the sensor and so it is our job to handle it cleanly.
+            // In some other words...we see 3 conditions...
+            //    fullPacket contains exactly a complete packet, (Send a trace)
+            //    fullPacket contains a packet and more from the next (Send a trace)
+            //    fullPacket is still assembling a complete packet (Don't send a trace)
             if (fullPacket->GetSize () >= packetSize)
-            // The fullPacket has a complete packet now.
-            //    but there may be some more from the next pkt
               {
+
+                  //TODO: Trace function does not seem to display Source/dest pair!
+                  m_forwardTrace (packet);
+
+                  NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
+                  		<< " received a FULL packet [Size=" << packet->GetSize ()
+                  		<< " B] of [type="<< head.GetPacketType ()
+                        << "] from [" << source << "] destined for [" << head.GetDest ()
+                        << "]");
+                // The fullPacket has a complete packet now.
+                //    but there may be some more from the next pkt
             	// extract just the portion of the packet that and leave the rest in the fullPacket
                 fullPacket->RemoveAtStart (packetSize);
-//TODO:                alreadyNotified = false;
 
-                NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
+                if (fullPacket->GetSize () > packetSize)
+                	NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
                 		<< " Segment recd from " << source <<
                 		" contained info for more than one packet. Moving " << fullPacket->GetSize()
                 		<< " B to partialPacket buffer.");
@@ -397,21 +413,19 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
           } // end of while
           
           // Now that the segment is ready, just forward it.
+          // Note that the packet contains a part of the next segment but we will forward it anyway.
           ForwardPacket (packet);
 
 
           // A segment has been forwarded... Now it looks like there are more segments
-          if (fullPacket->GetSize () <= packetSize)
+          if (fullPacket->GetSize () < packetSize)
         	  NS_LOG_LOGIC ("***COLL Node#" << GetNode ()->GetId ()
-        			  << "[ NewFullPacketSize=" << fullPacket->GetSize ()
-        			  << "  PartialPacketSize=" << m_partialPacket[socket]->GetSize()
+        			  << "[ PacketBufferSize=" << m_partialPacket[socket]->GetSize()
+        			  << "  CompletePacketSize=" << packetSize
                       << "]."
                       );
         }// end of if
     } // end of while socket has no more data
-  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()
-		  << " End of Data from socket [PartialPacketSize=" << m_partialPacket[socket]->GetSize()
-          << " B ]");
 }
 
 /*void
@@ -436,7 +450,7 @@ MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
 void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
-  NS_LOG_LOGIC ("Forwarding packet");
+  NS_LOG_FUNCTION ("Forwarding packet");
 
   //TODO: Why is this being done?
   packet->RemoveAllPacketTags ();

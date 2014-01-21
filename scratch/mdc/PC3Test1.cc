@@ -188,20 +188,50 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 
 	MdcHeader head;
 	packet->PeekHeader (head);
+	std::stringstream s;
+	Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
 
 	// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
 	// though this shouldn't happen as broadcast should be to a network?
-	if (head.GetFlags () == MdcHeader::mdcDataRequest)
-		return;
+	if ((head.GetFlags () == MdcHeader::mdcDataRequest) ||
+		(head.GetFlags () == MdcHeader::sensorDataNotify))
+	{
+		s << "[SINK__TRACE] IGNORED....."
+				<< constData->nodeId
+				<< " received ["
+				<< head.GetPacketType ()
+				<< "] (" << head.GetData () + head.GetSerializedSize ()
+				<< "B) from node "
+				<< head.GetId ()
+				<< " via "
+				<< fromAddr
+				<< " at "
+				<< Simulator::Now ().GetSeconds ();
 
-	std::stringstream s;
-	Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
-	s << "[SINK__TRACE] " << constData->nodeId << " received "  << head.GetPacketType ()
-	<< " (" << head.GetData () + head.GetSerializedSize () << "B) from node "
-	<< head.GetId () << " via " << fromAddr << " at " << Simulator::Now ().GetSeconds ();
+//		NS_LOG_INFO (s.str ());
+//		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	}
 
-	NS_LOG_INFO (s.str ());
-	*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	if ((head.GetFlags () == MdcHeader::mdcDataForward) ||
+		(head.GetFlags () == MdcHeader::sensorDataReply) ||
+		(head.GetFlags () == MdcHeader::sensorFullData))
+	{
+		s << "[SINK__TRACE] "
+				<< constData->nodeId
+				<< " received ["
+				<< head.GetPacketType ()
+				<< "] (" << head.GetData () + head.GetSerializedSize ()
+				<< "B) from node "
+				<< head.GetId ()
+				<< " via "
+				<< fromAddr
+				<< " at "
+				<< Simulator::Now ().GetSeconds ();
+
+		NS_LOG_INFO (s.str ());
+		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	}
+	return;
 }
 
 // Trace function for sensors sending a packet
@@ -214,7 +244,13 @@ SensorDataSendTrace (TraceConstData * constData, Ptr<const Packet> packet)
 	packet->PeekHeader (head);
 
 	std::stringstream s;
-	s << "[SENSORTRACE] " << constData->nodeId << " sent " << head.GetPacketType () << " (" << packet->GetSize () << "B) at " << Simulator::Now ().GetSeconds ();
+	s << "[SENSORTRACE] "
+			<< constData->nodeId
+			<< " sent ["
+			<< head.GetPacketType ()
+			<< "] (" << head.GetData()
+			<< "B) at "
+			<< Simulator::Now ().GetSeconds ();
 
 	NS_LOG_INFO (s.str ());
 	*(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -230,8 +266,18 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 	packet->PeekHeader (head);
 
 	std::stringstream s;
-	s << "[COLL__TRACE] " << constData->nodeId << " forwarding [" << head.GetPacketType () << "] (" << packet->GetSize () << "B) from "
-	<< head.GetOrigin () << " to " << head.GetDest () << " at " << Simulator::Now ().GetSeconds ();
+	s 		<< "[COLL__TRACE] "
+			<< constData->nodeId
+			<< " forwarding ["
+			<< head.GetPacketType ()
+			<< "] ("
+			<< head.GetData()
+			<< "B) from "
+			<< head.GetOrigin ()
+			<< " to "
+			<< head.GetDest ()
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
 
 	NS_LOG_INFO (s.str ());
 	*(constData->outputStream)->GetStream () << s.str() << std::endl;
@@ -360,7 +406,6 @@ PC3Test1::Run()
 void
 PC3Test1::Report (std::ostream &)
 {
-	NS_LOG_FUNCTION_NOARGS();
 	NS_LOG_FUNCTION("PC3Test1 Report.");
 }
 
@@ -368,7 +413,7 @@ void
 PC3Test1::CreateNodes()
 {
 	NS_LOG_FUNCTION_NOARGS();
-	NS_LOG_FUNCTION ("Create Sensor nodes.");
+	NS_LOG_LOGIC ("Create Sensor nodes.");
 	sensorNodes.Create (_nSensors);
 
 	//
@@ -376,13 +421,13 @@ PC3Test1::CreateNodes()
 	// Each of the MDCs are APs. So we are assuming that they will all have the same SSID
 	// Somehow the sensor nodes will attach themselves to the closest AP as it comes along
 	//
-	NS_LOG_FUNCTION ("Create MDC nodes.");
+	NS_LOG_LOGIC ("Create MDC nodes.");
 	mdcNodes.Create (_nMdcs);
 
 	//
 	// Create the Sink.
 	//
-	NS_LOG_FUNCTION ("Create Sink nodes.");
+	NS_LOG_LOGIC ("Create Sink nodes.");
 	sinkNodes.Create (1);
 
 }
@@ -390,7 +435,6 @@ PC3Test1::CreateNodes()
 void
 PC3Test1::CreateChannels()
 {
-	NS_LOG_FUNCTION_NOARGS();
 	NS_LOG_FUNCTION ("PC3Test1 Create Channels Started.");
 	YansWifiChannelHelper ywifiChHlpr;
 	YansWifiPhyHelper ywifiPhyHlpr;
@@ -398,7 +442,7 @@ PC3Test1::CreateChannels()
 	WifiHelper wifiHlpr;
 	Ssid ssid;
 
-	NS_LOG_FUNCTION ("Create Sensor channels.");
+	NS_LOG_LOGIC ("Create Sensor channels.");
 	// Setup the helper objects to create the Wifi connection
 	ywifiChHlpr = YansWifiChannelHelper::Default();
 	ywifiPhyHlpr = YansWifiPhyHelper::Default();
@@ -418,7 +462,7 @@ PC3Test1::CreateChannels()
 	wifiSensorDevices = wifiHlpr.Install(ywifiPhyHlpr, nqosWiMacHlpr, sensorNodes);
 
 
-	NS_LOG_FUNCTION ("Create MDC channels.");
+	NS_LOG_LOGIC ("Create MDC channels.");
 	// You are left with the AP node now.
 	// Set the MAC helper object to now create a ApWifiMac
 	/// nqosWiMacHlpr.SetType ("ns3::ApWifiMac", //<-- Here you tell it to create an AP.
@@ -431,7 +475,7 @@ PC3Test1::CreateChannels()
 	mdcToSinkDevices = wifiHlpr.Install(ywifiPhyHlpr, nqosWiMacHlpr, mdcNodes);
 
 
-	NS_LOG_FUNCTION ("Create Sink channels.");
+	NS_LOG_LOGIC ("Create Sink channels.");
 	// You are left with the Sink node now.
 	// TODO: Ideally, we want the MDC and the Sink to communicate via a different channel.
 	// For now... Set the MAC helper object to now create a StaWifiMac
@@ -455,9 +499,7 @@ PC3Test1::CreateChannels()
 void
 PC3Test1::InstallInternetStack()
 {
-	NS_LOG_FUNCTION_NOARGS();
-
-	NS_LOG_FUNCTION ("PC3Test1 Install Internet Stack Started.");
+	NS_LOG_FUNCTION("PC3Test1 Install Internet Stack Started.");
 
 	// At this point we are worried about applying the Internet stack on all the nodes
 	// Apply a stack on the nodes so that they use the IP to communicate with the devices.
@@ -486,7 +528,7 @@ PC3Test1::InstallInternetStack()
 	//
 	// We've got the "hardware" in place.  Now we need to add IP addresses.
 	//
-	NS_LOG_FUNCTION ("Assign IP Addresses.");
+	NS_LOG_LOGIC ("Assign IP Addresses.");
 	Ipv4AddressHelper ipv4Hlpr;
 	ipv4Hlpr.SetBase ("10.1.1.0", "255.255.255.0");
 	wifiSensorInterfaces = ipv4Hlpr.Assign (wifiSensorDevices);
@@ -503,15 +545,13 @@ PC3Test1::InstallInternetStack()
 void
 PC3Test1::SetupMobility()
 {
-	NS_LOG_FUNCTION_NOARGS();
-
 	NS_LOG_FUNCTION ("PC3Test1 Setup Mobility Started.");
 
 	// Now apply the mobility model
 	// The Sensor nodes do not move in this simulation.
 	// Their position is pre-determined on a grid which we can assume
 	//   to be the bounds of the mobility of the MDC
-	NS_LOG_FUNCTION ("Assign the Mobility Model to the sensors.");
+	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
 	MobilityHelper mobHlpr;
 	// This sets the initial placement of the STA nodes
 
@@ -536,7 +576,7 @@ PC3Test1::SetupMobility()
 
 
 
-	NS_LOG_FUNCTION ("Assign the Mobility Model to the sink.");
+	NS_LOG_LOGIC ("Assign the Mobility Model to the sink.");
 	// Place sink in center of region
 	Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
 	Vector center = Vector3D (0.0, 0.0, 0.0);
@@ -546,7 +586,7 @@ PC3Test1::SetupMobility()
 
 
 
-	NS_LOG_FUNCTION ("Assign the Mobility Model to the MDCs.");
+	NS_LOG_LOGIC ("Assign the Mobility Model to the MDCs.");
 	// What is left is the Mobility model for the MDCs.
 	// Place MDCs in center of region
 	Ptr<ConstantRandomVariable> constRandomSpeed = CreateObject<ConstantRandomVariable> ();
@@ -574,9 +614,7 @@ PC3Test1::SetupMobility()
 void
 PC3Test1::InstallApplications()
 {
-	NS_LOG_FUNCTION_NOARGS();
-
-	NS_LOG_FUNCTION ("PC3Test1 Install Applications Started.");
+	NS_LOG_FUNCTION("PC3Test1 Install Applications Started.");
 	TraceConstData *constData;
 	// SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
 

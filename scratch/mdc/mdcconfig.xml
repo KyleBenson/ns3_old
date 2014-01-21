@@ -22,7 +22,8 @@
       <name>mdc.DataSize</name>
       <description>Size (in bytes) of full sensed event data</description>
       <data-type>int</data-type>
-      <value>5000</value>
+      <!-- TODO... You cannot give a DataSize < 535 -->
+      <value>535</value>
    </param> 
    <param> 
       <name>mdc.EventRadius</name>
@@ -122,8 +123,8 @@
       </module>
       <module>
          <name>MdcCollectorApplication</name>
-         <!-- <level>LOG_LEVEL_LOGIC</level> -->
          <level>LOG_LEVEL_INFO</level> 
+         <!-- <level>LOG_LEVEL_INFO</level> --> 
       </module>
       <module>
          <name>PC3SimpleExample</name>
