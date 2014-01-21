@@ -22,14 +22,19 @@
  */
 // Network topology
 //
-//       s0   s1   s2   s3
+//       s0   s1   s2   sN
 //       |    |    |    |
-//       .    .    .    .     wifi link: 500Kbps, 5ms
-//       |    |    |    |
+//       .    .    .    .
+//       |____|____|____|
+//               |          10.1.1.0/255.255.255.0
+//       |---------------|
+//       |     |     |   |
+//       m0    m1   m2  mM (AP)
+//       |_____|_____|___|
+//                |
+//                |         10.1.2.0/255.255.255.0
+//                S - Sink
 //
-//              m0(AP)-------P2P-----------s0
-//
-// - Flow from s0/1/2/3 to m0 using bundle protocol.
 //
 //
 // - Tracing of queues and packet receptions to file "PC3Test1....tr"
@@ -61,6 +66,7 @@
 #include "mdc-config.h"
 #include "mdc-header.h"
 
+#include "ns3/netanim-module.h"
 
 
 using namespace ns3;
@@ -335,8 +341,8 @@ PC3Test1::Configure(int argc, char **argv)
 		outputStream = asciiTraceHelper.CreateFileStream (_TraceFile);
 	}
 
-	double posBound = _boundaryLength/2;
-	double negBound = _boundaryLength/-2.0;
+	double posBound = _boundaryLength;
+	double negBound = 0;
 	randomPosX = CreateObject<UniformRandomVariable> ();
 	randomPosX->SetAttribute ("Max", DoubleValue (posBound));
 	randomPosX->SetAttribute ("Min", DoubleValue (negBound));
@@ -395,6 +401,13 @@ PC3Test1::Run()
 	NS_LOG_INFO (s.str());
 
 	Simulator::Stop (Seconds (_totalSimTime));
+
+	AnimationInterface anim ("pc3Test1.xml");
+	anim.SetMobilityPollInterval (Seconds (1));
+	anim.EnablePacketMetadata (true);
+
+	anim.SetConstantPosition (mdcNodes.Get(0), _boundaryLength/2.0, _boundaryLength/2.0);
+
 	Simulator::Run ();
 	Simulator::Destroy ();
 
@@ -579,7 +592,7 @@ PC3Test1::SetupMobility()
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sink.");
 	// Place sink in center of region
 	Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
-	Vector center = Vector3D (0.0, 0.0, 0.0);
+	Vector center = Vector3D (_boundaryLength/2.0, _boundaryLength/2.0, 0.0);
 	centerPositionAllocator->Add (center);
 	mobHlpr.SetPositionAllocator (centerPositionAllocator);
 	mobHlpr.Install (sinkNodes);
@@ -602,7 +615,7 @@ PC3Test1::SetupMobility()
 	mobHlpr.Install (mdcNodes);
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
-	Vector mdcPosV = Vector3D (0.0, 0.0, 0.0);
+	Vector mdcPosV = Vector3D (_boundaryLength/2.0, _boundaryLength/2.0, 0.0);
 	for (NodeContainer::Iterator it = mdcNodes.Begin ();
 	it != mdcNodes.End (); it++)
 	{
