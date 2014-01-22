@@ -94,26 +94,26 @@ public:
 
 private:
 	// This allows these parameters to be passed and and interpreted on the command line
-	uint32_t _nSensors;
-	double   _mdcSpeed;
-	double   _mdcPause;
-	uint32_t _nMdcs;
-	uint32_t _nEvents;
-	uint32_t _dataSize;
-	double   _eventRadius;
-	uint32_t _boundaryLength;
-	std::string _TraceFile;
+	uint32_t m_nSensors;
+	double   m_mdcSpeed;
+	double   m_mdcPause;
+	uint32_t m_nMdcs;
+	uint32_t m_nEvents;
+	uint32_t m_dataSize;
+	double   m_eventRadius;
+	uint32_t m_boundaryLength;
+	std::string m_TraceFile;
 
-	int      _verbose;
-	bool     _sendFullData;
+	int      m_verbose;
+	bool     m_sendFullData;
 
 	/// Simulation time, seconds
-	double _totalSimTime;
-	double _simStartTime;
-	double _simEndTime;
+	double m_totalSimTime;
+	double m_simStartTime;
+	double m_simEndTime;
 
 	/// Write per-device PCAP traces if true
-	bool _pcap;
+	bool m_pcap;
 
 	// The singleton class MdcConfig and get its reference
 	MdcConfig *mdcConfig;
@@ -167,21 +167,21 @@ PC3Test1::PC3Test1 ()
 {
 	NS_LOG_FUNCTION_NOARGS ();
 
-	_nSensors=4;
-	_nMdcs=1;
-	_mdcSpeed=3.0;
-	_mdcPause=1.0;
-	_totalSimTime=100.0;
-	_pcap=true;
-	_nEvents=1;
-	_dataSize=1024;
-	_eventRadius=5.0;
-	_boundaryLength=100;
-	_TraceFile="PC3Test1";
-	_verbose=1;
-	_sendFullData=false;
-	_simStartTime=1.0;
-	_simEndTime=10.0;
+	m_nSensors=4;
+	m_nMdcs=1;
+	m_mdcSpeed=3.0;
+	m_mdcPause=1.0;
+	m_totalSimTime=100.0;
+	m_pcap=true;
+	m_nEvents=1;
+	m_dataSize=1024;
+	m_eventRadius=5.0;
+	m_boundaryLength=100;
+	m_TraceFile="PC3Test1";
+	m_verbose=1;
+	m_sendFullData=false;
+	m_simStartTime=1.0;
+	m_simEndTime=10.0;
 }
 
 
@@ -301,47 +301,47 @@ PC3Test1::Configure(int argc, char **argv)
 	mdcConfig = MdcConfig::GetInstance();
 	SeedManager::SetSeed (12345);
 
-	_nSensors = mdcConfig->GetIntProperty("mdc.Sensors");
-	_nMdcs = mdcConfig->GetIntProperty("mdc.MDCs");
-	_mdcSpeed = mdcConfig->GetDoubleProperty("mdc.MdcSpeed");
-	_mdcPause = mdcConfig->GetDoubleProperty("mdc.MdcPause");
-	_totalSimTime = mdcConfig->GetDoubleProperty("mdc.TotalSimTime");
-	_pcap = mdcConfig->GetBoolProperty("mdc.Pcap");
-	_nEvents = mdcConfig->GetIntProperty("mdc.Events");
-	_dataSize = mdcConfig->GetIntProperty("mdc.DataSize");
-	_eventRadius = mdcConfig->GetDoubleProperty("mdc.EventRadius");
-	_boundaryLength = mdcConfig->GetIntProperty("mdc.Boundary");
-	_TraceFile = mdcConfig->GetStringProperty("mdc.TraceFile");
-	_verbose = mdcConfig->GetIntProperty("mdc.Verbose");
-	_sendFullData = mdcConfig->GetBoolProperty("mdc.SendFullData");
-	_simStartTime = mdcConfig->GetDoubleProperty("mdc.SimStartTime");
-	_simEndTime = mdcConfig->GetDoubleProperty("mdc.SimEndTime");
+	m_nSensors = mdcConfig->GetIntProperty("mdc.Sensors");
+	m_nMdcs = mdcConfig->GetIntProperty("mdc.MDCs");
+	m_mdcSpeed = mdcConfig->GetDoubleProperty("mdc.MdcSpeed");
+	m_mdcPause = mdcConfig->GetDoubleProperty("mdc.MdcPause");
+	m_totalSimTime = mdcConfig->GetDoubleProperty("mdc.TotalSimTime");
+	m_pcap = mdcConfig->GetBoolProperty("mdc.Pcap");
+	m_nEvents = mdcConfig->GetIntProperty("mdc.Events");
+	m_dataSize = mdcConfig->GetIntProperty("mdc.DataSize");
+	m_eventRadius = mdcConfig->GetDoubleProperty("mdc.EventRadius");
+	m_boundaryLength = mdcConfig->GetIntProperty("mdc.Boundary");
+	m_TraceFile = mdcConfig->GetStringProperty("mdc.TraceFile");
+	m_verbose = mdcConfig->GetIntProperty("mdc.Verbose");
+	m_sendFullData = mdcConfig->GetBoolProperty("mdc.SendFullData");
+	m_simStartTime = mdcConfig->GetDoubleProperty("mdc.SimStartTime");
+	m_simEndTime = mdcConfig->GetDoubleProperty("mdc.SimEndTime");
 
 
 
 	// The following allows the params to get overridden by setting them up on the commandline
 	CommandLine cmd;
-	cmd.AddValue ("pcap", "Write PCAP traces.", _pcap);
-	cmd.AddValue ("time", "Simulation time, s.", _totalSimTime);
-	cmd.AddValue ("nCsma", "Number of \"sensor\" nodes/devices", _nSensors);
-	cmd.AddValue ("nWifi", "Number of wifi MDC devices", _nMdcs);
-	cmd.AddValue ("mdcSpeed", "Speed of the MDC devices", _mdcSpeed);
-	cmd.AddValue ("mdcPause", "Pause duration of the MDC devices", _mdcPause);
+	cmd.AddValue ("pcap", "Write PCAP traces.", m_pcap);
+	cmd.AddValue ("time", "Simulation time, s.", m_totalSimTime);
+	cmd.AddValue ("nCsma", "Number of \"sensor\" nodes/devices", m_nSensors);
+	cmd.AddValue ("nWifi", "Number of wifi MDC devices", m_nMdcs);
+	cmd.AddValue ("mdcSpeed", "Speed of the MDC devices", m_mdcSpeed);
+	cmd.AddValue ("mdcPause", "Pause duration of the MDC devices", m_mdcPause);
 	cmd.Parse(argc, argv); // Parse the commandline and see if the parameters have been passed.
 
 
-	_nSensors = _nSensors == 0 ? 1 : _nSensors; // Making sure you have atleast one node in the sensor network.
-	_nMdcs = _nMdcs == 0 ? 1 : _nMdcs; // Making sure you have atleast one node in the sensor network.
+	m_nSensors = m_nSensors == 0 ? 1 : m_nSensors; // Making sure you have atleast one node in the sensor network.
+	m_nMdcs = m_nMdcs == 0 ? 1 : m_nMdcs; // Making sure you have atleast one node in the sensor network.
 	cmd.Parse (argc, argv);
 
 
-	if (_TraceFile != "")
+	if (m_TraceFile != "")
 	{
 		AsciiTraceHelper asciiTraceHelper;
-		outputStream = asciiTraceHelper.CreateFileStream (_TraceFile);
+		outputStream = asciiTraceHelper.CreateFileStream (m_TraceFile);
 	}
 
-	double posBound = _boundaryLength;
+	double posBound = m_boundaryLength;
 	double negBound = 0;
 	randomPosX = CreateObject<UniformRandomVariable> ();
 	randomPosX->SetAttribute ("Max", DoubleValue (posBound));
@@ -358,21 +358,21 @@ PC3Test1::Configure(int argc, char **argv)
 
 
 	s << "Configuration Parameters:- \n" << "    " <<
-			_nSensors << "--> mdc.Sensors \n" << "    " <<
-			_nMdcs << "--> mdc.MDCs \n" << "    " <<
-			_mdcSpeed << "--> mdc.MdcSpeed \n" << "    " <<
-			_mdcPause << "--> mdc.MdcPause \n" << "    " <<
-			_totalSimTime << "--> mdc.TotalSimTime \n" << "    " <<
-			_pcap << "--> mdc.Pcap \n" << "    " <<
-			_nEvents << "--> mdc.Events \n" << "    " <<
-			_dataSize << "--> mdc.DataSize \n" << "    " <<
-			_eventRadius << "--> mdc.EventRadius \n" << "    " <<
-			_boundaryLength << "--> mdc.Boundary \n" << "    " <<
-			_TraceFile << "--> mdc.TraceFile \n" << "    " <<
-			_verbose << "--> mdc.Verbose \n" << "    " <<
-			_sendFullData << "--> mdc.SendFullData \n" << "    " <<
-			_simStartTime << "--> mdc.SimStartTime \n" << "    " <<
-			_simEndTime << "--> mdc.SimEndTime \n"<< "    " <<
+			m_nSensors << "--> mdc.Sensors \n" << "    " <<
+			m_nMdcs << "--> mdc.MDCs \n" << "    " <<
+			m_mdcSpeed << "--> mdc.MdcSpeed \n" << "    " <<
+			m_mdcPause << "--> mdc.MdcPause \n" << "    " <<
+			m_totalSimTime << "--> mdc.TotalSimTime \n" << "    " <<
+			m_pcap << "--> mdc.Pcap \n" << "    " <<
+			m_nEvents << "--> mdc.Events \n" << "    " <<
+			m_dataSize << "--> mdc.DataSize \n" << "    " <<
+			m_eventRadius << "--> mdc.EventRadius \n" << "    " <<
+			m_boundaryLength << "--> mdc.Boundary \n" << "    " <<
+			m_TraceFile << "--> mdc.TraceFile \n" << "    " <<
+			m_verbose << "--> mdc.Verbose \n" << "    " <<
+			m_sendFullData << "--> mdc.SendFullData \n" << "    " <<
+			m_simStartTime << "--> mdc.SimStartTime \n" << "    " <<
+			m_simEndTime << "--> mdc.SimEndTime \n"<< "    " <<
 			posBound << "--> posBound \n"<< "    " <<
 			negBound << "--> negBound \n"
 			;
@@ -396,17 +396,17 @@ PC3Test1::Run()
 	// Now, do the actual simulation.
 	//
 	std::stringstream s;
-	s << "\nStarting simulation for " << _totalSimTime << " s ...";
+	s << "\nStarting simulation for " << m_totalSimTime << " s ...";
 
 	NS_LOG_INFO (s.str());
 
-	Simulator::Stop (Seconds (_totalSimTime));
+	Simulator::Stop (Seconds (m_totalSimTime));
 
 	AnimationInterface anim ("pc3Test1.xml");
 	anim.SetMobilityPollInterval (Seconds (1));
 	anim.EnablePacketMetadata (true);
 
-	anim.SetConstantPosition (mdcNodes.Get(0), _boundaryLength/2.0, _boundaryLength/2.0);
+	anim.SetConstantPosition (mdcNodes.Get(0), m_boundaryLength/2.0, m_boundaryLength/2.0);
 
 	Simulator::Run ();
 	Simulator::Destroy ();
@@ -427,7 +427,7 @@ PC3Test1::CreateNodes()
 {
 	NS_LOG_FUNCTION_NOARGS();
 	NS_LOG_LOGIC ("Create Sensor nodes.");
-	sensorNodes.Create (_nSensors);
+	sensorNodes.Create (m_nSensors);
 
 	//
 	// Explicitly create the MDCs.
@@ -435,7 +435,7 @@ PC3Test1::CreateNodes()
 	// Somehow the sensor nodes will attach themselves to the closest AP as it comes along
 	//
 	NS_LOG_LOGIC ("Create MDC nodes.");
-	mdcNodes.Create (_nMdcs);
+	mdcNodes.Create (m_nMdcs);
 
 	//
 	// Create the Sink.
@@ -501,7 +501,7 @@ PC3Test1::CreateChannels()
 	sinkToMdcDevices = wifiHlpr.Install(ywifiPhyHlpr, nqosWiMacHlpr, sinkNodes);
 
 
-	if (_pcap)
+	if (m_pcap)
 	{
 		ywifiPhyHlpr.EnablePcapAll (std::string ("mdcTrc"));
 	}
@@ -572,7 +572,7 @@ PC3Test1::SetupMobility()
 	Vector sensorPosV;
 
 	// You may not need to do this one sensor node at a time...
-	for (uint32_t i=0; i< _nSensors; i++)
+	for (uint32_t i=0; i< m_nSensors; i++)
 	{
 		randomPositionAllocator->SetX (randomPosX);
 		randomPositionAllocator->SetY (randomPosY);
@@ -592,7 +592,7 @@ PC3Test1::SetupMobility()
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sink.");
 	// Place sink in center of region
 	Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
-	Vector center = Vector3D (_boundaryLength, _boundaryLength, 0.0);
+	Vector center = Vector3D (m_boundaryLength, m_boundaryLength, 0.0);
 	centerPositionAllocator->Add (center);
 	mobHlpr.SetPositionAllocator (centerPositionAllocator);
 	mobHlpr.Install (sinkNodes);
@@ -603,9 +603,9 @@ PC3Test1::SetupMobility()
 	// What is left is the Mobility model for the MDCs.
 	// Place MDCs in center of region
 	Ptr<ConstantRandomVariable> constRandomSpeed = CreateObject<ConstantRandomVariable> ();
-	constRandomSpeed->SetAttribute ("Constant", DoubleValue (_mdcSpeed));
+	constRandomSpeed->SetAttribute ("Constant", DoubleValue (m_mdcSpeed));
 	Ptr<ConstantRandomVariable> constRandomPause = CreateObject<ConstantRandomVariable> (); //default = 0
-	constRandomPause->SetAttribute ("Constant", DoubleValue (_mdcPause));
+	constRandomPause->SetAttribute ("Constant", DoubleValue (m_mdcPause));
 
 	mobHlpr.SetPositionAllocator (randomPositionAllocator);
 	mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
@@ -615,7 +615,7 @@ PC3Test1::SetupMobility()
 	mobHlpr.Install (mdcNodes);
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
-	Vector mdcPosV = Vector3D (_boundaryLength/2.0, _boundaryLength/2.0, 0.0);
+	Vector mdcPosV = Vector3D (m_boundaryLength/2.0, m_boundaryLength/2.0, 0.0);
 	for (NodeContainer::Iterator it = mdcNodes.Begin ();
 	it != mdcNodes.End (); it++)
 	{
@@ -633,9 +633,9 @@ PC3Test1::InstallApplications()
 
 	MdcSinkHelper sinkHelper;
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
-	sinkApps.Start (Seconds (_simStartTime));
-	sinkApps.Stop (Seconds (_simEndTime));
-	if (_pcap)
+	sinkApps.Start (Seconds (m_simStartTime));
+	sinkApps.Stop (Seconds (m_simEndTime));
+	if (m_pcap)
 	{
 		constData = new TraceConstData();
 		constData->outputStream = outputStream;
@@ -650,15 +650,15 @@ PC3Test1::InstallApplications()
 	mdcAppHelper.SetAttribute ("Interval", TimeValue (Seconds (3.0)));
 	//mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
 	ApplicationContainer mdcApps = mdcAppHelper.Install (mdcNodes);
-	mdcApps.Start (Seconds (_simStartTime));
-	mdcApps.Stop (Seconds (_simEndTime));
+	mdcApps.Start (Seconds (m_simStartTime));
+	mdcApps.Stop (Seconds (m_simEndTime));
 
 
 	/*
 	* This tracing could be done in the helper itself but we can leave it as it is now
 	*/
 
-	if (_pcap)
+	if (m_pcap)
 	{
 		for (uint8_t i = 0; i < mdcApps.GetN (); i++)
 		{
@@ -670,24 +670,24 @@ PC3Test1::InstallApplications()
 	}
 
 	// SENSORS
-	MdcEventSensorHelper sensorAppHelper (sinkInterfaces.GetAddress (0, 0), _nEvents);
-	sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (_dataSize));
-	sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (_sendFullData));
+	MdcEventSensorHelper sensorAppHelper (sinkInterfaces.GetAddress (0, 0), m_nEvents);
+	sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (m_dataSize));
+	sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (m_sendFullData));
 	sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
-	sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (_eventRadius));
+	sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (m_eventRadius));
 
 	/*
 	* The sensor app here then creates all the events. Again, this might be done in an event helper class but keep this for now.
 	*/
 
-	if (_nEvents > 1)
-		sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (_simStartTime, _simEndTime));
+	if (m_nEvents > 1)
+		sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (m_simStartTime, m_simEndTime));
 	else
-		sensorAppHelper.SetEventTimeRandomVariable (new ConstantVariable (_simStartTime*2));
+		sensorAppHelper.SetEventTimeRandomVariable (new ConstantVariable (m_simStartTime*2));
 
 	ApplicationContainer sensorApps = sensorAppHelper.Install (sensorNodes);
-	sensorApps.Start (Seconds (_simStartTime));
-	sensorApps.Stop (Seconds (_simEndTime));
+	sensorApps.Start (Seconds (m_simStartTime));
+	sensorApps.Stop (Seconds (m_simEndTime));
 
 	/*
 	* Verbose tracing like before done for MDCs.
@@ -695,7 +695,7 @@ PC3Test1::InstallApplications()
 	for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
 	itr != sensorApps.End (); itr++)
 	{
-		if (_pcap)
+		if (m_pcap)
 		{
 			constData = new TraceConstData();
 			constData->outputStream = outputStream;
