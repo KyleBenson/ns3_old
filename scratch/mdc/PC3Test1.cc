@@ -592,7 +592,7 @@ PC3Test1::SetupMobility()
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sink.");
 	// Place sink in center of region
 	Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
-	Vector center = Vector3D (_boundaryLength/2.0, _boundaryLength/2.0, 0.0);
+	Vector center = Vector3D (_boundaryLength, _boundaryLength, 0.0);
 	centerPositionAllocator->Add (center);
 	mobHlpr.SetPositionAllocator (centerPositionAllocator);
 	mobHlpr.Install (sinkNodes);

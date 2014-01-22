@@ -311,16 +311,25 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
   // If we already had a full header, we already fired traces about it
   // a boolean that simply triggers a logic to send traces or not.
 //TODO:  bool alreadyNotified = fullPacket->GetSize () >= MDC_HEADER_SIZE;
+  bool alreadyNotified = false;
 
   // Prepare to format a new header here.
   MdcHeader head;
   head.SetData (0);  // for if condition for removing completed packets
 
 //TODO:  if (alreadyNotified)
-  if (fullPacket->GetSize () > 0)
-    {
+  if (fullPacket->GetSize () >= MDC_HEADER_SIZE)
+	// If you have a partial header in the buffer, this may give you seg faults
+  {
       fullPacket->PeekHeader (head);
-    }
+      alreadyNotified = true;
+  }
+  else
+  {
+	  // Could not have forwarded to trace as there was no full header so far
+	  alreadyNotified = false;
+  }
+
   
   // compute the packetsize of the forwarding packet
   uint32_t packetSize;
@@ -384,11 +393,17 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
             //    fullPacket contains exactly a complete packet, (Send a trace)
             //    fullPacket contains a packet and more from the next (Send a trace)
             //    fullPacket is still assembling a complete packet (Don't send a trace)
+            if (!alreadyNotified)
+              {
+                  //TODO: Trace function does not seem to display Source/dest pair!
+                  m_forwardTrace (packet);
+              }
+
             if (fullPacket->GetSize () >= packetSize)
               {
 
-                  //TODO: Trace function does not seem to display Source/dest pair!
-                  m_forwardTrace (packet);
+//TODO: Trace function does not seem to display Source/dest pair!
+//                  m_forwardTrace (packet);
 
                   NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
                   		<< " received a FULL packet [Size=" << packet->GetSize ()
@@ -405,6 +420,8 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
                 		<< " Segment recd from " << source <<
                 		" contained info for more than one packet. Moving " << fullPacket->GetSize()
                 		<< " B to partialPacket buffer.");
+
+                alreadyNotified = false;
               }
             else  // Meaning that there may be more segments to read from the socket
               break;
