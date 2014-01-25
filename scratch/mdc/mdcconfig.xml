@@ -102,10 +102,6 @@
          <level>LOG_NONE</level>
       </module>
       <module>
-         <name>MdcSimulation</name>
-         <level>LOG_LEVEL_INFO</level>
-      </module>
-      <module>
          <name>PacketSink</name>
          <level>LOG_NONE</level>
       </module>
@@ -127,7 +123,7 @@
          <!-- <level>LOG_LEVEL_INFO</level> --> 
       </module>
       <module>
-         <name>PC3SimpleExample</name>
+         <name>MdcMainSimulation</name>
          <level>LOG_LEVEL_INFO</level>
       </module>
    </1>
@@ -153,7 +149,7 @@
          <level>LOG_NONE</level>
       </module>
       <module>
-         <name>PC3SimpleExample</name>
+         <name>MdcMainSimulation</name>
          <level>LOG_LEVEL_FUNCTION</level>
       </module>
    </2>
@@ -187,7 +183,7 @@
          <level>LOG_LEVEL_FUNCTION</level>
       </module>
       <module>
-         <name>PC3SimpleExample</name>
+         <name>MdcMainSimulation</name>
          <level>LOG_LEVEL_LOGIC</level>
       </module>
    </3>
