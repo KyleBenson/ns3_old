@@ -156,6 +156,7 @@ private:
   void Send (Address dest, uint32_t seq = 0);
   void CancelEvents (void);
   void ScheduleTransmit (Time dt, Address address);
+  void RecordSensorData (Address address);
   void CheckEventDetection (SensedEvent event);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);
@@ -172,7 +173,7 @@ private:
   uint8_t *m_data;
 
   RandomVariable m_randomEventDetectionDelay;
-  bool m_sendFullData; // A flag to tell the sensor to send the notifications only or send the full packet of information
+  bool m_sendFullData; // TODO: DEPRECATED: A flag to tell the sensor to send the notifications only or send the full packet of information
   uint32_t m_nOutstandingReadings; // Counts the number of events scheduled by the sensor
 
   Ipv4Address m_sinkAddress;
@@ -188,9 +189,19 @@ private:
   std::list<EventId> m_events;
   //std::map<uint32_t, uint8_t> m_outstandingSeqs;
 
+  double m_mdcProximityLimit; // This is a distance within which the Sensors will consider as within proximity of an MDC.
+  double m_sensorProcessingDelay; // This is a duration of time that the Sensors endure before transmitting a reply.
+  double m_sensorTransmissionDelay; // This is a duration of time that the Sensors endure for transmitting a segment which is based on TCP segment size and capacity of the link
+
+  std::vector<Packet> m_packetBuffer; // This is a vector that contains the packets/messages that the sensor sends that need to be transmitted.
+
+
   /// Callbacks for tracing
   TracedCallback<Ptr<const Packet> > m_sendTrace;
   TracedCallback<Ptr<const Packet> > m_rcvTrace;
+
+
+
 };
 
 } // namespace ns3

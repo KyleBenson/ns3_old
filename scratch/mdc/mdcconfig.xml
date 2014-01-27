@@ -16,7 +16,7 @@
       <name>mdc.Events</name>
       <description>Number of events to occur</description>
       <data-type>int</data-type>
-      <value>10</value>
+      <value>25</value>
    </param> 
    <param> 
       <name>mdc.DataSize</name>

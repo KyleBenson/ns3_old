@@ -66,6 +66,7 @@
 #include "mdc-collector.h"
 #include "mdc-config.h"
 #include "mdc-header.h"
+#include "mdc-utilities.h"
 
 #include "ns3/netanim-module.h"
 
@@ -201,8 +202,9 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 
 	// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
 	// though this shouldn't happen as broadcast should be to a network?
-	if ((head.GetFlags () == MdcHeader::mdcDataRequest) ||
-		(head.GetFlags () == MdcHeader::sensorDataNotify))
+	if (	(head.GetFlags () == MdcHeader::mdcDataRequest)
+		||	(head.GetFlags () == MdcHeader::sensorDataNotify)
+		)
 	{
 		s << "[SINK__TRACE] IGNORED....."
 				<< constData->nodeId
@@ -220,9 +222,10 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 //		*(constData->outputStream)->GetStream () << s.str() << std::endl;
 	}
 
-	if ((head.GetFlags () == MdcHeader::mdcDataForward) ||
-		(head.GetFlags () == MdcHeader::sensorDataReply) ||
-		(head.GetFlags () == MdcHeader::sensorFullData))
+	if (	(head.GetFlags () == MdcHeader::mdcDataForward)
+		|| 	(head.GetFlags () == MdcHeader::sensorDataReply)
+		//||	(head.GetFlags () == MdcHeader::sensorFullData)
+		)
 	{
 		s << "[SINK__TRACE] "
 				<< constData->nodeId
@@ -313,9 +316,10 @@ MdcMain::Configure(int argc, char **argv)
 	NS_LOG_FUNCTION("MdcMain Configuration Started.");
 	ns3::PacketMetadata::Enable ();
 	std::stringstream s;
+	UniformVariable randomSeed(0,99999);
 
 	mdcConfig = MdcConfig::GetInstance();
-	SeedManager::SetSeed (12345);
+	SeedManager::SetSeed (randomSeed.GetInteger(0,99999));
 
 	m_nSensors = mdcConfig->GetIntProperty("mdc.Sensors");
 	m_nMdcs = mdcConfig->GetIntProperty("mdc.MDCs");
@@ -576,44 +580,70 @@ void
 MdcMain::SetupMobility()
 {
 	NS_LOG_FUNCTION ("MdcMain Setup Mobility Started.");
-
 	// Now apply the mobility model
 	// The Sensor nodes do not move in this simulation.
 	// Their position is pre-determined on a grid which we can assume
 	//   to be the bounds of the mobility of the MDC
-	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
 	MobilityHelper mobHlpr;
-	// This sets the initial placement of the STA nodes
 
-	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
-	Vector sensorPosV;
-
-	// You may not need to do this one sensor node at a time...
-	for (uint32_t i=0; i< m_nSensors; i++)
-	{
-		randomPositionAllocator->SetX (randomPosX);
-		randomPositionAllocator->SetY (randomPosY);
-		mobHlpr.SetPositionAllocator (randomPositionAllocator);
-		mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
-		mobHlpr.Install (sensorNodes.Get(i));
-
-		sensorPosV = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
-		sensorListPosAllocator->Add(sensorPosV);
-	}
-
-	// The sensors should be positioned at random now within the x y bounds.
-	// The positions are all recorded hopefully in the sensorListPosAllocator
-
-
+	Vector center = Vector3D (m_boundaryLength/2, m_boundaryLength/2, 0.0);
+	Vector sinkPos = Vector3D (m_boundaryLength, m_boundaryLength, 0.0);
 
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sink.");
 	// Place sink in center of region
 	Ptr<ListPositionAllocator> centerPositionAllocator = CreateObject<ListPositionAllocator> ();
-	Vector center = Vector3D (m_boundaryLength, m_boundaryLength, 0.0);
-	centerPositionAllocator->Add (center);
+	centerPositionAllocator->Add (sinkPos);
 	mobHlpr.SetPositionAllocator (centerPositionAllocator);
 	mobHlpr.Install (sinkNodes);
 
+
+
+
+
+
+	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
+	Vector ns3SenPos;
+	std::vector<Vector> posVector;
+	for (uint32_t i=0; i< m_nSensors; i++)
+	{
+		randomPositionAllocator->SetX (randomPosX);
+		randomPositionAllocator->SetY (randomPosY);
+		ns3SenPos = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
+		std::cout << "Random Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
+		posVector.push_back(ns3SenPos);
+	}
+
+
+	// std::cout << "PosVector has " << posVector.size() << "entries.\n";
+	// Now Sort the posVector starting from the center
+	std::cout << "Center = [" << center.x << "," << center.y << "," << center.z << "].\n";
+	// Get the closest sensor position
+	ns3SenPos = GetClosestVector(posVector, center);
+	std::cout << "Closest sensor to center = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
+	std::queue<unsigned> tempOrder = NearestNeighborOrder (&posVector, ns3SenPos);
+	//std::cout << " - tempOrder has " << tempOrder.size() << "entries.\n";
+	std::vector<Vector> posVectorSorted = ReSortInputVector (&posVector, tempOrder);
+	//std::cout << "PosVectorSorted has " << posVectorSorted.size() << "entries.\n";
+
+	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
+	for (uint32_t i=0; i< m_nSensors; i++)
+	{
+		sensorListPosAllocator->Add(posVectorSorted[i]);
+	}
+
+	for (uint32_t i=0; i< m_nSensors; i++)
+	{
+		std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
+	}
+
+	// sensorListPosAllocator should have the node positions
+	mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+	mobHlpr.SetPositionAllocator (sensorListPosAllocator);
+	mobHlpr.Install (sensorNodes);
+
+
+	// The sensors should be positioned at random now within the x y bounds.
+	// The positions are all recorded hopefully in the sensorListPosAllocator
 
 
 	NS_LOG_LOGIC ("Assign the Mobility Model to the MDCs.");
@@ -632,11 +662,10 @@ MdcMain::SetupMobility()
 	mobHlpr.Install (mdcNodes);
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
-	Vector mdcPosV = Vector3D (m_boundaryLength/2.0, m_boundaryLength/2.0, 0.0);
 	for (NodeContainer::Iterator it = mdcNodes.Begin ();
 	it != mdcNodes.End (); it++)
 	{
-		(*it)->GetObject<MobilityModel>()->SetPosition (mdcPosV);
+		(*it)->GetObject<MobilityModel>()->SetPosition (center);
 	}
 
 }

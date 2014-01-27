@@ -18,8 +18,13 @@ class MdcHeader : public Header
 public:
   enum Flags// : uint16_t
     {
+	  // TODO: Remove the sensorDataNotify and sensorFullData...
+	  // or maybe enhance the sensorDataNotify atleast to somehow indicate that it does have some data.
+	  // currently, we are assuming that the sink somehow knows about all global events.
+	  // We expect the sensors to just respond to mdcDataRequest if it is within proximity
       sensorDataNotify, // Sensor telling Sink(in the implementation) that it has data to send... maybe we change this to Sensor sed=nding this message to MDC
       sensorFullData, // Sensor sends all the data to the Sink directly. This gets done only if sendFullData bool is true
+      //-------------------------------------------------------
       sensorDataReply, // Sensor responds to MDC with data
       mdcDataRequest, // MDC Broadcasts the beacon
       mdcDataForward, // MDC to Sink

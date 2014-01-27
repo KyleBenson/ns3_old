@@ -64,7 +64,8 @@ MdcEventSensor::GetTypeId (void)
                    UintegerValue (3),
                    MakeUintegerAccessor (&MdcEventSensor::m_retries),
                    MakeUintegerChecker<uint8_t> ())
-    .AddAttribute ("SendFullData", 
+//    DEPRECATING SENDFULLDATA Flag...
+    .AddAttribute ("SendFullData",
                    "Whether or not to send the full data during event detection.  If false, sends notification only and will send the full data to an MDC.",
                    BooleanValue (true),
                    MakeBooleanAccessor (&MdcEventSensor::m_sendFullData),
@@ -101,6 +102,12 @@ MdcEventSensor::MdcEventSensor ()
   m_randomEventDetectionDelay = UniformVariable ();
 
   m_address = Ipv4Address((uint32_t)0);
+
+  // TODO: Need to create config parameters for this
+  m_mdcProximityLimit = 5; // This is a distance within which the Sensors will consider as within proximity of an MDC.
+  m_sensorProcessingDelay = 0.05; // This is a duration of time in seconds that the Sensors endure before transmitting a reply.
+  m_sensorTransmissionDelay = 0.01; // Transmission delay in seconds
+
 }
 
 MdcEventSensor::~MdcEventSensor()
@@ -113,6 +120,9 @@ MdcEventSensor::~MdcEventSensor()
 
   m_data = 0;
   m_dataSize = 0;
+
+  for (unsigned i=0; i< m_packetBuffer.size(); i++)
+	  m_packetBuffer[i].Cleanup();
 }
 
 void 
@@ -370,13 +380,55 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
       //It seems realistic enough as the sensor could check for recent data requests and reply
       //to them when done processing anyway...
 
-      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), InetSocketAddress(m_sinkAddress, m_port));
+//      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), InetSocketAddress(m_sinkAddress, m_port));
+	  RecordSensorData(InetSocketAddress(m_sinkAddress, m_port));
+	  // We expect the sensor to keep track that
+      // an event has occurred. We keep track of the count of such events processed there.
 
-	  // Typically, on the previous ScheduleTransmit call we expect the sensor to simply send a notification to the sink that
-      // an event has occurred and we keep track of the count of such notifications sent.
-      if (!m_sendFullData)
-        m_nOutstandingReadings++;
     }
+}
+
+/*
+ * Just pushes the event data into a buffer
+ */
+void
+MdcEventSensor::RecordSensorData (Address dest)
+{
+	// Some time in the future, the dest address can be diff from Sink
+	//TODO: We may want to identify the conditions better... esp. if the destination address needs to be other than the sink.
+//	Ipv4Address destAddr = InetSocketAddress::ConvertFrom (dest).GetIpv4 ();
+
+	// Format the message
+
+
+	MdcHeader::Flags flags;
+	flags = MdcHeader::sensorDataReply; // Thus means the sensor is sending to a MDC in reply to a mdcDataRequest message
+	MdcHeader head (m_sinkAddress, flags); // ultimate destination is the sink anyway
+	head.SetOrigin (m_address); // address of this sensor
+	head.SetId (GetNode ()->GetId ()); // The id of this sensor
+
+	Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+	head.SetPosition (pos.x, pos.y); // The position attribute of this sensor
+
+
+	// Now format the rest of the message/packet from the sensor.
+	Ptr<Packet> p;
+	p = Create<Packet> (m_size);
+	head.SetData (p->GetSize ());
+
+	// only schedule timeouts for full data
+	//ScheduleTimeout (seq, dest);
+
+	p->AddHeader (head);
+
+    // call to the trace sinks before the packet is actually sent,
+    // so that tags added to the packet can be traced as well
+    m_sendTrace (p);
+
+	// TODO: Add to the buffer here
+	m_packetBuffer.push_back(*p);
+    // Event data is captured and will be held in a buffer for the MDC to come and pick up
+    m_nOutstandingReadings++;
 }
 
 /*
@@ -399,87 +451,14 @@ void
 MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
 {
   NS_LOG_FUNCTION_NOARGS ();
-
-  NS_LOG_LOGIC ("Sending " << (m_sendFullData ? "full data" : "data notify") << " packet.");
-
-  // if a sequence number is specified, use it.  Otherwise, use the next one.
-  if (!seq)
-    {
-      seq = m_sent;
-      m_sent++;
-    }
-
-  Ipv4Address destAddr = InetSocketAddress::ConvertFrom (dest).GetIpv4 ();
-  MdcHeader::Flags flags;
-
-  /*
-   * If the sensor is sending to the sink then a small packet of info is sent to the sink and not the full message
-   * Perhaps we will change it to a scenario where the sensor does not send anything anywhere but sits there waiting for the MDC to come along.
-   * May not want to remove the send to Sink option completely.
-   */
-  if (destAddr == m_sinkAddress)
-    {
-      flags = (m_sendFullData ? MdcHeader::sensorFullData : MdcHeader::sensorDataNotify);
-    }
-  else
-    flags = MdcHeader::sensorDataReply; // Thus means the sensor is sending to a MDC in reply to a mdcDataRequest message
-
-  MdcHeader head (m_sinkAddress, flags); // ultimate destination is the sink anyway
-  head.SetSeq (seq);
-  head.SetOrigin (m_address); // address of this sensor
-  head.SetId (GetNode ()->GetId ()); // The id of this sensor
-
-  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
-  head.SetPosition (pos.x, pos.y); // The position attribute of this sensor
-
   Ptr<Packet> p;
-  //TODO: We may want to identify the conditions better... esp. if the destination address needs to be other than the sink.
-  if (!m_sendFullData and destAddr == m_sinkAddress) // Just the notification message and so there is no data
-    {
-      p = Create<Packet> (0);
-      head.SetData (0);
-    }
-  else // This means that you need to send the fulldata somehow. In any case the destination is the sinkAddress.
-    {
-      // If only notifying of an event and not sending the full data,
-      // don't add fill and set the data size to be 0.
-      if (m_dataSize)
-        {
-          //
-          // If m_dataSize is non-zero, we have a data buffer of the same size that we
-          // are expected to copy and send.  This state of affairs is created if one of
-          // the Fill functions is called.  In this case, m_size must have been set
-          // to agree with m_dataSize
-          //
-          NS_ASSERT_MSG (m_dataSize == m_size, "MdcEventSensor::Send(): m_size and m_dataSize inconsistent");
-          NS_ASSERT_MSG (m_data, "MdcEventSensor::Send(): m_dataSize but no m_data");
-          p = Create<Packet> (m_data, m_dataSize);
-        }
-      else
-        {
-          //
-          // If m_dataSize is zero, the client has indicated that she doesn't care 
-          // about the data itself either by specifying the data size by setting
-          // the corresponding atribute or by not calling a SetFill function.  In 
-          // this case, we don't worry about it either.  But we do allow m_size
-          // to have a value different from the (zero) m_dataSize.
-          //
-          p = Create<Packet> (m_size);
-        }
-      head.SetData (p->GetSize ());
   
-      // only schedule timeouts for full data
-      //ScheduleTimeout (seq, dest);
-    }
-
-  p->AddHeader (head);
-
-  // call to the trace sinks before the packet is actually sent,
-  // so that tags added to the packet can be sent as well
-  m_sendTrace (p);
-
-  if (flags == MdcHeader::sensorFullData || flags == MdcHeader::sensorDataReply)
+  // Check if the m_packetBuffer has any saved packets.
+  // If any then send them one after another.
+  for (unsigned i = 0; i<m_nOutstandingReadings; i++)
     {
+	  p = &(m_packetBuffer[i]);
+
       // some weird bug makes establishing a connection to the same address you did last time not work
       if (dest != m_lastConnection)
         {
@@ -487,10 +466,12 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
           m_lastConnection = dest;
         }
 
+      // call to the trace sinks before the packet is actually sent,
+      // so that tags added to the packet can be sent as well
+      m_sendTrace (p);
       m_tcpSocket->Send (p);
+      m_nOutstandingReadings--;
     }
-  else
-    m_udpSocket->SendTo (p, 0, dest);
 }
 
 /*
@@ -501,6 +482,9 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
 {
   Ptr<Packet> packet;
   Address from;
+  Vector mdcCurrPos;
+  Vector sensorPos;
+  double distanceFromMDC = 0;
 
   /*
    * This is in case there are multiple packets to handle
@@ -516,6 +500,13 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
           MdcHeader head;
           packet->PeekHeader (head);
 
+          // Note the MDC Position and see how far the sensor is from MDC
+          mdcCurrPos.x = head.GetXPosition();
+		  mdcCurrPos.y = head.GetYPosition();
+		  mdcCurrPos.z = 0.0;
+		  sensorPos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+		  distanceFromMDC = CalculateDistance(mdcCurrPos, sensorPos);
+
           // If the packet is for us, process the ACK
           if (head.GetDest () == m_address)
             {
@@ -525,18 +516,19 @@ MdcEventSensor::HandleRead (Ptr<Socket> socket)
             }
 
           // Else it was a broadcast from an MDC
-          //
+          // Make sure that you send only if the MDC is within close proximity of the sensor
           // Should we keep track of the last seen MDC?
           else
             {
-              if (m_nOutstandingReadings > 0)
+              if ((m_nOutstandingReadings > 0) &&
+            	  (distanceFromMDC <= m_mdcProximityLimit))
                 {
-                  for (int i = m_nOutstandingReadings; i > 0; i--)
+                  for (unsigned i = 0; i<m_nOutstandingReadings; i++)
                     {
-                      ScheduleTransmit (Seconds (i*0.1 + 0.1), from);
+                      ScheduleTransmit (Seconds ((i+1)*(m_sensorProcessingDelay + m_sensorTransmissionDelay)), from);
                       //TODO: Stagger the events based on the message sizes... add the transmission delay and processing time.
                       // We may not really need this but think about it.
-                      m_nOutstandingReadings--;
+                      //m_nOutstandingReadings--;
                     }
                 }
             }
@@ -550,58 +542,5 @@ MdcEventSensor::GetAddress () const
   return m_address;
 }
 
-/*
- * Kyle may have removed this code... he was trying to implement the reliability aspect.
- */
-  /*
-void
-MdcEventSensor::ProcessAck (Ptr<Packet> packet, Ipv4Address source)
-{
-  NS_LOG_LOGIC ("ACK received");
-
-  MdcHeader head;
-  packet->PeekHeader (head);
-  uint32_t seq = head.GetSeq ();
-  
-  //m_ackTrace (packet, GetNode ()-> GetId ());
-  m_outstandingSeqs.erase (seq);
-  //TODO: handle an ack from an old seq number
-}
-
-void
-MdcEventSensor::ScheduleTimeout (uint32_t seq, Address dest)
-{
-  m_events.push_front (Simulator::Schedule (m_timeout, &MdcEventSensor::CheckTimeout, this, seq, dest));
-
-  // Decrement the number of retries remaining if found
-  if (m_outstandingSeqs.find (seq) != m_outstandingSeqs.end ())
-    m_outstandingSeqs[seq]--;
-  else
-    m_outstandingSeqs[seq] = m_retries;
-}
-
-void
-MdcEventSensor::CheckTimeout (uint32_t seq, Address dest)
-{
-  std::map<uint32_t, uint8_t>::iterator triesLeft = m_outstandingSeqs.find (seq);
-
-  // If this seq # hasn't been ACKed
-  if (triesLeft != m_outstandingSeqs.end ())
-    {
-      if (triesLeft->second > 0)
-        {
-          NS_LOG_INFO ("Packet timed out at node " << GetNode ()->GetId ());
-
-          m_events.push_front (Simulator::Schedule (Seconds (m_randomEventDetectionDelay.GetValue ()),
-                                                    &MdcEventSensor::Send, this, dest, seq));
-        }
-      else //give up sending it
-        {
-          NS_LOG_INFO ("Packet failed to send after " << (uint32_t)m_retries << " attempts at node " << GetNode ()->GetId ());
-
-          m_outstandingSeqs.erase (triesLeft);
-        }
-    }
-    }*/
 
 } // Namespace ns3
