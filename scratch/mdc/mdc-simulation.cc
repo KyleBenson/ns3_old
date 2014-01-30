@@ -150,6 +150,7 @@ private:
 	void InstallEnergyModel();
 	void InstallInternetStack();
 	void InstallApplications ();
+        void SetupTraces ();
 };
 
 //-----------------------------------------------------------------------------
@@ -307,7 +308,23 @@ RemainingEnergyAtNodeTrace (TraceConstData * constData, double oldValue, double 
   *(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
 
+static void
+MacTxDrop(Ptr<const Packet> p)
+{
+  NS_LOG_INFO("Packet Drop MacTx");
+}
 
+static void
+PhyTxDrop(Ptr<const Packet> p)
+{
+  NS_LOG_INFO("Packet Drop PhyTx");
+}
+
+static void
+PhyRxDrop(Ptr<const Packet> p)
+{
+  NS_LOG_INFO("Packet Drop PhyRx");
+}
 
 bool
 MdcMain::Configure(int argc, char **argv)
@@ -412,6 +429,7 @@ MdcMain::Run()
 	SetupMobility();
 	// InstallEnergyModel(); TODO: This aspect has not been enabled for our tests
 	InstallApplications();
+        SetupTraces();
 
 	//
 	// Now, do the actual simulation.
@@ -799,4 +817,11 @@ MdcMain::InstallApplications()
 
 	}
 
+}
+
+void MdcMain::SetupTraces () {
+  // Trace Collisions
+  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Mac/MacTxDrop", MakeCallback(&MacTxDrop));
+  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/PhyRxDrop", MakeCallback(&PhyRxDrop));
+  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/PhyTxDrop", MakeCallback(&PhyTxDrop));
 }
