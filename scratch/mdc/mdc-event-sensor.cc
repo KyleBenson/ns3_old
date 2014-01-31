@@ -374,6 +374,8 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
 
   if (event.WithinEventRegion (pos))
     {
+      NS_LOG_INFO ("[EVENT_DETECTION] Event detected at Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]");
+
       //WARNING: remember that its possible for the event to be detected, tx to be queued,
       //and the MDC to request data before expiration, invoking an immediate data reply.
       //

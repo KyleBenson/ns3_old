@@ -311,19 +311,43 @@ RemainingEnergyAtNodeTrace (TraceConstData * constData, double oldValue, double 
 static void
 MacTxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop MacTx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s;
+	s 		<< "[PACKET_DROP] [MAC/TX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+//  NS_LOG_INFO("Packet Drop MacTx");
 }
 
 static void
 PhyTxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop PhyTx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s;
+	s 		<< "[PACKET_DROP] [PHY/TX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+//  NS_LOG_INFO("Packet Drop PhyTx");
 }
 
 static void
 PhyRxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop PhyRx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s;
+	s 		<< "[PACKET_DROP] [PHY/RX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+//  NS_LOG_INFO("Packet Drop PhyRx");
 }
 
 bool
@@ -649,10 +673,10 @@ MdcMain::SetupMobility()
 		sensorListPosAllocator->Add(posVectorSorted[i]);
 	}
 
-	for (uint32_t i=0; i< m_nSensors; i++)
-	{
-		std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
-	}
+	//for (uint32_t i=0; i< m_nSensors; i++)
+	//{
+	//	std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
+	//}
 
 	// sensorListPosAllocator should have the node positions
 	mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
