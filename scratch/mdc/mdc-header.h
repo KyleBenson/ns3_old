@@ -28,7 +28,8 @@ public:
       sensorDataReply, // Sensor responds to MDC with data
       mdcDataRequest, // MDC Broadcasts the beacon
       mdcDataForward, // MDC to Sink
-      sinkRouteUpdate // **** Not implemented
+      sinkRouteUpdate, // **** Not implemented
+      sensorDataTrailer
     };
 
   explicit MdcHeader ();

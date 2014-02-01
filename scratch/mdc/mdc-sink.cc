@@ -241,8 +241,9 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
               fullPacket->RemoveAtStart (packetSize);
               alreadyNotified = false;
 
-              if (head.GetFlags () == MdcHeader::sensorFullData ||
-                  head.GetFlags () == MdcHeader::sensorDataReply)
+              if 	( (head.GetFlags () == MdcHeader::sensorFullData) ||
+            		  (head.GetFlags () == MdcHeader::sensorDataTrailer) ||
+            		  (head.GetFlags () == MdcHeader::sensorDataReply))
                 m_totalRx += packetSize;
       
               NS_LOG_INFO ("SINK " << GetNode ()->GetId () << " completed forwarding packet from " << source );

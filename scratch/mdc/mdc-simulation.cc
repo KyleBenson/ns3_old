@@ -203,8 +203,9 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 
 	// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
 	// though this shouldn't happen as broadcast should be to a network?
-	if (	(head.GetFlags () == MdcHeader::mdcDataRequest)
-		||	(head.GetFlags () == MdcHeader::sensorDataNotify)
+	if (   (head.GetFlags () == MdcHeader::mdcDataForward)
+		|| (head.GetFlags () == MdcHeader::mdcDataRequest)
+		|| (head.GetFlags () == MdcHeader::sensorDataNotify)
 		)
 	{
 		s << "[SINK__TRACE] IGNORED....."
@@ -223,8 +224,7 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 //		*(constData->outputStream)->GetStream () << s.str() << std::endl;
 	}
 
-	if (	(head.GetFlags () == MdcHeader::mdcDataForward)
-		|| 	(head.GetFlags () == MdcHeader::sensorDataReply)
+	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
 		//||	(head.GetFlags () == MdcHeader::sensorFullData)
 		)
 	{
@@ -274,25 +274,47 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 {
 	NS_LOG_FUNCTION_NOARGS ();
 
+	std::stringstream s;
 	MdcHeader head;
 	packet->PeekHeader (head);
 
-	std::stringstream s;
-	s 		<< "[COLL__TRACE] "
-			<< constData->nodeId
-			<< " forwarding ["
-			<< head.GetPacketType ()
-			<< "] ("
-			<< head.GetData()
-			<< "B) from "
-			<< head.GetOrigin ()
-			<< " to "
-			<< head.GetDest ()
-			<< " at "
-			<< Simulator::Now ().GetSeconds ();
 
-	NS_LOG_INFO (s.str ());
-	*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	// Trace only DataReply messages and no others
+
+	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
+		//||	(head.GetFlags () == MdcHeader::sensorFullData)
+		)
+	{
+		// Complete pkt received. Send an indication
+		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
+		uint32_t segmentPktSize = packet->GetSize();
+		std::stringstream sExtraMsg;
+		if (segmentPktSize < expectedPktSize)
+		{
+			sExtraMsg << " FIRST SEGMENT ";
+		} else if (segmentPktSize > expectedPktSize)
+		{
+			sExtraMsg << " FINAL SEGMENT ";
+		} else // the segmentsize and packet size are equal
+		{
+			sExtraMsg << " COMPLETE PACKET ";
+		}
+		s 		<< "[COLL__TRACE] MDC Node#"
+				<< constData->nodeId
+				<< sExtraMsg.str() << " ["
+				<< head.GetPacketType ()
+				<< "] SegmentSize=" << segmentPktSize
+				<< "B ExpectedFullPacketSize=" << expectedPktSize
+				<< "B from "
+				<< head.GetOrigin ()
+				<< " to "
+				<< head.GetDest ()
+				<< " at "
+				<< Simulator::Now ().GetSeconds ();
+
+		NS_LOG_INFO (s.str ());
+		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	}
 }
 
 /// Trace function for remaining energy at node.
