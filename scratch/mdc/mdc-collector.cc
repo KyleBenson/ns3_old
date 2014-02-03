@@ -357,71 +357,71 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
       
       if (InetSocketAddress::IsMatchingType (from))
         {
-          NS_LOG_LOGIC ("**COLL Node#" << GetNode ()->GetId ()
-        		  << " Processing " << packet->GetSize());
-
           fullPacket->AddAtEnd (packet);
           // Now your fullPacket should contain the partialPacket for the socket if any + this new segment added to it.
+          NS_LOG_LOGIC("**3** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
           
-          // extract as many segments as possible from the stream
-          while (fullPacket->GetSize () >= MDC_HEADER_SIZE)
-          {
-        	// Which means that there may be more segments to process
-            Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
-            fullPacket->PeekHeader (head);
-            packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
-            
-            // Remove completed transfers
-            // OK Here we think that the sender may have combined portions of two packets on to the same segment.
-            // In other words a segment just received contains a part of the previous packet and a portion of the next packet.
-            // Segments have not been demarcated when they are transmitted from the sensor and so it is our job to handle it cleanly.
-            // In some other words...we see 3 conditions...
-            //    fullPacket contains exactly a complete packet, (Send a trace)
-            //    fullPacket contains a packet and more from the next (Send a trace)
-            //    fullPacket is still assembling a complete packet (Don't send a trace)
-            if (!alreadyNotified)
-              {
-                  m_forwardTrace (packet);
-                  alreadyNotified = true;
-              }
+	  	  // Which means that there may be more segments to process
+		  Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+		  fullPacket->PeekHeader (head);
+		  packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
 
-            if (fullPacket->GetSize () >= packetSize)
+		  // Remove completed transfers
+		  // OK Here we think that the sender may have combined portions of two packets on to the same segment.
+		  // In other words a segment just received contains a part of the previous packet and a portion of the next packet.
+		  // Segments have not been demarcated when they are transmitted from the sensor and so it is our job to handle it cleanly.
+		  // In some other words...we see 3 conditions...
+		  //    fullPacket contains exactly a complete packet, (Send a trace)
+		  //    fullPacket contains a packet and more from the next (Send a trace)
+		  //    fullPacket is still assembling a complete packet (Don't send a trace)
+		  if (!alreadyNotified)
+		  {
+			  m_forwardTrace (packet);
+			  alreadyNotified = true;
+		  }
+
+ 		  NS_LOG_LOGIC("**4** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+		  if (fullPacket->GetSize () >= packetSize)
+		  {
+
+			NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
+					<< " received a FULL packet TOTAL=" << fullPacket->GetSize()
+					<< "B and FRAGMENT Size=" << packet->GetSize ()
+					<< "B of [type="<< head.GetPacketType ()
+					<< "] from [" << source << "] destined for [" << head.GetDest ()
+					<< "]");
+			// The fullPacket has a complete packet now.
+
+
+			m_forwardTrace(fullPacket);
+			//    but there may be some more from the next pkt
+			// extract just the portion of the packet that and leave the rest in the fullPacket... that was one idea.
+
+			fullPacket->RemoveAtStart(packetSize);
+			alreadyNotified = false; // So that a next packet from this socket gets traced appropriately.
+			if (fullPacket->GetSize() >= MDC_HEADER_SIZE )
 			{
+				fullPacket->PeekHeader (head); // Reset the packetSize
+				packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+			}
+			else
+				packetSize = 0;
 
-            	NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
-                  		<< " received a FULL packet TOTAL=" << fullPacket->GetSize()
-                  		<< "B and FRAGMENT Size=" << packet->GetSize ()
-                  		<< "B of [type="<< head.GetPacketType ()
-                        << "] from [" << source << "] destined for [" << head.GetDest ()
-                        << "]");
-				// The fullPacket has a complete packet now.
-
-
-				m_forwardTrace(fullPacket);
-				//    but there may be some more from the next pkt
-				// extract just the portion of the packet that and leave the rest in the fullPacket... that was one idea.
-
-            	fullPacket->RemoveAtStart(packetSize);
-                alreadyNotified = false; // So that a next packet from this socket gets traced appropriately.
-            	if (fullPacket->GetSize () > packetSize)
-                {
-            		NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
-                		<< " Segment recd from " << source
-                		<< " contained info beyond the boundary of one packet. Ignoring the rest... FULLPACKETSIZE=" << fullPacket->GetSize()
-                		<< " B and ExpectedPACKETSIZE=" << packetSize << "B. Cleaning up the partialPacket buffer.");
-                }
-              }
-            else  // Meaning that there may be more segments to read from the socket
-              break;
-
-            
-          } // end of while
+  		    NS_LOG_LOGIC("**5** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+			if (fullPacket->GetSize () > packetSize)
+			{
+				NS_LOG_LOGIC ("****COLL Node#" << GetNode ()->GetId ()
+					<< " Segment recd from " << source
+					<< " contained info beyond the boundary of one packet. Ignoring the rest... FULLPACKETSIZE=" << fullPacket->GetSize()
+					<< " B and ExpectedPACKETSIZE=" << packetSize << "B. Cleaning up the partialPacket buffer.");
+			}
+		  }
           
           // Now that the segment is ready, just forward it.
           // Note that the packet contains a part of the next segment but we will forward it anyway.
           ForwardPacket (packet);
 
-
+          NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
           // A segment has been forwarded... Now it looks like there are more segments
           if (fullPacket->GetSize () > packetSize)
         	  NS_LOG_LOGIC ("*COLL Node#" << GetNode ()->GetId ()

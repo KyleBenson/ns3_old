@@ -170,6 +170,134 @@ void MdcSink::StopApplication ()     // Called at time specified by Stop
  */
 void MdcSink::HandleRead (Ptr<Socket> socket)
 {
+	NS_LOG_FUNCTION_NOARGS();
+	if (socket == m_sensorSocket)
+    {
+    	return;
+    }
+
+	// We index all the packets from the MDCs so that the packet segments even if they arrive mixed up, we are able to handle it.
+	Ptr<Packet> fullPacket = m_partialPacket[socket];
+	Ptr<Packet> packet; // a temp variable holding the segment coming from the sender.
+	Address from;
+	// a boolean that simply triggers a logic to send traces or not.
+	bool alreadyNotified;
+
+	NS_LOG_LOGIC ("*SINK Node#" << GetNode ()->GetId () <<
+		  " Partial Packet Size for this socket was=" << fullPacket->GetSize ());
+
+	if (fullPacket->GetSize () > 0)
+	{
+		NS_LOG_LOGIC ("*SINK Node#" << GetNode ()->GetId ()
+			  << " From a PriorRecv already has " << fullPacket->GetSize ()
+			  << " B from this socket on Node. "  << socket->GetNode()->GetId());
+	}
+
+
+	// Prepare to format a new header here.
+	MdcHeader head;
+	head.SetData (0);  // for if condition for removing completed packets
+
+	if (fullPacket->GetSize () >= MDC_HEADER_SIZE)
+	// If you have a partial header in the buffer, this may give you seg faults
+	{
+		fullPacket->PeekHeader (head);
+		alreadyNotified = true;
+	}
+	else
+	{
+		// Could not have forwarded to trace as there was no full header so far
+		alreadyNotified = false;
+	}
+
+
+	// compute the packetsize of the forwarding packet
+	uint32_t packetSize;
+	packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+	if (packetSize == UINT_MAX)
+		NS_LOG_LOGIC ("*SINK Node#" << GetNode ()->GetId ()
+		  << " PacketSize is unknown. First Segment expected."
+		  );
+
+	// Repeat this until the socket has no more data to send.
+	while (packet = socket->RecvFrom (from)) // Repeat for each segment recd on the socket
+    {
+		NS_LOG_LOGIC ("Reading packet from socket.");
+
+		if (InetSocketAddress::IsMatchingType (from))
+        {
+			fullPacket->AddAtEnd (packet);
+			// Now your fullPacket should contain the partialPacket for the socket if any + this new segment added to it.
+			NS_LOG_LOGIC("**3** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+
+			// Which means that there may be more segments to process
+			Ipv4Address source = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+			fullPacket->PeekHeader (head);
+			packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+
+			if (!alreadyNotified)
+			{
+	            m_rxTrace (packet, from); // This writes a trace output that the first segment of a message was received and processed.
+				alreadyNotified = true;
+			}
+
+			NS_LOG_LOGIC("**4** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+			if (fullPacket->GetSize () >= packetSize)
+			{
+
+				NS_LOG_LOGIC ("****SINK Node#" << GetNode ()->GetId ()
+						<< " received a FULL packet TOTAL=" << fullPacket->GetSize()
+						<< "B and FRAGMENT Size=" << packet->GetSize ()
+						<< "B of [type="<< head.GetPacketType ()
+						<< "] from [" << source << "] destined for [" << head.GetDest ()
+						<< "]");
+				// The fullPacket has a complete packet now.
+
+
+				m_rxTrace (fullPacket, from); // This writes a trace output that the first segment of a message was received and processed.
+				//    but there may be some more from the next pkt
+				// extract just the portion of the packet that and leave the rest in the fullPacket... that was one idea.
+
+				fullPacket->RemoveAtStart(packetSize);
+				alreadyNotified = false; // So that a next packet from this socket gets traced appropriately.
+				if (fullPacket->GetSize() >= MDC_HEADER_SIZE )
+				{
+					fullPacket->PeekHeader (head); // Reset the packetSize
+					packetSize = (head.GetData () ? head.GetData () + MDC_HEADER_SIZE : UINT_MAX);
+				}
+				else
+					packetSize = 0;
+
+				NS_LOG_LOGIC("**5** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+				if (fullPacket->GetSize () > packetSize)
+				{
+					NS_LOG_LOGIC ("****SINK Node#" << GetNode ()->GetId ()
+						<< " Segment recd from " << source
+						<< " contained info beyond the boundary of one packet. Ignoring the rest... FULLPACKETSIZE=" << fullPacket->GetSize()
+						<< " B and ExpectedPACKETSIZE=" << packetSize << "B. Cleaning up the partialPacket buffer.");
+				}
+			}
+
+			// Now that the segment is ready, just forward it.
+			// Note that the packet contains a part of the next segment but we will forward it anyway.
+			// IF YOU NEED TO FORWARD THE PACKET TO ANOTHER NODE/NETWORK, This is the place to do it.
+			// ForwardPacket (packet);
+
+			NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
+			// A segment has been forwarded... Now it looks like there are more segments
+			if (fullPacket->GetSize () > packetSize)
+				NS_LOG_LOGIC ("*SINK Node#" << GetNode ()->GetId ()
+					  << "Expecting more data... PacketBufferSize=" << m_partialPacket[socket]->GetSize()
+					  << "  CompletePacketSize=" << packetSize
+					  << "."
+					  );
+
+		}// end of if
+    } // end of while socket has no more data
+}
+
+/*
+{
   NS_LOG_FUNCTION (this << socket);
   // fullPacket is set to blank if it is a sensor socket as there is no likelihood of a partial packet ever
   // recd from sensor.
@@ -242,7 +370,6 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
               alreadyNotified = false;
 
               if 	( (head.GetFlags () == MdcHeader::sensorFullData) ||
-            		  (head.GetFlags () == MdcHeader::sensorDataTrailer) ||
             		  (head.GetFlags () == MdcHeader::sensorDataReply))
                 m_totalRx += packetSize;
       
@@ -253,6 +380,7 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
         }
     }
 }
+*/
 
 /*
  * This is a normal socket close callback function registered on the socket

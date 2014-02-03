@@ -225,8 +225,94 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 	}
 
 	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
-		//||	(head.GetFlags () == MdcHeader::sensorFullData)
 		)
+	{
+		// Complete pkt received. Send an indication
+		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
+		uint32_t recdPktSize = packet->GetSize();
+		std::stringstream s;
+
+		if (recdPktSize < expectedPktSize)
+		{
+			s.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FIRST SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << recdPktSize
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else if (recdPktSize > expectedPktSize)
+		{
+			s.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FULL PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+
+			// Reset s here for the next message for the partial pkt recd...
+			s.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FIRST SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else // the recdPktsize and expectedpacketsize are equal
+		{
+			s.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FULL PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+	}
+
+/*
 	{
 		s << "[SINK__TRACE] "
 				<< constData->nodeId
@@ -243,6 +329,7 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 		NS_LOG_INFO (s.str ());
 		*(constData->outputStream)->GetStream () << s.str() << std::endl;
 	}
+*/
 	return;
 }
 
@@ -274,7 +361,6 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 {
 	NS_LOG_FUNCTION_NOARGS ();
 
-	std::stringstream s;
 	MdcHeader head;
 	packet->PeekHeader (head);
 
@@ -282,38 +368,84 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 	// Trace only DataReply messages and no others
 
 	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
-		//||	(head.GetFlags () == MdcHeader::sensorFullData)
 		)
 	{
 		// Complete pkt received. Send an indication
 		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
-		uint32_t segmentPktSize = packet->GetSize();
-		std::stringstream sExtraMsg;
-		if (segmentPktSize < expectedPktSize)
-		{
-			sExtraMsg << " FIRST SEGMENT ";
-		} else if (segmentPktSize > expectedPktSize)
-		{
-			sExtraMsg << " FINAL SEGMENT ";
-		} else // the segmentsize and packet size are equal
-		{
-			sExtraMsg << " COMPLETE PACKET ";
-		}
-		s 		<< "[COLL__TRACE] MDC Node#"
-				<< constData->nodeId
-				<< sExtraMsg.str() << " ["
-				<< head.GetPacketType ()
-				<< "] SegmentSize=" << segmentPktSize
-				<< "B ExpectedFullPacketSize=" << expectedPktSize
-				<< "B from "
-				<< head.GetOrigin ()
-				<< " to "
-				<< head.GetDest ()
-				<< " at "
-				<< Simulator::Now ().GetSeconds ();
+		uint32_t recdPktSize = packet->GetSize();
 
-		NS_LOG_INFO (s.str ());
-		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		if (recdPktSize < expectedPktSize)
+		{
+			std::stringstream s;
+			s		<< "[COLL__TRACE] MDC Node#"
+					<< constData->nodeId
+					<< " FIRST SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << recdPktSize
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else if (recdPktSize > expectedPktSize)
+		{
+			{
+				std::stringstream s;
+				s		<< "[COLL__TRACE] MDC Node#"
+						<< constData->nodeId
+						<< " FULL PACKET ["
+						<< head.GetPacketType ()
+						<< "] CompletePacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+				*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			}
+			// Reset s here for the next message for the partial pkt recd...
+			{
+				std::stringstream s;
+				s		<< "[COLL__TRACE] MDC Node#"
+						<< constData->nodeId
+						<< " FIRST SEGMENT ["
+						<< head.GetPacketType ()
+						<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
+						<< "B ExpectedFullPacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+				*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			}
+		}
+		else // the recdPktsize and expectedpacketsize are equal
+		{
+			std::stringstream s;
+			s		<< "[COLL__TRACE] MDC Node#"
+					<< constData->nodeId
+					<< " FULL PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
 	}
 }
 
