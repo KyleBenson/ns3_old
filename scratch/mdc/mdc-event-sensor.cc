@@ -35,6 +35,7 @@
 
 #include "mdc-event-sensor.h"
 #include "mdc-header.h"
+#include "mdc-utilities.h"
 
 namespace ns3 {
 
@@ -375,7 +376,12 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
 
   if (event.WithinEventRegion (pos))
     {
-      NS_LOG_INFO ("[EVENT_DETECTION] Event detected at Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]");
+	  std::stringstream s, csv;
+      s << "[EVENT_DETECTION] Event detected at Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]" << std::endl;
+      csv << "EVENT_DETECTION,"<< GetNode()->GetId () << "," << Simulator::Now().GetSeconds() << "," << pos.x << "," << pos.y << "," << pos.z << std::endl;
+      *(GetMDCOutputStream())->GetStream() << csv.str();
+      NS_LOG_INFO(s.str());
+
 
       //WARNING: remember that its possible for the event to be detected, tx to be queued,
       //and the MDC to request data before expiration, invoking an immediate data reply.

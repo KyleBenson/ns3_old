@@ -4,7 +4,7 @@
       <name>mdc.Sensors</name>
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
-      <value>5</value>
+      <value>10</value>
    </param> 
    <param> 
       <name>mdc.MDCs</name>
@@ -40,7 +40,7 @@
       <name>mdc.MdcPause</name>
       <description>Pause duration of the MDCs in seconds</description>
       <data-type>float</data-type>
-      <value>1.0</value>
+      <value>0.5</value>
    </param> 
    <param> 
       <name>mdc.SendFullData</name>

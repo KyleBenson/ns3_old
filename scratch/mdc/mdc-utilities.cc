@@ -127,5 +127,15 @@ namespace ns3 {
 		return outputVector;
 	}
 
+	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream)
+	{
+		m_mdcoutputStream = outputStream;
+	}
+
+	Ptr<OutputStreamWrapper> GetMDCOutputStream (void)
+	{
+		return m_mdcoutputStream;
+	}
+
 
 } // namespace ns3 
