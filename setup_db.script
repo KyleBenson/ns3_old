@@ -1,0 +1,402 @@
+Script started on Thu 06 Feb 2014 10:22:03 PM PST
+bash: /usr/local/bin/virtualenvwrapper.sh: No such file or directory
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ create database Monitoring;;[K[Kmysq[K[K[K[Kapt-get install python-mysqldb
+E: Could not open lock file /var/lib/dpkg/lock - open (13: Permission denied)
+E: Unable to lock the administration directory (/var/lib/dpkg/), are you root?
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ apt-get install libmysqlclient-dev
+E: Could not open lock file /var/lib/dpkg/lock - open (13: Permission denied)
+E: Unable to lock the administration directory (/var/lib/dpkg/), are you root?
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ easy_install MySQL-python[K
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ apt-get install libmysqlclient-dev[4Ppython-mysqldb[1@s[1@u[1@d[1@o[1@ 
+Reading package lists... 0%Reading package lists... 100%Reading package lists... Done
+Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree       
+Reading state information... 0%Reading state information... 0%Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  bluez-alsa:i386 glib-networking:i386 gstreamer0.10-plugins-good:i386 gstreamer0.10-x:i386 gtk2-engines:i386 gtk2-engines-murrine:i386 gtk2-engines-oxygen:i386 gtk2-engines-pixbuf:i386 hal-info ibus-gtk:i386
+  libaa1:i386 libaio1:i386 libao4:i386 libatk1.0-0:i386 libaudiofile1:i386 libavc1394-0:i386 libcairo-gobject2:i386 libcairo2:i386 libcanberra-gtk-module:i386 libcanberra-gtk0:i386 libcanberra0:i386
+  libcroco3:i386 libcupsfilters1:i386 libcupsimage2:i386 libcurl3:i386 libdbus-glib-1-2:i386 libdv4:i386 libesd0:i386 libfluidsynth1:i386 libgail-common:i386 libgail18:i386 libgconf-2-4:i386 libgdbm3:i386
+  libgdk-pixbuf2.0-0:i386 libgraphite2-3:i386 libgtk2.0-0:i386 libgudev-1.0-0:i386 libharfbuzz0a:i386 libibus-1.0-5:i386 libidn11:i386 libiec61883-0:i386 libjasper1:i386 libmad0:i386 libmikmod2:i386
+  libnspr4:i386 libnss3:i386 libodbc1:i386 libpango-1.0-0:i386 libpango1.0-0:i386 libpangocairo-1.0-0:i386 libpangoft2-1.0-0:i386 libpangox-1.0-0:i386 libpangoxft-1.0-0:i386 libpixman-1-0:i386 libproxy1:i386
+  libpulse-mainloop-glib0:i386 libpulsedsp:i386 libqt4-designer:i386 libqt4-qt3support:i386 libqt4-scripttools:i386 libqt4-svg:i386 libqt4-test:i386 libraw1394-11:i386 libreadline6:i386 librsvg2-2:i386
+  librsvg2-common:i386 librtmp0:i386 libsdl-image1.2:i386 libsdl-mixer1.2:i386 libsdl-net1.2:i386 libsdl-ttf2.0-0:i386 libshout3:i386 libsoup-gnome2.4-1:i386 libsoup2.4-1:i386 libspeex1:i386 libssl0.9.8:i386
+  libstdc++5:i386 libtag1-vanilla:i386 libtag1c2a:i386 libtdb1:i386 libvorbisfile3:i386 libwavpack1:i386 libwebp4:i386 libxaw7:i386 libxcb-render0:i386 libxcb-shm0:i386 libxft2:i386 libxmu6:i386 libxp6:i386
+  libxtst6:i386 odbcinst1debian2:i386 openjdk-7-jre-lib xaw3dg:i386
+Use 'apt-get autoremove' to remove them.
+Suggested packages:
+  python-egenix-mxdatetime mysql-server-5.1 mysql-server python-mysqldb-dbg
+The following NEW packages will be installed:
+  python-mysqldb
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 63.8 kB of archives.
+After this operation, 221 kB of additional disk space will be used.
+0% [Working]            Get:1 http://us.archive.ubuntu.com/ubuntu/ saucy/main python-mysqldb amd64 1.2.3-2 [63.8 kB]
+            15% [1 python-mysqldb 9,689 B/63.8 kB 15%]                                          100% [Working]              Fetched 63.8 kB in 0s (117 kB/s)
+Selecting previously unselected package python-mysqldb.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 377086 files and directories currently installed.)
+Unpacking python-mysqldb (from .../python-mysqldb_1.2.3-2_amd64.deb) ...
+Setting up python-mysqldb (1.2.3-2) ...
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ sudo apt-get install python-mysqldb[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[1Papt-get install libmysqlclient-dev[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[1@s[1@u[1@d[1@o[1@ 
+Reading package lists... 0%Reading package lists... 100%Reading package lists... Done
+Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree       
+Reading state information... 0%Reading state information... 0%Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  bluez-alsa:i386 glib-networking:i386 gstreamer0.10-plugins-good:i386 gstreamer0.10-x:i386 gtk2-engines:i386 gtk2-engines-murrine:i386 gtk2-engines-oxygen:i386 gtk2-engines-pixbuf:i386 hal-info ibus-gtk:i386
+  libaa1:i386 libaio1:i386 libao4:i386 libatk1.0-0:i386 libaudiofile1:i386 libavc1394-0:i386 libcairo-gobject2:i386 libcairo2:i386 libcanberra-gtk-module:i386 libcanberra-gtk0:i386 libcanberra0:i386
+  libcroco3:i386 libcupsfilters1:i386 libcupsimage2:i386 libcurl3:i386 libdbus-glib-1-2:i386 libdv4:i386 libesd0:i386 libfluidsynth1:i386 libgail-common:i386 libgail18:i386 libgconf-2-4:i386 libgdbm3:i386
+  libgdk-pixbuf2.0-0:i386 libgraphite2-3:i386 libgtk2.0-0:i386 libgudev-1.0-0:i386 libharfbuzz0a:i386 libibus-1.0-5:i386 libidn11:i386 libiec61883-0:i386 libjasper1:i386 libmad0:i386 libmikmod2:i386
+  libnspr4:i386 libnss3:i386 libodbc1:i386 libpango-1.0-0:i386 libpango1.0-0:i386 libpangocairo-1.0-0:i386 libpangoft2-1.0-0:i386 libpangox-1.0-0:i386 libpangoxft-1.0-0:i386 libpixman-1-0:i386 libproxy1:i386
+  libpulse-mainloop-glib0:i386 libpulsedsp:i386 libqt4-designer:i386 libqt4-qt3support:i386 libqt4-scripttools:i386 libqt4-svg:i386 libqt4-test:i386 libraw1394-11:i386 libreadline6:i386 librsvg2-2:i386
+  librsvg2-common:i386 librtmp0:i386 libsdl-image1.2:i386 libsdl-mixer1.2:i386 libsdl-net1.2:i386 libsdl-ttf2.0-0:i386 libshout3:i386 libsoup-gnome2.4-1:i386 libsoup2.4-1:i386 libspeex1:i386 libssl0.9.8:i386
+  libstdc++5:i386 libtag1-vanilla:i386 libtag1c2a:i386 libtdb1:i386 libvorbisfile3:i386 libwavpack1:i386 libwebp4:i386 libxaw7:i386 libxcb-render0:i386 libxcb-shm0:i386 libxft2:i386 libxmu6:i386 libxp6:i386
+  libxtst6:i386 odbcinst1debian2:i386 openjdk-7-jre-lib xaw3dg:i386
+Use 'apt-get autoremove' to remove them.
+The following NEW packages will be installed:
+  libmysqlclient-dev
+0 upgraded, 1 newly installed, 0 to remove and 0 not upgraded.
+Need to get 1,382 kB of archives.
+After this operation, 5,565 kB of additional disk space will be used.
+0% [Working]            Get:1 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main libmysqlclient-dev amd64 5.5.35-0ubuntu0.13.10.2 [1,382 kB]
+            1% [1 libmysqlclient-dev 9,685 B/1,382 kB 1%]7% [1 libmysqlclient-dev 99.6 kB/1,382 kB 7%]                                             26% [1 libmysqlclient-dev 357 kB/1,382 kB 26%]71% [1 libmysqlclient-dev 982 kB/1,382 kB 71%]                                              100% [Working]              Fetched 1,382 kB in 2s (653 kB/s)
+Selecting previously unselected package libmysqlclient-dev.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 377137 files and directories currently installed.)
+Unpacking libmysqlclient-dev (from .../libmysqlclient-dev_5.5.35-0ubuntu0.13.10.2_amd64.deb) ...
+Processing triggers for man-db ...
+Setting up libmysqlclient-dev (5.5.35-0ubuntu0.13.10.2) ...
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ llsudo apt-get install libmysqlclient-dev[4Ppython-mysqldb[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[1Papt-get install libmysqlclient-dev[4Ppython-mysqldb[9Pxinput reattach 12 13list[Kreattach 12 13apt-get install python-mysqldblibmysqlclient-dev[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Csudo apt-get install python-mysqldblibmysqlclient-dev[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[C[Cll[K[Keasy_install MySQL-python
+error: can't create or remove files in install directory
+
+The following error occurred while trying to add or remove files in the
+installation directory:
+
+    [Errno 13] Permission denied: '/usr/local/lib/python2.7/dist-packages/test-easy-install-5912.pth'
+
+The installation directory you specified (via --install-dir, --prefix, or
+the distutils default setting) was:
+
+    /usr/local/lib/python2.7/dist-packages/
+
+Perhaps your account does not have write access to this directory?  If the
+installation directory is a system-owned directory, you may need to sign in
+as the administrator or "root" account.  If you do not have administrative
+access to this machine, you may wish to choose a different installation
+directory, preferably one that is listed in your PYTHONPATH environment
+variable.
+
+For information on other options, you may wish to consult the
+documentation at:
+
+  http://packages.python.org/distribute/easy_install.html
+
+Please make the appropriate changes for your system and try again.
+
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ easy_install MySQL-python[1@s[1@u[1@d[1@o[1@ 
+Searching for MySQL-python
+Best match: MySQL-python 1.2.3
+Adding MySQL-python 1.2.3 to easy-install.pth file
+
+Using /usr/lib/python2.7/dist-packages
+Processing dependencies for MySQL-python
+Finished processing dependencies for MySQL-python
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ sudo apt-get install libblas-dev liblapack-dev python-dev libatlas-base-dev gfortran python-setuptools python-scipy python-matplotlib
+Reading package lists... 0%Reading package lists... 100%Reading package lists... Done
+Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree       
+Reading state information... 0%Reading state information... 0%Reading state information... Done
+gfortran is already the newest version.
+python-dev is already the newest version.
+python-setuptools is already the newest version.
+python-matplotlib is already the newest version.
+python-scipy is already the newest version.
+The following packages were automatically installed and are no longer required:
+  bluez-alsa:i386 glib-networking:i386 gstreamer0.10-plugins-good:i386 gstreamer0.10-x:i386 gtk2-engines:i386 gtk2-engines-murrine:i386 gtk2-engines-oxygen:i386 gtk2-engines-pixbuf:i386 hal-info ibus-gtk:i386
+  libaa1:i386 libaio1:i386 libao4:i386 libatk1.0-0:i386 libaudiofile1:i386 libavc1394-0:i386 libcairo-gobject2:i386 libcairo2:i386 libcanberra-gtk-module:i386 libcanberra-gtk0:i386 libcanberra0:i386
+  libcroco3:i386 libcupsfilters1:i386 libcupsimage2:i386 libcurl3:i386 libdbus-glib-1-2:i386 libdv4:i386 libesd0:i386 libfluidsynth1:i386 libgail-common:i386 libgail18:i386 libgconf-2-4:i386 libgdbm3:i386
+  libgdk-pixbuf2.0-0:i386 libgraphite2-3:i386 libgtk2.0-0:i386 libgudev-1.0-0:i386 libharfbuzz0a:i386 libibus-1.0-5:i386 libidn11:i386 libiec61883-0:i386 libjasper1:i386 libmad0:i386 libmikmod2:i386
+  libnspr4:i386 libnss3:i386 libodbc1:i386 libpango-1.0-0:i386 libpango1.0-0:i386 libpangocairo-1.0-0:i386 libpangoft2-1.0-0:i386 libpangox-1.0-0:i386 libpangoxft-1.0-0:i386 libpixman-1-0:i386 libproxy1:i386
+  libpulse-mainloop-glib0:i386 libpulsedsp:i386 libqt4-designer:i386 libqt4-qt3support:i386 libqt4-scripttools:i386 libqt4-svg:i386 libqt4-test:i386 libraw1394-11:i386 libreadline6:i386 librsvg2-2:i386
+  librsvg2-common:i386 librtmp0:i386 libsdl-image1.2:i386 libsdl-mixer1.2:i386 libsdl-net1.2:i386 libsdl-ttf2.0-0:i386 libshout3:i386 libsoup-gnome2.4-1:i386 libsoup2.4-1:i386 libspeex1:i386 libssl0.9.8:i386
+  libstdc++5:i386 libtag1-vanilla:i386 libtag1c2a:i386 libtdb1:i386 libvorbisfile3:i386 libwavpack1:i386 libwebp4:i386 libxaw7:i386 libxcb-render0:i386 libxcb-shm0:i386 libxft2:i386 libxmu6:i386 libxp6:i386
+  libxtst6:i386 odbcinst1debian2:i386 openjdk-7-jre-lib xaw3dg:i386
+Use 'apt-get autoremove' to remove them.
+The following extra packages will be installed:
+  libatlas-dev libatlas3-base
+Suggested packages:
+  libblas-doc liblapack-doc
+The following NEW packages will be installed:
+  libatlas-base-dev libatlas-dev libatlas3-base libblas-dev liblapack-dev
+0 upgraded, 5 newly installed, 0 to remove and 0 not upgraded.
+Need to get 20.5 MB of archives.
+After this operation, 68.5 MB of additional disk space will be used.
+Do you want to continue [Y/n]? 
+0% [Working]            Get:1 http://us.archive.ubuntu.com/ubuntu/ saucy/universe libatlas3-base amd64 3.10.1-2 [6,997 kB]
+            0% [1 libatlas3-base 11.1 kB/6,997 kB 0%]                                         1% [1 libatlas3-base 128 kB/6,997 kB 2%]2% [1 libatlas3-base 385 kB/6,997 kB 6%]                                        5% [1 libatlas3-base 1,021 kB/6,997 kB 15%]                                           11% [1 libatlas3-base 2,255 kB/6,997 kB 32%]22% [1 libatlas3-base 4,552 kB/6,997 kB 65%]                                            34% [Working]             Get:2 http://us.archive.ubuntu.com/ubuntu/ saucy/main libblas-dev amd64 1.2.20110419-5 [301 kB]
+             34% [2 libblas-dev 2,548 B/301 kB 1%]                                     36% [Working]             Get:3 http://us.archive.ubuntu.com/ubuntu/ saucy/universe libatlas-dev all 3.10.1-2 [42.5 kB]
+             36% [3 libatlas-dev 5,406 B/42.5 kB 13%]                                        36% [Working]             Get:4 http://us.archive.ubuntu.com/ubuntu/ saucy/universe libatlas-base-dev amd64 3.10.1-2 [8,308 kB]
+             36% [4 libatlas-base-dev 6,830 B/8,308 kB 0%]                                             64% [4 libatlas-base-dev 5,864 kB/8,308 kB 71%]                                               76% [Working]             Get:5 http://us.archive.ubuntu.com/ubuntu/ saucy/main liblapack-dev amd64 3.4.2+dfsg-2 [4,826 kB]
+             76% [5 liblapack-dev 6,830 B/4,826 kB 0%]                                         100% [Working]              Fetched 20.5 MB in 4s (4,497 kB/s)
+Selecting previously unselected package libatlas3-base.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 377204 files and directories currently installed.)
+Unpacking libatlas3-base (from .../libatlas3-base_3.10.1-2_amd64.deb) ...
+Selecting previously unselected package libblas-dev.
+Unpacking libblas-dev (from .../libblas-dev_1.2.20110419-5_amd64.deb) ...
+Selecting previously unselected package libatlas-dev.
+Unpacking libatlas-dev (from .../libatlas-dev_3.10.1-2_all.deb) ...
+Selecting previously unselected package libatlas-base-dev.
+Unpacking libatlas-base-dev (from .../libatlas-base-dev_3.10.1-2_amd64.deb) ...
+Selecting previously unselected package liblapack-dev.
+Unpacking liblapack-dev (from .../liblapack-dev_3.4.2+dfsg-2_amd64.deb) ...
+Setting up libatlas3-base (3.10.1-2) ...
+update-alternatives: using /usr/lib/atlas-base/atlas/libblas.so.3 to provide /usr/lib/libblas.so.3 (libblas.so.3) in auto mode
+Setting up libblas-dev (1.2.20110419-5) ...
+update-alternatives: using /usr/lib/libblas/libblas.so to provide /usr/lib/libblas.so (libblas.so) in auto mode
+Setting up libatlas-dev (3.10.1-2) ...
+Setting up libatlas-base-dev (3.10.1-2) ...
+update-alternatives: using /usr/lib/atlas-base/atlas/libblas.so to provide /usr/lib/libblas.so (libblas.so) in auto mode
+update-alternatives: using /usr/lib/atlas-base/atlas/liblapack.so to provide /usr/lib/liblapack.so (liblapack.so) in auto mode
+Setting up liblapack-dev (3.4.2+dfsg-2) ...
+update-alternatives: using /usr/lib/lapack/liblapack.so to provide /usr/lib/liblapack.so (liblapack.so) in auto mode
+Processing triggers for libc-bin ...
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ mysql_config 
+AUTHORS                                       .gitignore                                    mdcTrc-6-0.pcap                               UlPdcpStats.txt
+bindings/                                     LICENSE                                       mdcTrc-6-1.pcap                               UlRlcStats.txt
+build/                                        .lock-waf_linux2_build                        ns3/                                          utils/
+bundle-protocol.rst                           Makefile                                      pc3Test1.xml                                  utils.py
+CHANGES.html                                  mdcconfig.xml                                 README                                        utils.pyc
+db.script                                     mdcTraceFile.txt                              README.md                                     VERSION
+different.pcap                                mdcTrc-0-0.pcap                               RELEASE_NOTES                                 waf
+DlMacStats.txt                                mdcTrc-1-0.pcap                               scratch/                                      .waf-1.7.11-edc6ccb516c5e3f9b892efc9f53a610f/
+DlPdcpStats.txt                               mdcTrc-2-0.pcap                               src/                                          waf.bat
+DlRlcStats.txt                                mdcTrc-3-0.pcap                               test.py                                       waf-tools/
+doc/                                          mdcTrc-4-0.pcap                               testpy-output/                                wscript
+examples/                                     mdcTrc-5-0.pcap                               testpy.supp                                   wutils.py
+.git/                                         mdcTrc-5-1.pcap                               UlMacStats.txt                                wutils.pyc
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ mysql_config [K[K[K[K[K[K[K[K[K[K[K[K[Ksudo apt-get install apache2  php5 mysql-client mysql-server vsftpd
+Reading package lists... 0%Reading package lists... 100%Reading package lists... Done
+Building dependency tree... 0%Building dependency tree... 0%Building dependency tree... 50%Building dependency tree... 50%Building dependency tree       
+Reading state information... 0%Reading state information... 0%Reading state information... Done
+The following packages were automatically installed and are no longer required:
+  bluez-alsa:i386 glib-networking:i386 gstreamer0.10-plugins-good:i386 gstreamer0.10-x:i386 gtk2-engines:i386 gtk2-engines-murrine:i386 gtk2-engines-oxygen:i386 gtk2-engines-pixbuf:i386 hal-info ibus-gtk:i386
+  libaa1:i386 libaio1:i386 libao4:i386 libatk1.0-0:i386 libaudiofile1:i386 libavc1394-0:i386 libcairo-gobject2:i386 libcairo2:i386 libcanberra-gtk-module:i386 libcanberra-gtk0:i386 libcanberra0:i386
+  libcroco3:i386 libcupsfilters1:i386 libcupsimage2:i386 libcurl3:i386 libdbus-glib-1-2:i386 libdv4:i386 libesd0:i386 libfluidsynth1:i386 libgail-common:i386 libgail18:i386 libgconf-2-4:i386 libgdbm3:i386
+  libgdk-pixbuf2.0-0:i386 libgraphite2-3:i386 libgtk2.0-0:i386 libgudev-1.0-0:i386 libharfbuzz0a:i386 libibus-1.0-5:i386 libidn11:i386 libiec61883-0:i386 libjasper1:i386 libmad0:i386 libmikmod2:i386
+  libnspr4:i386 libnss3:i386 libodbc1:i386 libpango-1.0-0:i386 libpango1.0-0:i386 libpangocairo-1.0-0:i386 libpangoft2-1.0-0:i386 libpangox-1.0-0:i386 libpangoxft-1.0-0:i386 libpixman-1-0:i386 libproxy1:i386
+  libpulse-mainloop-glib0:i386 libpulsedsp:i386 libqt4-designer:i386 libqt4-qt3support:i386 libqt4-scripttools:i386 libqt4-svg:i386 libqt4-test:i386 libraw1394-11:i386 libreadline6:i386 librsvg2-2:i386
+  librsvg2-common:i386 librtmp0:i386 libsdl-image1.2:i386 libsdl-mixer1.2:i386 libsdl-net1.2:i386 libsdl-ttf2.0-0:i386 libshout3:i386 libsoup-gnome2.4-1:i386 libsoup2.4-1:i386 libspeex1:i386 libssl0.9.8:i386
+  libstdc++5:i386 libtag1-vanilla:i386 libtag1c2a:i386 libtdb1:i386 libvorbisfile3:i386 libwavpack1:i386 libwebp4:i386 libxaw7:i386 libxcb-render0:i386 libxcb-shm0:i386 libxft2:i386 libxmu6:i386 libxp6:i386
+  libxtst6:i386 odbcinst1debian2:i386 openjdk-7-jre-lib xaw3dg:i386
+Use 'apt-get autoremove' to remove them.
+The following extra packages will be installed:
+  apache2-bin apache2-data libapache2-mod-php5 libaprutil1-dbd-sqlite3 libaprutil1-ldap libdbd-mysql-perl libdbi-perl libhtml-template-perl libterm-readkey-perl mysql-client-5.5 mysql-client-core-5.5
+  mysql-server-5.5 mysql-server-core-5.5 php5-cli php5-common php5-readline
+Suggested packages:
+  apache2-doc apache2-suexec-pristine apache2-suexec-custom apache2-utils php-pear libmldbm-perl libnet-daemon-perl libplrpc-perl libsql-statement-perl libipc-sharedcache-perl tinyca php5-json php5-user-cache
+The following NEW packages will be installed:
+  apache2 apache2-bin apache2-data libapache2-mod-php5 libaprutil1-dbd-sqlite3 libaprutil1-ldap libdbd-mysql-perl libdbi-perl libhtml-template-perl libterm-readkey-perl mysql-client mysql-client-5.5
+  mysql-client-core-5.5 mysql-server mysql-server-5.5 mysql-server-core-5.5 php5 php5-cli php5-common php5-readline vsftpd
+0 upgraded, 21 newly installed, 0 to remove and 0 not upgraded.
+Need to get 32.9 MB of archives.
+After this operation, 117 MB of additional disk space will be used.
+Do you want to continue [Y/n]? 
+0% [Working]            Get:1 http://us.archive.ubuntu.com/ubuntu/ saucy/main libdbi-perl amd64 1.627-1 [874 kB]
+            0% [1 libdbi-perl 5,403 B/874 kB 1%]0% [1 libdbi-perl 157 kB/874 kB 18%]1% [1 libdbi-perl 468 kB/874 kB 54%]                                    3% [Working]            Get:2 http://us.archive.ubuntu.com/ubuntu/ saucy/main libdbd-mysql-perl amd64 4.023-1 [97.3 kB]
+            3% [2 libdbd-mysql-perl 3,977 B/97.3 kB 4%]                                           3% [Working]            Get:3 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-client-core-5.5 amd64 5.5.35-0ubuntu0.13.10.2 [1,879 kB]
+            3% [3 mysql-client-core-5.5 3,974 B/1,879 kB 0%]                                                7% [3 mysql-client-core-5.5 1,189 kB/1,879 kB 63%]                                                  9% [Working]            Get:4 http://us.archive.ubuntu.com/ubuntu/ saucy/main libterm-readkey-perl amd64 2.30-4build4 [28.4 kB]
+            9% [4 libterm-readkey-perl 5,406 B/28.4 kB 19%]                                               9% [Working]            Get:5 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-client-5.5 amd64 5.5.35-0ubuntu0.13.10.2 [8,176 kB]
+            9% [5 mysql-client-5.5 2,586 B/8,176 kB 0%]                                           17% [5 mysql-client-5.5 2,653 kB/8,176 kB 32%]32% [5 mysql-client-5.5 7,705 kB/8,176 kB 94%]                                              34% [Working]             Get:6 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-server-core-5.5 amd64 5.5.35-0ubuntu0.13.10.2 [5,884 kB]
+             34% [6 mysql-server-core-5.5 6,830 B/5,884 kB 0%]                                                 51% [Working]             Get:7 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-server-5.5 amd64 5.5.35-0ubuntu0.13.10.2 [8,777 kB]
+             51% [7 mysql-server-5.5 3,974 B/8,777 kB 0%]                                            67% [7 mysql-server-5.5 5,280 kB/8,777 kB 60%]77% [7 mysql-server-5.5 8,304 kB/8,777 kB 95%]                                              78% [Working]             Get:8 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main php5-common amd64 5.5.3+dfsg-1ubuntu2.1 [214 kB]
+             78% [8 php5-common 5,404 B/214 kB 3%]                                     79% [Working]             Get:9 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main php5-cli amd64 5.5.3+dfsg-1ubuntu2.1 [2,803 kB]
+             79% [9 php5-cli 2,546 B/2,803 kB 0%]                                    87% [Working]             Get:10 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main php5-readline amd64 5.5.3+dfsg-1ubuntu2.1 [14.0 kB]
+             87% [10 php5-readline 5,406 B/14.0 kB 39%]                                          87% [Working]             Get:11 http://us.archive.ubuntu.com/ubuntu/ saucy/main libaprutil1-dbd-sqlite3 amd64 1.5.2-1 [12.0 kB]
+             87% [11 libaprutil1-dbd-sqlite3 5,406 B/12.0 kB 45%]                                                                                                                                                 4,754 kB/s 0s87% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:12 http://us.archive.ubuntu.com/ubuntu/ saucy/main libaprutil1-ldap amd64 1.5.2-1 [9,556 B]
+87% [12 libaprutil1-ldap 1,123 B/9,556 B 12%]                                                                                                                                                        4,754 kB/s 0s87% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:13 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main apache2-bin amd64 2.4.6-2ubuntu2.1 [838 kB]
+87% [13 apache2-bin 3,976 B/838 kB 0%]                                                                                                                                                               4,754 kB/s 0s90% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:14 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main apache2-data all 2.4.6-2ubuntu2.1 [149 kB]
+90% [14 apache2-data 6,832 B/149 kB 5%]                                                                                                                                                              4,754 kB/s 0s90% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:15 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main apache2 amd64 2.4.6-2ubuntu2.1 [86.7 kB]
+90% [15 apache2 11.1 kB/86.7 kB 13%]                                                                                                                                                                 4,754 kB/s 0s91% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:16 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main libapache2-mod-php5 amd64 5.5.3+dfsg-1ubuntu2.1 [2,903 kB]
+91% [16 libapache2-mod-php5 3,974 B/2,903 kB 0%]                                                                                                                                                     4,754 kB/s 0s99% [Working]                                                                                                                                                                                        4,754 kB/s 0s                                                                                                                                                                                                                  Get:17 http://us.archive.ubuntu.com/ubuntu/ saucy/main libhtml-template-perl all 2.91-1 [65.1 kB]
+99% [17 libhtml-template-perl 5,406 B/65.1 kB 8%]                                                                                                                                                    4,754 kB/s 0s100% [Working]                                                                                                                                                                                       4,754 kB/s 0s                                                                                                                                                                                                                  Get:18 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-client all 5.5.35-0ubuntu0.13.10.2 [10.9 kB]
+100% [18 mysql-client 5,406 B/10.9 kB 49%]                                                                                                                                                           4,754 kB/s 0s100% [Working]                                                                                                                                                                                       4,754 kB/s 0s                                                                                                                                                                                                                  Get:19 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main mysql-server all 5.5.35-0ubuntu0.13.10.2 [11.1 kB]
+100% [19 mysql-server 5,764 B/11.1 kB 52%]                                                                                                                                                           4,754 kB/s 0s100% [Working]                                                                                                                                                                                       4,754 kB/s 0s                                                                                                                                                                                                                  Get:20 http://us.archive.ubuntu.com/ubuntu/ saucy-updates/main php5 all 5.5.3+dfsg-1ubuntu2.1 [1,254 B]
+100% [20 php5 1,254 B/1,254 B 100%]                                                                                                                                                                  4,754 kB/s 0s100% [Working]                                                                                                                                                                                       4,754 kB/s 0s                                                                                                                                                                                                                  Get:21 http://us.archive.ubuntu.com/ubuntu/ saucy/main vsftpd amd64 3.0.2-1ubuntu2 [112 kB]
+100% [21 vsftpd 6,832 B/112 kB 6%]                                                                                                                                                                   4,754 kB/s 0s100% [Working]                                                                                                                                                                                       4,754 kB/s 0s                                                                                                                                                                                                                  Fetched 32.9 MB in 7s (4,443 kB/s)
+Preconfiguring packages ...
+mandatory, it is highly recommended that you set a password for the MySQL administrative "root" user.[K[?1049lSelecting previously unselected package libdbi-perl.
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 377436 files and directories currently installed.)
+Unpacking libdbi-perl (from .../libdbi-perl_1.627-1_amd64.deb) ...
+Selecting previously unselected package libdbd-mysql-perl.
+Unpacking libdbd-mysql-perl (from .../libdbd-mysql-perl_4.023-1_amd64.deb) ...
+Selecting previously unselected package mysql-client-core-5.5.
+Unpacking mysql-client-core-5.5 (from .../mysql-client-core-5.5_5.5.35-0ubuntu0.13.10.2_amd64.deb) ...
+Selecting previously unselected package libterm-readkey-perl.
+Unpacking libterm-readkey-perl (from .../libterm-readkey-perl_2.30-4build4_amd64.deb) ...
+Selecting previously unselected package mysql-client-5.5.
+Unpacking mysql-client-5.5 (from .../mysql-client-5.5_5.5.35-0ubuntu0.13.10.2_amd64.deb) ...
+Selecting previously unselected package mysql-server-core-5.5.
+Unpacking mysql-server-core-5.5 (from .../mysql-server-core-5.5_5.5.35-0ubuntu0.13.10.2_amd64.deb) ...
+Selecting previously unselected package mysql-server-5.5.
+Unpacking mysql-server-5.5 (from .../mysql-server-5.5_5.5.35-0ubuntu0.13.10.2_amd64.deb) ...
+Selecting previously unselected package php5-common.
+Unpacking php5-common (from .../php5-common_5.5.3+dfsg-1ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package php5-cli.
+Unpacking php5-cli (from .../php5-cli_5.5.3+dfsg-1ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package php5-readline.
+Unpacking php5-readline (from .../php5-readline_5.5.3+dfsg-1ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package libaprutil1-dbd-sqlite3.
+Unpacking libaprutil1-dbd-sqlite3 (from .../libaprutil1-dbd-sqlite3_1.5.2-1_amd64.deb) ...
+Selecting previously unselected package libaprutil1-ldap.
+Unpacking libaprutil1-ldap (from .../libaprutil1-ldap_1.5.2-1_amd64.deb) ...
+Selecting previously unselected package apache2-bin.
+Unpacking apache2-bin (from .../apache2-bin_2.4.6-2ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package apache2-data.
+Unpacking apache2-data (from .../apache2-data_2.4.6-2ubuntu2.1_all.deb) ...
+Selecting previously unselected package apache2.
+Unpacking apache2 (from .../apache2_2.4.6-2ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package libapache2-mod-php5.
+Unpacking libapache2-mod-php5 (from .../libapache2-mod-php5_5.5.3+dfsg-1ubuntu2.1_amd64.deb) ...
+Selecting previously unselected package libhtml-template-perl.
+Unpacking libhtml-template-perl (from .../libhtml-template-perl_2.91-1_all.deb) ...
+Selecting previously unselected package mysql-client.
+Unpacking mysql-client (from .../mysql-client_5.5.35-0ubuntu0.13.10.2_all.deb) ...
+Selecting previously unselected package mysql-server.
+Unpacking mysql-server (from .../mysql-server_5.5.35-0ubuntu0.13.10.2_all.deb) ...
+Selecting previously unselected package php5.
+Unpacking php5 (from .../php5_5.5.3+dfsg-1ubuntu2.1_all.deb) ...
+Selecting previously unselected package vsftpd.
+Unpacking vsftpd (from .../vsftpd_3.0.2-1ubuntu2_amd64.deb) ...
+Processing triggers for man-db ...
+Processing triggers for ureadahead ...
+ureadahead will be reprofiled on next reboot
+Processing triggers for ufw ...
+Setting up libdbi-perl (1.627-1) ...
+Setting up libdbd-mysql-perl (4.023-1) ...
+Setting up mysql-client-core-5.5 (5.5.35-0ubuntu0.13.10.2) ...
+Setting up libterm-readkey-perl (2.30-4build4) ...
+Setting up mysql-client-5.5 (5.5.35-0ubuntu0.13.10.2) ...
+Setting up mysql-server-core-5.5 (5.5.35-0ubuntu0.13.10.2) ...
+Setting up mysql-server-5.5 (5.5.35-0ubuntu0.13.10.2) ...
+140206 22:29:16 [Warning] Using unique option prefix key_buffer instead of key_buffer_size is deprecated and will be removed in a future release. Please use the full name instead.
+mysql start/running, process 10743
+Setting up php5-common (5.5.3+dfsg-1ubuntu2.1) ...
+
+Creating config file /etc/php5/mods-available/pdo.ini with new version
+php5_invoke: Enable module pdo for cli SAPI
+php5_invoke: Enable module pdo for apache2 SAPI
+
+Creating config file /etc/php5/mods-available/opcache.ini with new version
+php5_invoke: Enable module opcache for cli SAPI
+php5_invoke: Enable module opcache for apache2 SAPI
+Setting up php5-cli (5.5.3+dfsg-1ubuntu2.1) ...
+update-alternatives: using /usr/bin/php5 to provide /usr/bin/php (php) in auto mode
+
+Creating config file /etc/php5/cli/php.ini with new version
+php5_invoke pdo: already enabled for cli SAPI
+php5_invoke opcache: already enabled for cli SAPI
+Setting up php5-readline (5.5.3+dfsg-1ubuntu2.1) ...
+
+Creating config file /etc/php5/mods-available/readline.ini with new version
+php5_invoke: Enable module readline for cli SAPI
+php5_invoke: Enable module readline for apache2 SAPI
+Setting up libaprutil1-dbd-sqlite3 (1.5.2-1) ...
+Setting up libaprutil1-ldap (1.5.2-1) ...
+Setting up apache2-bin (2.4.6-2ubuntu2.1) ...
+Setting up apache2-data (2.4.6-2ubuntu2.1) ...
+Setting up apache2 (2.4.6-2ubuntu2.1) ...
+Enabling module mpm_event.
+Enabling module authz_core.
+Enabling module authz_host.
+Enabling module authn_core.
+Enabling module auth_basic.
+Enabling module access_compat.
+Enabling module authn_file.
+Enabling module authz_user.
+Enabling module alias.
+Enabling module dir.
+Enabling module autoindex.
+Enabling module env.
+Enabling module mime.
+Enabling module negotiation.
+Enabling module setenvif.
+Enabling module filter.
+Enabling module deflate.
+Enabling module status.
+Enabling conf charset.
+Enabling conf localized-error-pages.
+Enabling conf other-vhosts-access-log.
+Enabling conf security.
+Enabling conf serve-cgi-bin.
+ * Starting web server apache2       [211G AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 127.0.1.1. Set the 'ServerName' directive globally to suppress this message
+ * 
+Setting up libhtml-template-perl (2.91-1) ...
+Setting up mysql-client (5.5.35-0ubuntu0.13.10.2) ...
+Setting up vsftpd (3.0.2-1ubuntu2) ...
+vsftpd start/running, process 12008
+Processing triggers for ufw ...
+Processing triggers for ureadahead ...
+Setting up mysql-server (5.5.35-0ubuntu0.13.10.2) ...
+Setting up libapache2-mod-php5 (5.5.3+dfsg-1ubuntu2.1) ...
+
+Creating config file /etc/php5/apache2/php.ini with new version
+php5_invoke readline: already enabled for apache2 SAPI
+php5_invoke pdo: already enabled for apache2 SAPI
+php5_invoke opcache: already enabled for apache2 SAPI
+Module mpm_event disabled.
+Enabling module mpm_prefork.
+apache2_switch_mpm Switch to prefork
+ * Restarting web server apache2       [211G AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 127.0.1.1. Set the 'ServerName' directive globally to suppress this message
+[205G[ OK ]
+apache2_invoke: Enable module php5
+ * Restarting web server apache2       [211G AH00558: apache2: Could not reliably determine the server's fully qualified domain name, using 127.0.1.1. Set the 'ServerName' directive globally to suppress this message
+[205G[ OK ]
+Setting up php5 (5.5.3+dfsg-1ubuntu2.1) ...
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ mysql
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 42
+Server version: 5.5.35-0ubuntu0.13.10.2 (Ubuntu)
+
+Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> cra[Keate database pc3;
+ERROR 1044 (42000): Access denied for user ''@'localhost' to database 'pc3'
+mysql> create database pc3;Pc3;
+ERROR 1044 (42000): Access denied for user ''@'localhost' to database 'Pc3'
+mysql> Bye
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ sudom [K[K mysql
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: NO)
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ mysql-[K -u root -p [K[K[K[K
+ERROR 1045 (28000): Access denied for user 'root'@'localhost' (using password: NO)
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ mysql -u root -p 
+Enter password: 
+Welcome to the MySQL monitor.  Commands end with ; or \g.
+Your MySQL connection id is 45
+Server version: 5.5.35-0ubuntu0.13.10.2 (Ubuntu)
+
+Copyright (c) 2000, 2013, Oracle and/or its affiliates. All rights reserved.
+
+Oracle is a registered trademark of Oracle Corporation and/or its
+affiliates. Other names may be trademarks of their respective
+owners.
+
+Type 'help;' or '\h' for help. Type '\c' to clear the current input statement.
+
+mysql> create database Pc3
+    -> ;
+Query OK, 1 row affected (0.00 sec)
+
+mysql> use P
+ERROR 1049 (42000): Unknown database 'P'
+mysql> use Pc3
+Database changed
+mysql> create table Data
+    -> (X Inter[Kger,
+    -> Y Integer);
+Query OK, 0 rows affected (0.00 sec)
+
+mysql> Bye
+]0;kebenson@localhost: ~/repos/ns3kebenson@localhost:~/repos/ns3$ exit
+
+Script done on Thu 06 Feb 2014 10:44:33 PM PST
