@@ -12,4 +12,6 @@ sudo apt-get install -y apache2  php5 mysql-client mysql-server vsftpd
 
 # Create the actual database and associated tables
 # TODO: replace this with the real schema
-mysql -u root -e 'create database Pc3; use Pc3; create table Data (X Integer, Y Integer)' -p
+DB_USER=`whoami`
+mysql -u root -e "create user '$DB_USER'@'localhost' ; grant all privileges on *.* to '$DB_USER'@'localhost'; \
+create database Pc3; use Pc3; create table Data (X Integer, Y Integer)' -p
