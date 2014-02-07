@@ -638,10 +638,25 @@ MdcMain::Configure(int argc, char **argv)
 	NS_LOG_FUNCTION("MdcMain Configuration Started.");
 	ns3::PacketMetadata::Enable ();
 	std::stringstream s;
-	UniformVariable randomSeed(0,99999);
+
+	/* initialize random seed: */
+	srand (time(NULL));
+
+	/* generate a random seed number between 1 and 1000 */
+	int randomSeed = rand() % 1000 + 1;
+	/* generate a random run number between 1 and 1000 */
+	int randomRun = rand() % 1000 + 1;
+
+
+//	UniformVariable randomSeed(0,999);
+//	UniformVariable randomRun(0,999);
 
 	mdcConfig = MdcConfig::GetInstance();
-	SeedManager::SetSeed (randomSeed.GetInteger(0,99999));
+//	SeedManager::SetSeed (randomSeed.GetInteger(0,999));
+//	SeedManager::SetRun (randomRun.GetInteger(0,999));
+	SeedManager::SetSeed (randomSeed);
+	SeedManager::SetRun (randomRun);
+
 
 	m_nSensors = mdcConfig->GetIntProperty("mdc.Sensors");
 	m_nMdcs = mdcConfig->GetIntProperty("mdc.MDCs");
