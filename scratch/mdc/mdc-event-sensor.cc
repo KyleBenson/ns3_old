@@ -34,6 +34,8 @@
 #include "ns3/boolean.h"
 
 #include "mdc-event-sensor.h"
+#include "mdc-header.h"
+#include "mdc-utilities.h"
 
 namespace ns3 {
 
@@ -374,6 +376,13 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
 
   if (event.WithinEventRegion (pos))
     {
+	  std::stringstream s, csv;
+      s << "[EVENT_DETECTION] Event detected at Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]" << std::endl;
+      csv << "EVENT_DETECTION,"<< GetNode()->GetId () << "," << Simulator::Now().GetSeconds() << "," << pos.x << "," << pos.y << "," << pos.z << std::endl;
+      *(GetMDCOutputStream())->GetStream() << csv.str();
+      NS_LOG_INFO(s.str());
+
+
       //WARNING: remember that its possible for the event to be detected, tx to be queued,
       //and the MDC to request data before expiration, invoking an immediate data reply.
       //
@@ -425,10 +434,28 @@ MdcEventSensor::RecordSensorData (Address dest)
     // so that tags added to the packet can be traced as well
     m_sendTrace (p);
 
-	// TODO: Add to the buffer here
 	m_packetBuffer.push_back(*p);
     // Event data is captured and will be held in a buffer for the MDC to come and pick up
     m_nOutstandingReadings++;
+
+/******************************************************
+ * Adding a trailer will simply add to the number of packets floating in the system.
+    // Add a Trailer to mark the end of the message
+	MdcTrailer trailer (m_sinkAddress, MdcTrailer::sensorDataTrailer); // ultimate destination is the sink anyway
+	trailer.SetOrigin (m_address); // address of this sensor
+	trailer.SetId (GetNode ()->GetId ()); // The id of this sensor
+	trailer.SetPosition (pos.x, pos.y); // The position attribute of this sensor
+    p = Create<Packet>(MDC_TRAILER_SIZE);
+	trailer.SetData (p->GetSize ());
+	p->AddHeader (trailer);
+    // call to the trace sinks to signal that a trailer is being sent
+    // so that tags added to the packet can be traced as well
+    m_sendTrace (p);
+
+	m_packetBuffer.push_back(*p);
+    // Event data is captured and will be held in a buffer for the MDC to come and pick up
+    m_nOutstandingReadings++;
+*********************************************************/
 }
 
 /*
@@ -470,8 +497,8 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
       // so that tags added to the packet can be sent as well
       m_sendTrace (p);
       m_tcpSocket->Send (p);
-      m_nOutstandingReadings--;
     }
+  m_nOutstandingReadings=0;
 }
 
 /*

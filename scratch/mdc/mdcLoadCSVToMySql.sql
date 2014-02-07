@@ -1,0 +1,85 @@
+/*
+Copy the trace output file to the folder /var/lib/mysql/pc3/sampleCSV.txt
+... or wherever the mysql database is created and the DB PC3 is created on your machine.
+Set RUN_ID=nnnn a value that corresponds to a simulation run
+This will separate the data captured for a run from another one.
+------------------------------------------Load CSV Script -----------
+*/
+
+
+USE PC3;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE CREATED_EVENTS 
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'EVENT_CREATED,' 
+( SCHED_TIME, LOC_X, LOC_Y, LOC_Z, RADIUS ) 
+SET RUN_ID=1;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE DETECTED_EVENTS
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'EVENT_DETECTION,' 
+(
+NODE_ID,
+DETECT_TIME,
+LOC_X,
+LOC_Y,
+LOC_Z
+)
+SET RUN_ID=1;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE SENSOR_TRACE
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'SENSORTRACE,' 
+(
+NODE_ID,
+MESSAGE_TYPE,
+MESSAGE_SIZE,
+EVENT_TIME
+ ) 
+SET RUN_ID=1;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE SINK_TRACE
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'SINK__TRACE,' 
+(
+NODE_ID,
+PACKET_TYPE,
+MESSAGE_TYPE,
+PACKET_SIZE,
+EXPECTED_SIZE,
+FROM_IP,
+VIA_IP,
+TO_IP,
+EVENT_TIME
+)
+SET RUN_ID=1;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE COLL_TRACE
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'COLL__TRACE,' 
+(
+NODE_ID,
+PACKET_TYPE,
+MESSAGE_TYPE,
+PACKET_SIZE,
+EXPECTED_SIZE,
+FROM_IP,
+TO_IP,
+EVENT_TIME
+)
+SET RUN_ID=1;
+
+LOAD DATA INFILE 'sampleCSV.txt'  
+INTO TABLE PACKET_DROP
+FIELDS TERMINATED BY ',' 
+LINES STARTING BY 'PACKET_DROP,' 
+(
+PACKET_TYPE,
+EVENT_TIME
+)
+SET RUN_ID=1;

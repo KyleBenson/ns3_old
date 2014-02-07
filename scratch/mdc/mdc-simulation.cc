@@ -203,8 +203,9 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 
 	// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
 	// though this shouldn't happen as broadcast should be to a network?
-	if (	(head.GetFlags () == MdcHeader::mdcDataRequest)
-		||	(head.GetFlags () == MdcHeader::sensorDataNotify)
+	if (   (head.GetFlags () == MdcHeader::mdcDataForward)
+		|| (head.GetFlags () == MdcHeader::mdcDataRequest)
+		|| (head.GetFlags () == MdcHeader::sensorDataNotify)
 		)
 	{
 		s << "[SINK__TRACE] IGNORED....."
@@ -219,30 +220,163 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 				<< " at "
 				<< Simulator::Now ().GetSeconds ();
 
-//		NS_LOG_INFO (s.str ());
-//		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+//		NS_LOG_LOGIC (s.str ());
 	}
 
-	if (	(head.GetFlags () == MdcHeader::mdcDataForward)
-		|| 	(head.GetFlags () == MdcHeader::sensorDataReply)
-		//||	(head.GetFlags () == MdcHeader::sensorFullData)
+	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
 		)
 	{
-		s << "[SINK__TRACE] "
-				<< constData->nodeId
-				<< " received ["
-				<< head.GetPacketType ()
-				<< "] (" << head.GetData () + head.GetSerializedSize ()
-				<< "B) from node "
-				<< head.GetId ()
-				<< " via "
-				<< fromAddr
-				<< " at "
-				<< Simulator::Now ().GetSeconds ();
+		// Complete pkt received. Send an indication
+		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
+		uint32_t recdPktSize = packet->GetSize();
+		std::stringstream s, csv;
 
-		NS_LOG_INFO (s.str ());
-		*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		if (recdPktSize < expectedPktSize)
+		{
+			s.str("");
+			csv.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FIRST_SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << recdPktSize
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "SINK__TRACE,"
+					<< constData->nodeId
+					<< ",FIRST_SEGMENT,"
+					<< head.GetPacketType ()
+					<< "," << recdPktSize
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< fromAddr
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else if (recdPktSize > expectedPktSize)
+		{
+			s.str("");
+			csv.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FULL_PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "SINK__TRACE,"
+					<< constData->nodeId
+					<< ",FULL_PACKET,"
+					<< head.GetPacketType ()
+					<< "," << expectedPktSize
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< fromAddr
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+
+			// Reset s here for the next message for the partial pkt recd...
+			s.str("");
+			csv.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FIRST_SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "SINK__TRACE,"
+					<< constData->nodeId
+					<< ",FIRST_SEGMENT,"
+					<< head.GetPacketType ()
+					<< "," << (recdPktSize - expectedPktSize)
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< fromAddr
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+
+
+			NS_LOG_INFO (s.str ());
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else // the recdPktsize and expectedpacketsize are equal
+		{
+			s.str("");
+			csv.str("");
+			s		<< "[SINK__TRACE] Sink Node#"
+					<< constData->nodeId
+					<< " FULL_PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " via "
+					<< fromAddr
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "SINK__TRACE,"
+					<< constData->nodeId
+					<< ",FULL_PACKET,"
+					<< head.GetPacketType ()
+					<< "," << expectedPktSize
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< fromAddr
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
 	}
+
 	return;
 }
 
@@ -255,7 +389,9 @@ SensorDataSendTrace (TraceConstData * constData, Ptr<const Packet> packet)
 	MdcHeader head;
 	packet->PeekHeader (head);
 
-	std::stringstream s;
+	std::stringstream s,csv;
+	csv.str("");
+	s.str("");
 	s << "[SENSORTRACE] "
 			<< constData->nodeId
 			<< " sent ["
@@ -264,8 +400,17 @@ SensorDataSendTrace (TraceConstData * constData, Ptr<const Packet> packet)
 			<< "B) at "
 			<< Simulator::Now ().GetSeconds ();
 
+	csv << "SENSORTRACE,"
+			<< constData->nodeId
+			<< ","
+			<< head.GetPacketType ()
+			<< "," << head.GetData()
+			<< ","
+			<< Simulator::Now ().GetSeconds ();
+
 	NS_LOG_INFO (s.str ());
-	*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//	*(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
 
 // Trace function for MDC forwarding a packet
@@ -276,23 +421,149 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 
 	MdcHeader head;
 	packet->PeekHeader (head);
+	std::stringstream s, csv;
 
-	std::stringstream s;
-	s 		<< "[COLL__TRACE] "
-			<< constData->nodeId
-			<< " forwarding ["
-			<< head.GetPacketType ()
-			<< "] ("
-			<< head.GetData()
-			<< "B) from "
-			<< head.GetOrigin ()
-			<< " to "
-			<< head.GetDest ()
-			<< " at "
-			<< Simulator::Now ().GetSeconds ();
 
-	NS_LOG_INFO (s.str ());
-	*(constData->outputStream)->GetStream () << s.str() << std::endl;
+	// Trace only DataReply messages and no others
+
+	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
+		)
+	{
+		// Complete pkt received. Send an indication
+		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
+		uint32_t recdPktSize = packet->GetSize();
+
+		if (recdPktSize < expectedPktSize)
+		{
+			s.str("");
+			csv.str("");
+			s		<< "[COLL__TRACE] MDC Node#"
+					<< constData->nodeId
+					<< " FIRST_SEGMENT ["
+					<< head.GetPacketType ()
+					<< "] SegmentSize=" << recdPktSize
+					<< "B ExpectedFullPacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "COLL__TRACE,"
+					<< constData->nodeId
+					<< ",FIRST_SEGMENT,"
+					<< head.GetPacketType ()
+					<< "," << recdPktSize
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+			NS_LOG_INFO (s.str ());
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+		else if (recdPktSize > expectedPktSize)
+		{
+			{
+				s.str("");
+				csv.str("");
+				s		<< "[COLL__TRACE] MDC Node#"
+						<< constData->nodeId
+						<< " FULL PACKET ["
+						<< head.GetPacketType ()
+						<< "] CompletePacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "COLL__TRACE,"
+						<< constData->nodeId
+						<< ",FULL_PACKET,"
+						<< head.GetPacketType ()
+						<< "," << expectedPktSize
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//				*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			}
+			// Reset s here for the next message for the partial pkt recd...
+			{
+				s.str("");
+				csv.str("");
+				s		<< "[COLL__TRACE] MDC Node#"
+						<< constData->nodeId
+						<< " FIRST SEGMENT ["
+						<< head.GetPacketType ()
+						<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
+						<< "B ExpectedFullPacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "COLL__TRACE,"
+						<< constData->nodeId
+						<< ",FIRST_SEGMENT,"
+						<< head.GetPacketType ()
+						<< "," << (recdPktSize-expectedPktSize)
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+
+				NS_LOG_INFO (s.str ());
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+	//				*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			}
+		}
+		else // the recdPktsize and expectedpacketsize are equal
+		{
+			s.str("");
+			csv.str("");
+			s		<< "[COLL__TRACE] MDC Node#"
+					<< constData->nodeId
+					<< " FULL PACKET ["
+					<< head.GetPacketType ()
+					<< "] CompletePacketSize=" << expectedPktSize
+					<< "B from "
+					<< head.GetOrigin ()
+					<< " to "
+					<< head.GetDest ()
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+			csv		<< "COLL__TRACE,"
+					<< constData->nodeId
+					<< ",FULL_PACKET,"
+					<< head.GetPacketType ()
+					<< "," << expectedPktSize
+					<< "," << expectedPktSize
+					<< ","
+					<< head.GetOrigin ()
+					<< ","
+					<< head.GetDest ()
+					<< ","
+					<< Simulator::Now ().GetSeconds ();
+
+			NS_LOG_INFO (s.str ());
+			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+		}
+	}
 }
 
 /// Trace function for remaining energy at node.
@@ -304,26 +575,60 @@ RemainingEnergyAtNodeTrace (TraceConstData * constData, double oldValue, double 
   s << "Node " << constData->nodeId << " current remaining energy = " << remainingEnergy
     << "J at time " << Simulator::Now ().GetSeconds ();
 
-  //NS_LOG_INFO (s.str ());
-  *(constData->outputStream)->GetStream () << s.str() << std::endl;
+    NS_LOG_INFO (s.str ());
+	*(GetMDCOutputStream())->GetStream () << s.str() << std::endl;
+//  *(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
 
 static void
 MacTxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop MacTx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s, csv;
+	s 		<< "[PACKET_DROP] [MAC/TX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+	csv 	<< "PACKET_DROP,MAC/TX,"
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+////  NS_LOG_INFO("Packet Drop MacTx");
 }
 
 static void
 PhyTxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop PhyTx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s, csv;
+	s 		<< "[PACKET_DROP] [PHY/TX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+	csv 	<< "PACKET_DROP,PHY/TX,"
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+	*(GetMDCOutputStream())->GetStream () <<  csv.str() << std::endl;
+////  NS_LOG_INFO("Packet Drop PhyTx");
 }
 
 static void
 PhyRxDrop(Ptr<const Packet> p)
 {
-  NS_LOG_INFO("Packet Drop PhyRx");
+	NS_LOG_FUNCTION_NOARGS ();
+
+	std::stringstream s, csv;
+	s 		<< "[PACKET_DROP] [PHY/RX]"
+			<< " at "
+			<< Simulator::Now ().GetSeconds ();
+	csv 	<< "PACKET_DROP,PHY/RX,"
+			<< Simulator::Now ().GetSeconds ();
+
+	NS_LOG_INFO (s.str ());
+	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+////  NS_LOG_INFO("Packet Drop PhyRx");
 }
 
 bool
@@ -372,11 +677,12 @@ MdcMain::Configure(int argc, char **argv)
 	cmd.Parse (argc, argv);
 
 
-	if (m_TraceFile != "")
-	{
-		AsciiTraceHelper asciiTraceHelper;
-		outputStream = asciiTraceHelper.CreateFileStream (m_TraceFile);
-	}
+	if (m_TraceFile == "")
+		m_TraceFile = "traceOutput.txt";
+
+	AsciiTraceHelper asciiTraceHelper;
+	outputStream = asciiTraceHelper.CreateFileStream (m_TraceFile);
+	SetMDCOutputStream(outputStream);
 
 	double posBound = m_boundaryLength;
 	double negBound = 0;
@@ -649,10 +955,10 @@ MdcMain::SetupMobility()
 		sensorListPosAllocator->Add(posVectorSorted[i]);
 	}
 
-	for (uint32_t i=0; i< m_nSensors; i++)
-	{
-		std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
-	}
+	//for (uint32_t i=0; i< m_nSensors; i++)
+	//{
+	//	std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
+	//}
 
 	// sensorListPosAllocator should have the node positions
 	mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
@@ -673,10 +979,12 @@ MdcMain::SetupMobility()
 	constRandomPause->SetAttribute ("Constant", DoubleValue (m_mdcPause));
 
 	mobHlpr.SetPositionAllocator (randomPositionAllocator);
-	mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel",
-							 "Pause", PointerValue (constRandomPause),
-							 "Speed", PointerValue (constRandomSpeed),
-							 "PositionAllocator", PointerValue (sensorListPosAllocator));
+	mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+							 ,"Pause", PointerValue (constRandomPause)
+							 ,"Speed", PointerValue (constRandomSpeed)
+//							 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
+							 ,"PositionAllocator", PointerValue (randomPositionAllocator) // This is random
+							 );
 	mobHlpr.Install (mdcNodes);
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.

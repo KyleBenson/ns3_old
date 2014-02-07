@@ -27,15 +27,20 @@
 #include <math.h>
 #include <set>
 #include <queue>
+#include "ns3/output-stream-wrapper.h"
 
 #define EPSILON 0.0001
 
 namespace ns3 {
 
+	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
 	bool IsSameVector (Vector *aV, Vector *bV);
 	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> *inputVector, Vector refPoint);
 	std::vector<Vector> ReSortInputVector (std::vector<Vector> *inputVector, std::queue<unsigned> sortSeq);
+
+	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream);
+	Ptr<OutputStreamWrapper> GetMDCOutputStream (void);
 
 } // namespace ns3
 

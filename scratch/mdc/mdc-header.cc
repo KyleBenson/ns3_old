@@ -190,6 +190,8 @@ MdcHeader::GetPacketType () const
       {return "data forward";}
     case sinkRouteUpdate:
       {return "route update";}
+//    case sensorDataTrailer:
+//      {return "data reply trailer";}
     default:
       {return "UNRECOGNIZED FLAGS";}
     }

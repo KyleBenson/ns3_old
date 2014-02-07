@@ -4,7 +4,7 @@
       <name>mdc.Sensors</name>
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
-      <value>5</value>
+      <value>10</value>
    </param> 
    <param> 
       <name>mdc.MDCs</name>
@@ -22,8 +22,7 @@
       <name>mdc.DataSize</name>
       <description>Size (in bytes) of full sensed event data</description>
       <data-type>int</data-type>
-      <!-- TODO... You cannot give a DataSize < 535 -->
-      <value>750</value>
+      <value>510</value>
    </param> 
    <param> 
       <name>mdc.EventRadius</name>
@@ -35,13 +34,13 @@
       <name>mdc.MdcSpeed</name>
       <description>Speed (in m/s) of the MDCs</description>
       <data-type>float</data-type>
-      <value>5.0</value>
+      <value>10.0</value>
    </param> 
    <param> 
       <name>mdc.MdcPause</name>
       <description>Pause duration of the MDCs in seconds</description>
       <data-type>float</data-type>
-      <value>1.0</value>
+      <value>0.5</value>
    </param> 
    <param> 
       <name>mdc.SendFullData</name>

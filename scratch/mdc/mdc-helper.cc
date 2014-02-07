@@ -20,6 +20,7 @@
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
+#include "mdc-utilities.h"
 
 #include "ns3/uinteger.h"
 #include "ns3/names.h"
@@ -28,6 +29,7 @@
 
 #include <iterator>
 #include <set>
+#include <fstream>
 
 NS_LOG_COMPONENT_DEFINE ("MdcHelper");
 
@@ -182,7 +184,11 @@ MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
           double radius = m_radiusRandomVariable->GetValue ();
           Time time = Seconds (m_eventTimeRandomVariable->GetValue ());
           
-          NS_LOG_INFO ("Event scheduled for " << time.GetSeconds () << " seconds at " << pos << " with radius " << radius);
+    	  std::stringstream s, csv;
+          s << "[EVENT_CREATED] Event scheduled for Time=" << time.GetSeconds () << " seconds at Location=[" << pos << "] with radius=" << radius << std::endl;
+          csv << "EVENT_CREATED," << time.GetSeconds () << "," << pos.x << "," << pos.y << "," << pos.z << "," << radius << std::endl;
+          *(GetMDCOutputStream())->GetStream() << csv.str();
+          NS_LOG_INFO(s.str());
 
           m_events.push_back (SensedEvent (pos, radius, time));
         }
