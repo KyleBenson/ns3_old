@@ -117,6 +117,9 @@ private:
 	/// Write per-device PCAP traces if true
 	bool m_pcap;
 
+	/// Write application traces if true
+	bool m_traces;
+
 	// The singleton class MdcConfig and get its reference
 	MdcConfig *mdcConfig;
 
@@ -177,6 +180,7 @@ MdcMain::MdcMain ()
 	m_mdcPause=1.0;
 	m_totalSimTime=100.0;
 	m_pcap=true;
+	m_traces=true;
 	m_nEvents=1;
 	m_dataSize=1024;
 	m_eventRadius=5.0;
@@ -668,6 +672,7 @@ MdcMain::Configure(int argc, char **argv)
 	m_dataSize = mdcConfig->GetIntProperty("mdc.DataSize");
 	m_eventRadius = mdcConfig->GetDoubleProperty("mdc.EventRadius");
 	m_boundaryLength = mdcConfig->GetIntProperty("mdc.Boundary");
+	m_traces = mdcConfig->GetBoolProperty("mdc.Traces");
 	m_TraceFile = mdcConfig->GetStringProperty("mdc.TraceFile");
 	m_verbose = mdcConfig->GetIntProperty("mdc.Verbose");
 	m_sendFullData = mdcConfig->GetBoolProperty("mdc.SendFullData");
@@ -678,7 +683,8 @@ MdcMain::Configure(int argc, char **argv)
 
 	// The following allows the params to get overridden by setting them up on the commandline
 	CommandLine cmd;
-	cmd.AddValue ("pcap", "Write PCAP traces.", m_pcap);
+	cmd.AddValue ("pcap", "Write PCAP trace output.", m_pcap);
+	cmd.AddValue ("traces", "Write Sensor traces.", m_traces);
 	cmd.AddValue ("time", "Simulation time, s.", m_totalSimTime);
 	cmd.AddValue ("nCsma", "Number of \"sensor\" nodes/devices", m_nSensors);
 	cmd.AddValue ("nWifi", "Number of wifi MDC devices", m_nMdcs);
@@ -694,6 +700,8 @@ MdcMain::Configure(int argc, char **argv)
 
 	if (m_TraceFile == "")
 		m_TraceFile = "traceOutput.txt";
+
+	if (m_pcap) m_traces = true; // You may want to set this parameter in MdcConfig.xml
 
 	AsciiTraceHelper asciiTraceHelper;
 	outputStream = asciiTraceHelper.CreateFileStream (m_TraceFile);
@@ -722,6 +730,7 @@ MdcMain::Configure(int argc, char **argv)
 			m_mdcPause << "--> mdc.MdcPause \n" << "    " <<
 			m_totalSimTime << "--> mdc.TotalSimTime \n" << "    " <<
 			m_pcap << "--> mdc.Pcap \n" << "    " <<
+			m_traces << "--> mdc.Traces \n" << "    " <<
 			m_nEvents << "--> mdc.Events \n" << "    " <<
 			m_dataSize << "--> mdc.DataSize \n" << "    " <<
 			m_eventRadius << "--> mdc.EventRadius \n" << "    " <<
@@ -997,8 +1006,8 @@ MdcMain::SetupMobility()
 	mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 							 ,"Pause", PointerValue (constRandomPause)
 							 ,"Speed", PointerValue (constRandomSpeed)
-//							 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
-							 ,"PositionAllocator", PointerValue (randomPositionAllocator) // This is random
+							 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
+//							 ,"PositionAllocator", PointerValue (randomPositionAllocator) // This is random
 							 );
 	mobHlpr.Install (mdcNodes);
 
@@ -1041,7 +1050,7 @@ MdcMain::InstallEnergyModel()
 	radioEnergyHelper.Set ("TxCurrentA", DoubleValue (0.0174));
 	DeviceEnergyModelContainer deviceEnergyModels = radioEnergyHelper.Install (wifiSensorDevices, energySources);
 
-	if (m_pcap)
+	if (m_traces)
 	{
 		for (EnergySourceContainer::Iterator itr = energySources.Begin ();
 		itr != energySources.End (); itr++)
@@ -1069,7 +1078,7 @@ MdcMain::InstallApplications()
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));
 	sinkApps.Stop (Seconds (m_simEndTime));
-	if (m_pcap)
+	if (m_traces)
 	{
 		constData = new TraceConstData();
 		constData->outputStream = outputStream;
@@ -1092,7 +1101,7 @@ MdcMain::InstallApplications()
 	* This tracing could be done in the helper itself but we can leave it as it is now
 	*/
 
-	if (m_pcap)
+	if (m_traces)
 	{
 		for (uint8_t i = 0; i < mdcApps.GetN (); i++)
 		{
@@ -1129,7 +1138,7 @@ MdcMain::InstallApplications()
 	for (ApplicationContainer::Iterator itr = sensorApps.Begin ();
 	itr != sensorApps.End (); itr++)
 	{
-		if (m_pcap)
+		if (m_traces)
 		{
 			constData = new TraceConstData();
 			constData->outputStream = outputStream;

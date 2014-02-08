@@ -88,6 +88,12 @@
       <name>mdc.Pcap</name>
       <description>Whether to capture the pcap traces during the simulation</description>
       <data-type>boolean</data-type>
+      <value>false</value>
+   </param> 
+   <param> 
+      <name>mdc.Traces</name>
+      <description>Whether to capture the sensor, MDC or sink traces during the simulation</description>
+      <data-type>boolean</data-type>
       <value>true</value>
    </param> 
    </startup-options>
