@@ -182,7 +182,6 @@ namespace ns3 {
 	std::queue<unsigned> ReadTSPOutput(const char *TSPSolfileName)
 	{
 		std::queue<unsigned> orderSeq;
-/*
 		std::string s;
 		unsigned count;
 		unsigned nodeId;
@@ -197,7 +196,6 @@ namespace ns3 {
 			orderSeq.push(nodeId);
 		}
 		std::cout << "TSP Solution Loaded in queue length..." << orderSeq.size() << std::endl;
-*/
 		return orderSeq;
 	}
 
