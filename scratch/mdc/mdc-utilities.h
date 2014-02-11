@@ -44,7 +44,7 @@ namespace ns3 {
 
 	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream);
 	Ptr<OutputStreamWrapper> GetMDCOutputStream (void);
-	std::stringstream CreateTSPInput(std::vector<Vector> *inputVector);
+	void CreateTSPInput(std::vector<Vector> *inputVector, std::stringstream &s);
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
 	int ExecuteSystemCommand(const char *TSPfileName);
 	std::queue<unsigned> ReadTSPOutput(const char *TSPfileName);

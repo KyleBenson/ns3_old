@@ -1026,9 +1026,9 @@ MdcMain::SetupMobility()
 		//		Get Closest sensor
 		//		Populate ListPositionAllocator in TSP order
 		std::stringstream tspInputStr;
-		tspInputStr = CreateTSPInput(&posVector);
+		CreateTSPInput(&posVector, tspInputStr);
 		WriteTSPInputToFile(tspInputStr, "mdcInput.tsp");
-		ExecuteSystemCommand("concorde mdcInput.tsp");
+		ExecuteSystemCommand("/u01/ns3/workspace/concorde/concorde_build/TSP/concorde mdcInput.tsp");
 		tempOrder = ReadTSPOutput("mdcInput.sol");
 		posVectorSorted = ReSortInputVector (&posVector, tempOrder);
 		sensorListPosAllocator->Dispose();  // We will be populating this Allocator

@@ -139,9 +139,8 @@ namespace ns3 {
 	}
 
 
-	std::stringstream CreateTSPInput(std::vector<Vector> *inputVector)
+	void CreateTSPInput(std::vector<Vector> *inputVector, std::stringstream &s)
 	{
-		std::stringstream s;
 		s << "NAME : MDC SIMULATION - TSP INPUT " << std::endl
 				<< "COMMENT : Sensor Node Placement " << std::endl
 				<< "TYPE : TSP "  << std::endl
@@ -155,7 +154,7 @@ namespace ns3 {
 			++it;
 		}
 		s << "EOF" << std::endl;
-		return s;
+		return;
 	}
 
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPfileName)
@@ -188,12 +187,13 @@ namespace ns3 {
 		std::ifstream tspSolFile(TSPSolfileName);
 		tspSolFile >> s;
 		sscanf(s.c_str(),"%u", &count);
-
+		std::string s1;
 		for (unsigned i=0; i<count; i++)
 		{
-			std::string s1;
+			tspSolFile >> s1;
 			sscanf(s1.c_str(),"%u", &nodeId);
 			orderSeq.push(nodeId);
+			s1.clear();
 		}
 		std::cout << "TSP Solution Loaded in queue length..." << orderSeq.size() << std::endl;
 		return orderSeq;
