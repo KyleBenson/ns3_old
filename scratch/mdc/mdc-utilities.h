@@ -24,10 +24,13 @@
 #include "ns3/object.h"
 #include "ns3/random-variable-stream.h"
 #include "ns3/vector.h"
+#include "ns3/output-stream-wrapper.h"
+//#include "mdc-helper.h"
+
 #include <math.h>
 #include <set>
 #include <queue>
-#include "ns3/output-stream-wrapper.h"
+
 
 #define EPSILON 0.0001
 
@@ -41,7 +44,11 @@ namespace ns3 {
 
 	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream);
 	Ptr<OutputStreamWrapper> GetMDCOutputStream (void);
+	std::stringstream CreateTSPInput(std::vector<Vector> *inputVector);
+	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
+	int ExecuteSystemCommand(const char *TSPfileName);
+	std::queue<unsigned> ReadTSPOutput(const char *TSPfileName);
 
 } // namespace ns3
 
-#endif /* MDC_POSITION_H */
+#endif /* MDC_UTILITIES_H */

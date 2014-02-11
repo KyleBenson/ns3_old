@@ -40,8 +40,6 @@
 // - Tracing of queues and packet receptions to file "MdcMain....tr"
 //   and pcap tracing available when tracing is turned on.
 
-#include <string>
-#include <fstream>
 #include "ns3/core-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/internet-module.h"
@@ -53,14 +51,6 @@
 #include "ns3/aodv-module.h"
 #include "ns3/energy-module.h"
 
-//#include "ns3/bp-endpoint-id.h"
-//#include "ns3/bundle-protocol.h"
-//#include "ns3/bp-static-routing-protocol.h"
-//#include "ns3/bundle-protocol-helper.h"
-//#include "ns3/bundle-protocol-container.h"
-#include <iostream>
-#include <cmath>
-
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
@@ -69,6 +59,10 @@
 #include "mdc-utilities.h"
 
 #include "ns3/netanim-module.h"
+#include <string>
+#include <fstream>
+#include <iostream>
+#include <cmath>
 
 
 using namespace ns3;
@@ -119,6 +113,9 @@ private:
 
 	/// Write application traces if true
 	bool m_traces;
+
+	// The trajectory that the MDC is made to traverse
+	int m_mdcTrajectory;
 
 	// The singleton class MdcConfig and get its reference
 	MdcConfig *mdcConfig;
@@ -269,7 +266,7 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 					<< Simulator::Now ().GetSeconds ();
 			NS_LOG_INFO (s.str ());
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+// 			*(constData->outputStream)->GetStream () << s.str() << std::endl;
 		}
 		else if (recdPktSize > expectedPktSize)
 		{
@@ -678,7 +675,7 @@ MdcMain::Configure(int argc, char **argv)
 	m_sendFullData = mdcConfig->GetBoolProperty("mdc.SendFullData");
 	m_simStartTime = mdcConfig->GetDoubleProperty("mdc.SimStartTime");
 	m_simEndTime = mdcConfig->GetDoubleProperty("mdc.SimEndTime");
-
+	m_mdcTrajectory = mdcConfig->GetIntProperty("mdc.MDCTrajectory");
 
 
 	// The following allows the params to get overridden by setting them up on the commandline
@@ -690,6 +687,7 @@ MdcMain::Configure(int argc, char **argv)
 	cmd.AddValue ("nWifi", "Number of wifi MDC devices", m_nMdcs);
 	cmd.AddValue ("mdcSpeed", "Speed of the MDC devices", m_mdcSpeed);
 	cmd.AddValue ("mdcPause", "Pause duration of the MDC devices", m_mdcPause);
+	cmd.AddValue ("mdcTrajectory", "Trajectory to be applied to the MDC devices", m_mdcTrajectory);
 	cmd.Parse(argc, argv); // Parse the commandline and see if the parameters have been passed.
 
 
@@ -740,7 +738,8 @@ MdcMain::Configure(int argc, char **argv)
 			m_sendFullData << "--> mdc.SendFullData \n" << "    " <<
 			m_simStartTime << "--> mdc.SimStartTime \n" << "    " <<
 			m_simEndTime << "--> mdc.SimEndTime \n"<< "    " <<
-			posBound << "--> posBound \n"<< "    " <<
+			m_mdcTrajectory << "--> mdc.MDCTrajectory \n"<< "    " <<
+			posBound << "--> posBound \n" << "    " <<
 			negBound << "--> negBound \n"
 			;
 
@@ -759,7 +758,7 @@ MdcMain::Run()
 	SetupMobility();
 	// InstallEnergyModel(); TODO: This aspect has not been enabled for our tests
 	InstallApplications();
-        SetupTraces();
+    SetupTraces();
 
 	//
 	// Now, do the actual simulation.
@@ -944,12 +943,8 @@ MdcMain::SetupMobility()
 	mobHlpr.SetPositionAllocator (centerPositionAllocator);
 	mobHlpr.Install (sinkNodes);
 
-
-
-
-
-
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
+	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
 	Vector ns3SenPos;
 	std::vector<Vector> posVector;
 	for (uint32_t i=0; i< m_nSensors; i++)
@@ -959,40 +954,17 @@ MdcMain::SetupMobility()
 		ns3SenPos = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
 		std::cout << "Random Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
 		posVector.push_back(ns3SenPos);
+		sensorListPosAllocator->Add(ns3SenPos);
+		// sensorListPosAllocator should have the node positions
 	}
-
-
-	// std::cout << "PosVector has " << posVector.size() << "entries.\n";
-	// Now Sort the posVector starting from the center
-	std::cout << "Center = [" << center.x << "," << center.y << "," << center.z << "].\n";
-	// Get the closest sensor position
-	ns3SenPos = GetClosestVector(posVector, center);
-	std::cout << "Closest sensor to center = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
-	std::queue<unsigned> tempOrder = NearestNeighborOrder (&posVector, ns3SenPos);
-	//std::cout << " - tempOrder has " << tempOrder.size() << "entries.\n";
-	std::vector<Vector> posVectorSorted = ReSortInputVector (&posVector, tempOrder);
-	//std::cout << "PosVectorSorted has " << posVectorSorted.size() << "entries.\n";
-
-	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
-	for (uint32_t i=0; i< m_nSensors; i++)
-	{
-		sensorListPosAllocator->Add(posVectorSorted[i]);
-	}
-
-	//for (uint32_t i=0; i< m_nSensors; i++)
-	//{
-	//	std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
-	//}
-
-	// sensorListPosAllocator should have the node positions
 	mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 	mobHlpr.SetPositionAllocator (sensorListPosAllocator);
 	mobHlpr.Install (sensorNodes);
-
-
 	// The sensors should be positioned at random now within the x y bounds.
 	// The positions are all recorded hopefully in the sensorListPosAllocator
 
+	std::vector<Vector> posVectorSorted;
+	std::queue<unsigned> tempOrder;
 
 	NS_LOG_LOGIC ("Assign the Mobility Model to the MDCs.");
 	// What is left is the Mobility model for the MDCs.
@@ -1002,14 +974,77 @@ MdcMain::SetupMobility()
 	Ptr<ConstantRandomVariable> constRandomPause = CreateObject<ConstantRandomVariable> (); //default = 0
 	constRandomPause->SetAttribute ("Constant", DoubleValue (m_mdcPause));
 
-	mobHlpr.SetPositionAllocator (randomPositionAllocator);
-	mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
-							 ,"Pause", PointerValue (constRandomPause)
-							 ,"Speed", PointerValue (constRandomSpeed)
-							 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
-//							 ,"PositionAllocator", PointerValue (randomPositionAllocator) // This is random
-							 );
-	mobHlpr.Install (mdcNodes);
+
+	if (m_mdcTrajectory == 0) // random path
+	{
+		// If Go_Random
+		//		Populate ListPositionAllocator using RandomPositionAllocator
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (randomPositionAllocator) // This is random
+								 );
+		mobHlpr.Install (mdcNodes);
+	}
+	else if (m_mdcTrajectory == 1) // Nearest Neighbor from center path
+	{
+		// If Go_NearestNeighborOrder
+		//		Get ClosestSensor
+		//		Generate NearestNeighborTour from ClosestSensor
+		//		Populate ListPositionAllocator in NearestNeighbor order
+
+		// Get the closest sensor position
+		ns3SenPos = GetClosestVector(posVector, center);
+		std::cout << "Closest sensor to center = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
+		tempOrder = NearestNeighborOrder (&posVector, ns3SenPos);
+		posVectorSorted = ReSortInputVector (&posVector, tempOrder);
+		sensorListPosAllocator->Dispose();  // We will be populating this Allocator
+		for (uint32_t i=0; i< m_nSensors; i++)
+		{
+			sensorListPosAllocator->Add(posVectorSorted[i]);
+		}
+
+		//for (uint32_t i=0; i< m_nSensors; i++)
+		//{
+		//	std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
+		//}
+
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
+								 );
+		mobHlpr.Install (mdcNodes);
+
+	} else if (m_mdcTrajectory == 2) // TSP Solver path
+	{
+		// If Go_TSP
+		// 		Write Sensor positions into TSPLIB format
+		// 		Generate TSP tour
+		//		Get Closest sensor
+		//		Populate ListPositionAllocator in TSP order
+		std::stringstream tspInputStr;
+		tspInputStr = CreateTSPInput(&posVector);
+		WriteTSPInputToFile(tspInputStr, "mdcInput.tsp");
+		ExecuteSystemCommand("concorde mdcInput.tsp");
+		tempOrder = ReadTSPOutput("mdcInput.sol");
+		posVectorSorted = ReSortInputVector (&posVector, tempOrder);
+		sensorListPosAllocator->Dispose();  // We will be populating this Allocator
+		for (uint32_t i=0; i< m_nSensors; i++)
+		{
+			sensorListPosAllocator->Add(posVectorSorted[i]);
+		}
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses TSP
+								 );
+		mobHlpr.Install (mdcNodes);
+
+	}
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
 	for (NodeContainer::Iterator it = mdcNodes.Begin ();

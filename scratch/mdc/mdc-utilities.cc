@@ -26,6 +26,7 @@
 #include "ns3/enum.h"
 */
 #include "ns3/log.h"
+#include "ns3/trace-helper.h"
 
 NS_LOG_COMPONENT_DEFINE ("MDCUtilities");
 
@@ -120,7 +121,7 @@ namespace ns3 {
 		{
 			u = sortSeq.front();
 			outputVector.push_back((*inputVector)[u]);
-			sortSeq.pop();
+ 			sortSeq.pop();
 //			std::cout << "Sorted Sensor Position = [" << (*inputVector)[u].x << "," << (*inputVector)[u].y << "," << (*inputVector)[u].z << "].\n";
 		}
 
@@ -135,6 +136,69 @@ namespace ns3 {
 	Ptr<OutputStreamWrapper> GetMDCOutputStream (void)
 	{
 		return m_mdcoutputStream;
+	}
+
+
+	std::stringstream CreateTSPInput(std::vector<Vector> *inputVector)
+	{
+		std::stringstream s;
+		s << "NAME : MDC SIMULATION - TSP INPUT " << std::endl
+				<< "COMMENT : Sensor Node Placement " << std::endl
+				<< "TYPE : TSP "  << std::endl
+				<< "DIMENSION: " << inputVector->size() << std::endl
+				<< "EDGE_WEIGHT_TYPE : EUC_2D " << std::endl
+				<< "NODE_COORD_SECTION" << std::endl;
+		std::vector<Vector>::iterator it = inputVector->begin();
+		for (int i=0 ; it != inputVector->end(); i++)
+		{
+			s << i << " " << it->x << " " << it->y << " " << std::endl;
+			++it;
+		}
+		s << "EOF" << std::endl;
+		return s;
+	}
+
+	void WriteTSPInputToFile(std::stringstream &s, const char *TSPfileName)
+	{
+		/*
+		std::ofstream tspFile(TSPfileName, std::ios::trunc);
+		tspFile << s;
+		tspFile.close();
+		*/
+		////
+		AsciiTraceHelper asciiTraceHelper;
+		Ptr<OutputStreamWrapper> outputStream = asciiTraceHelper.CreateFileStream (TSPfileName);
+		*outputStream->GetStream () << s.str() << std::endl;
+		////
+
+	}
+
+	int ExecuteSystemCommand(const char *cmd)
+	{
+		int i = std::system(cmd);
+		return i;
+	}
+
+	std::queue<unsigned> ReadTSPOutput(const char *TSPSolfileName)
+	{
+		std::queue<unsigned> orderSeq;
+/*
+		std::string s;
+		unsigned count;
+		unsigned nodeId;
+		std::ifstream tspSolFile(TSPSolfileName);
+		tspSolFile >> s;
+		sscanf(s.c_str(),"%u", &count);
+
+		for (unsigned i=0; i<count; i++)
+		{
+			std::string s1;
+			sscanf(s1.c_str(),"%u", &nodeId);
+			orderSeq.push(nodeId);
+		}
+		std::cout << "TSP Solution Loaded in queue length..." << orderSeq.size() << std::endl;
+*/
+		return orderSeq;
 	}
 
 

@@ -32,9 +32,9 @@
 #include "ns3/vector.h"
 #include "ns3/mobility-module.h"
 #include "ns3/random-variable.h"
+#include <climits>
 
 #include "mdc-header.h"
-#include <climits>
 #include "mdc-collector.h"
 
 namespace ns3 {
