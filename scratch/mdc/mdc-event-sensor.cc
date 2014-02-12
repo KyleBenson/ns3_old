@@ -232,6 +232,37 @@ MdcEventSensor::CancelEvents ()
 }
 
 /*
+ * Fills the Packet buffer with the string passed called "messageStr"
+ * Sets the packet size attributes accordingly.
+ * The new packet will be the size of the message provided
+ */
+void
+MdcEventSensor::FormatSensorMessage (Ptr<Packet> p, std::string messageStr, uint32_t dataSize)
+{
+	NS_LOG_FUNCTION (messageStr);
+
+	uint32_t tempSz = messageStr.size ();
+
+	if (tempSz >= dataSize)
+	  NS_LOG_INFO (messageStr << "may be truncated in the packet.");
+
+	delete [] m_data;
+	m_data = new uint8_t [dataSize];
+	m_dataSize = dataSize;
+
+	memcpy (m_data, messageStr.c_str (), dataSize);
+
+	uint32_t currPos = messageStr.size();
+	while (currPos < dataSize)
+	{
+		memset (m_data, ' ', 1);
+		currPos++;
+	}
+
+	m_size = dataSize;
+}
+
+/*
  * Deletes the content of the packet buffer if one exists and then...
  * Fills the Packet buffer with the string passed called "fill"
  * Sets the packet size attributes accordingly.
@@ -390,7 +421,7 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
       //to them when done processing anyway...
 
 //      ScheduleTransmit (Seconds (m_randomEventDetectionDelay.GetValue ()), InetSocketAddress(m_sinkAddress, m_port));
-	  RecordSensorData(InetSocketAddress(m_sinkAddress, m_port));
+	  RecordSensorData(InetSocketAddress(m_sinkAddress, m_port), event);
 	  // We expect the sensor to keep track that
       // an event has occurred. We keep track of the count of such events processed there.
 
@@ -401,15 +432,9 @@ MdcEventSensor::CheckEventDetection (SensedEvent event)
  * Just pushes the event data into a buffer
  */
 void
-MdcEventSensor::RecordSensorData (Address dest)
+MdcEventSensor::RecordSensorData (Address dest, SensedEvent event)
 {
-	// Some time in the future, the dest address can be diff from Sink
-	//TODO: We may want to identify the conditions better... esp. if the destination address needs to be other than the sink.
-//	Ipv4Address destAddr = InetSocketAddress::ConvertFrom (dest).GetIpv4 ();
-
 	// Format the message
-
-
 	MdcHeader::Flags flags;
 	flags = MdcHeader::sensorDataReply; // Thus means the sensor is sending to a MDC in reply to a mdcDataRequest message
 	MdcHeader head (m_sinkAddress, flags); // ultimate destination is the sink anyway
@@ -421,12 +446,25 @@ MdcEventSensor::RecordSensorData (Address dest)
 
 
 	// Now format the rest of the message/packet from the sensor.
-	Ptr<Packet> p;
-	p = Create<Packet> (m_size);
-	head.SetData (p->GetSize ());
+	std::stringstream messageStr;
+	messageStr << event.GetEventId() << "|" << event.GetTime().GetSeconds() << "|"
+			<< "MESSAGE BODY{Node=" << GetNode ()->GetId ()
+			<< "|IP=" <<  m_address
+			<< "|EVENT_INFO=<Id=" << event.GetEventId() << ">|<Center=" <<  event.GetCenter().x <<  "," << event.GetCenter().y <<  "," << event.GetCenter().z
+			<< ">|<Time=" <<  event.GetTime()
+			<< ">}";
 
-	// only schedule timeouts for full data
-	//ScheduleTimeout (seq, dest);
+//	std::cout << messageStr.str() << std::endl;
+	uint8_t* msg = new uint8_t[m_size];
+	msg[messageStr.str().size()] = '\0';
+	memcpy(msg,messageStr.str().c_str(), messageStr.str().size());
+//	std::cout << msg << std::endl;
+
+	Ptr<Packet> p;
+	p = Create<Packet> (reinterpret_cast<const uint8_t*>(msg), m_size);
+	//FormatSensorMessage (p, messageStr.str(), m_size);
+
+	head.SetData (p->GetSize ());
 
 	p->AddHeader (head);
 
@@ -438,24 +476,6 @@ MdcEventSensor::RecordSensorData (Address dest)
     // Event data is captured and will be held in a buffer for the MDC to come and pick up
     m_nOutstandingReadings++;
 
-/******************************************************
- * Adding a trailer will simply add to the number of packets floating in the system.
-    // Add a Trailer to mark the end of the message
-	MdcTrailer trailer (m_sinkAddress, MdcTrailer::sensorDataTrailer); // ultimate destination is the sink anyway
-	trailer.SetOrigin (m_address); // address of this sensor
-	trailer.SetId (GetNode ()->GetId ()); // The id of this sensor
-	trailer.SetPosition (pos.x, pos.y); // The position attribute of this sensor
-    p = Create<Packet>(MDC_TRAILER_SIZE);
-	trailer.SetData (p->GetSize ());
-	p->AddHeader (trailer);
-    // call to the trace sinks to signal that a trailer is being sent
-    // so that tags added to the packet can be traced as well
-    m_sendTrace (p);
-
-	m_packetBuffer.push_back(*p);
-    // Event data is captured and will be held in a buffer for the MDC to come and pick up
-    m_nOutstandingReadings++;
-*********************************************************/
 }
 
 /*

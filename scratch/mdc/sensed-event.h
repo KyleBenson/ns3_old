@@ -27,12 +27,14 @@ namespace ns3 {
 class SensedEvent
 {
  public:
-  SensedEvent (Vector center, double radius, Time time);
+  SensedEvent (uint32_t eventId, Vector center, double radius, Time time);
   Vector GetCenter () const;
   bool WithinEventRegion (Vector loc) const;
   Time GetTime () const;
+  uint32_t GetEventId () const;
 
  private:
+  uint32_t m_eventId;
   Vector m_center;
   double m_radius;
   Time m_time;

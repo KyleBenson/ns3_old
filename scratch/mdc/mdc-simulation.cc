@@ -189,6 +189,63 @@ MdcMain::MdcMain ()
 	m_simEndTime=10.0;
 }
 
+// Trace function for the Events themselves
+static void
+PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
+{
+	// 0-SinkTime, 1-CollectTime, 2-SensedTime
+
+	return; // TODO: Debugging this still.
+
+	std::stringstream s, csv;
+
+    //
+	uint8_t *buffer = new uint8_t[packet->GetSize ()];
+	packet->CopyData (buffer, packet->GetSize ());
+
+
+	// The first few bytes of data will look like...
+	// event.GetEventId() << "|" << event.GetTime().GetSeconds() << "|" << MESSAGE BODY{Node=...
+
+	std::stringstream eventId, schedTime, sensedTime, collectTime, sinkTime;
+
+	std::string temp = std::string (reinterpret_cast<const char *>(buffer), 20);
+	char s1[10];
+	char s2[10];
+	int i = sscanf(temp.c_str(), "%s|%s|%*s", s1, s2);
+
+	eventId.clear();
+	schedTime.clear();
+	sensedTime.clear();
+	collectTime.clear();
+	sinkTime.clear();
+
+	if (i>=2)
+	{
+		eventId << s1;
+		schedTime << s2;
+	}
+	else
+	{
+		std::cout << temp << std::endl;
+	}
+
+	if (sourceInd == 0) // print sinkTime
+		sinkTime << Simulator::Now ().GetSeconds ();
+	else if (sourceInd == 1) // print collectTime
+		collectTime << Simulator::Now ().GetSeconds ();
+	else if (sourceInd == 2) // print sensedTime
+		sensedTime << Simulator::Now ().GetSeconds ();
+
+	s << "[EVENT_DELAY] Event Id=<" << eventId << "> SchedTime=<" << schedTime
+			<< "> SensedTime=<" << sensedTime << "> collectTime=<" << collectTime
+			<< "> SinkTime=<" << sinkTime << std::endl;
+    csv << "EVENT_DELAY," << eventId.str() << "," << schedTime.str() << "," << sensedTime.str() <<","
+    		<< collectTime.str() << "," << sinkTime.str() << "," << 'N' << std::endl;
+    *(GetMDCOutputStream())->GetStream() << csv.str();
+    NS_LOG_INFO(s.str());
+}
+
 
 
 // Trace function for the Sink
@@ -303,6 +360,7 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 //			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			PrintEventTrace(0, packet );
 
 			// Reset s here for the next message for the partial pkt recd...
 			s.str("");
@@ -375,6 +433,7 @@ SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const
 			NS_LOG_INFO (s.str ());
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 //			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			PrintEventTrace(0, packet );
 		}
 	}
 
@@ -497,6 +556,8 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 				NS_LOG_INFO (s.str ());
 				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 //				*(constData->outputStream)->GetStream () << s.str() << std::endl;
+				PrintEventTrace(1, packet );
+
 			}
 			// Reset s here for the next message for the partial pkt recd...
 			{
@@ -563,6 +624,8 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 			NS_LOG_INFO (s.str ());
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 //			*(constData->outputStream)->GetStream () << s.str() << std::endl;
+			PrintEventTrace(1, packet );
+
 		}
 	}
 }

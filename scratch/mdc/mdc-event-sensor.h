@@ -88,6 +88,16 @@ public:
   uint32_t GetDataSize (void) const;
 
   /**
+   * Fills the Packet buffer with the string passed called "messageStr"
+   * Sets the packet size attributes accordingly.
+   * The new packet will be the size of the message provided
+   *
+   * \param messageStr The message that will be placed inside the message.
+   * \param dataSize The desired size of the resulting echo packet data.
+   */
+  void FormatSensorMessage (Ptr<Packet> p, std::string messageStr, uint32_t dataSize);
+
+  /**
    * Set the data fill of the packet (what is sent as data to the server) to 
    * the zero-terminated contents of the fill string string.
    *
@@ -156,7 +166,7 @@ private:
   void Send (Address dest, uint32_t seq = 0);
   void CancelEvents (void);
   void ScheduleTransmit (Time dt, Address address);
-  void RecordSensorData (Address address);
+  void RecordSensorData (Address address, SensedEvent event);
   void CheckEventDetection (SensedEvent event);
 
   void ForwardPacket (Ptr<Packet> packet, Ipv4Address source);

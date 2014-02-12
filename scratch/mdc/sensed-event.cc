@@ -20,11 +20,18 @@
 
 namespace ns3 {
 
-  SensedEvent::SensedEvent (Vector center, double radius, Time time)
+  SensedEvent::SensedEvent (uint32_t eventId, Vector center, double radius, Time time)
 {
+  m_eventId = eventId;
   m_center = center;
   m_radius = radius;
   m_time = time;
+}
+
+uint32_t
+SensedEvent::GetEventId () const
+{
+  return m_eventId;
 }
 
 Vector

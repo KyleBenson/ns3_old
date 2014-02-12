@@ -18,13 +18,6 @@
  * Author: UCI
  */
 #include "mdc-utilities.h"
-/*
-#include "ns3/double.h"
-#include "ns3/string.h"
-#include "ns3/pointer.h"
-#include "ns3/uinteger.h"
-#include "ns3/enum.h"
-*/
 #include "ns3/log.h"
 #include "ns3/trace-helper.h"
 
@@ -198,6 +191,5 @@ namespace ns3 {
 		std::cout << "TSP Solution Loaded in queue length..." << orderSeq.size() << std::endl;
 		return orderSeq;
 	}
-
 
 } // namespace ns3 

@@ -186,11 +186,11 @@ MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
           
     	  std::stringstream s, csv;
           s << "[EVENT_CREATED] Event scheduled for Time=" << time.GetSeconds () << " seconds at Location=[" << pos << "] with radius=" << radius << std::endl;
-          csv << "EVENT_CREATED," << time.GetSeconds () << "," << pos.x << "," << pos.y << "," << pos.z << "," << radius << std::endl;
+          csv << "EVENT_CREATED," << i+1 << "," << time.GetSeconds () << "," << pos.x << "," << pos.y << "," << pos.z << "," << radius << std::endl;
           *(GetMDCOutputStream())->GetStream() << csv.str();
           NS_LOG_INFO(s.str());
 
-          m_events.push_back (SensedEvent (pos, radius, time));
+          m_events.push_back (SensedEvent ((i+1),pos, radius, time));
         }
     }
   
