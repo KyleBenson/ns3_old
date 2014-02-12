@@ -195,8 +195,6 @@ PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
 {
 	// 0-SinkTime, 1-CollectTime, 2-SensedTime
 
-	return; // TODO: Debugging this still.
-
 	std::stringstream s, csv;
 
     //

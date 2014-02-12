@@ -232,37 +232,6 @@ MdcEventSensor::CancelEvents ()
 }
 
 /*
- * Fills the Packet buffer with the string passed called "messageStr"
- * Sets the packet size attributes accordingly.
- * The new packet will be the size of the message provided
- */
-void
-MdcEventSensor::FormatSensorMessage (Ptr<Packet> p, std::string messageStr, uint32_t dataSize)
-{
-	NS_LOG_FUNCTION (messageStr);
-
-	uint32_t tempSz = messageStr.size ();
-
-	if (tempSz >= dataSize)
-	  NS_LOG_INFO (messageStr << "may be truncated in the packet.");
-
-	delete [] m_data;
-	m_data = new uint8_t [dataSize];
-	m_dataSize = dataSize;
-
-	memcpy (m_data, messageStr.c_str (), dataSize);
-
-	uint32_t currPos = messageStr.size();
-	while (currPos < dataSize)
-	{
-		memset (m_data, ' ', 1);
-		currPos++;
-	}
-
-	m_size = dataSize;
-}
-
-/*
  * Deletes the content of the packet buffer if one exists and then...
  * Fills the Packet buffer with the string passed called "fill"
  * Sets the packet size attributes accordingly.
@@ -454,15 +423,13 @@ MdcEventSensor::RecordSensorData (Address dest, SensedEvent event)
 			<< ">|<Time=" <<  event.GetTime()
 			<< ">}";
 
-//	std::cout << messageStr.str() << std::endl;
 	uint8_t* msg = new uint8_t[m_size];
-	msg[messageStr.str().size()] = '\0';
 	memcpy(msg,messageStr.str().c_str(), messageStr.str().size());
-//	std::cout << msg << std::endl;
+	msg[messageStr.str().size()] = '\0';
+	std::cout << "Payload: " << msg << std::endl;
 
 	Ptr<Packet> p;
 	p = Create<Packet> (reinterpret_cast<const uint8_t*>(msg), m_size);
-	//FormatSensorMessage (p, messageStr.str(), m_size);
 
 	head.SetData (p->GetSize ());
 
