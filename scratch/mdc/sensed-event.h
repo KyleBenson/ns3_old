@@ -32,6 +32,7 @@ class SensedEvent
   bool WithinEventRegion (Vector loc) const;
   Time GetTime () const;
   uint32_t GetEventId () const;
+  double GetRadius () const;
 
  private:
   uint32_t m_eventId;

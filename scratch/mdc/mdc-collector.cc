@@ -456,11 +456,11 @@ MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
 void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
-  NS_LOG_FUNCTION ("Forwarding packet");
+  NS_LOG_INFO ("Forwarding packet to Sink");
 
   //TODO: Why is this being done?
-  packet->RemoveAllPacketTags ();
-  packet->RemoveAllByteTags ();
+  //packet->RemoveAllPacketTags ();
+  //packet->RemoveAllByteTags ();
 
   if (m_sinkSocket->Send (packet) < (int)packet->GetSize ())
   //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(m_sinkAddress, m_port)) < (int)packet->GetSize ())

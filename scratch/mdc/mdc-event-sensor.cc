@@ -36,6 +36,8 @@
 #include "mdc-event-sensor.h"
 #include "mdc-header.h"
 #include "mdc-utilities.h"
+#include "sensed-event.h"
+#include "mdc-event-tag.h"
 
 namespace ns3 {
 
@@ -310,6 +312,7 @@ MdcEventSensor::SetFill (uint8_t *fill, uint32_t fillSize, uint32_t dataSize)
   while (filled + fillSize < dataSize)
     {
       memcpy (&m_data[filled], fill, fillSize);
+
       filled += fillSize;
     }
 
@@ -414,25 +417,13 @@ MdcEventSensor::RecordSensorData (Address dest, SensedEvent event)
 	head.SetPosition (pos.x, pos.y); // The position attribute of this sensor
 
 
-	// Now format the rest of the message/packet from the sensor.
-	std::stringstream messageStr;
-	messageStr << event.GetEventId() << "|" << event.GetTime().GetSeconds() << "|"
-			<< "MESSAGE BODY{Node=" << GetNode ()->GetId ()
-			<< "|IP=" <<  m_address
-			<< "|EVENT_INFO=<Id=" << event.GetEventId() << ">|<Center=" <<  event.GetCenter().x <<  "," << event.GetCenter().y <<  "," << event.GetCenter().z
-			<< ">|<Time=" <<  event.GetTime()
-			<< ">}";
-
-	uint8_t* msg = new uint8_t[m_size];
-	memcpy(msg,messageStr.str().c_str(), messageStr.str().size());
-	msg[messageStr.str().size()] = '\0';
-	std::cout << "Payload: " << msg << std::endl;
+	MdcEventTag eventTag(event);
 
 	Ptr<Packet> p;
-	p = Create<Packet> (reinterpret_cast<const uint8_t*>(msg), m_size);
+	p = Create<Packet> (m_size);
+	p->AddByteTag(eventTag);
 
 	head.SetData (p->GetSize ());
-
 	p->AddHeader (head);
 
     // call to the trace sinks before the packet is actually sent,
@@ -482,7 +473,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
 
       // call to the trace sinks before the packet is actually sent,
       // so that tags added to the packet can be sent as well
-      m_sendTrace (p);
+//      m_sendTrace (p);   <-- We are tracing at the receipt on MDC.
       m_tcpSocket->Send (p);
     }
   m_nOutstandingReadings=0;

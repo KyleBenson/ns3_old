@@ -46,6 +46,12 @@ SensedEvent::GetTime () const
   return m_time;
 }
 
+double
+SensedEvent::GetRadius () const
+{
+  return m_radius;
+}
+
 bool
 SensedEvent::WithinEventRegion (Vector loc) const
 {

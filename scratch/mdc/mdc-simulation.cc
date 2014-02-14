@@ -50,6 +50,7 @@
 #include "ns3/packet-sink.h"
 #include "ns3/aodv-module.h"
 #include "ns3/energy-module.h"
+#include "ns3/packet.h"
 
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
@@ -57,6 +58,7 @@
 #include "mdc-config.h"
 #include "mdc-header.h"
 #include "mdc-utilities.h"
+#include "mdc-event-tag.h"
 
 #include "ns3/netanim-module.h"
 #include <string>
@@ -195,38 +197,35 @@ PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
 {
 	// 0-SinkTime, 1-CollectTime, 2-SensedTime
 
-	std::stringstream s, csv;
+	MdcEventTag eventTag;
 
-    //
-	uint8_t *buffer = new uint8_t[packet->GetSize ()];
-	packet->CopyData (buffer, packet->GetSize ());
+//	packet->PrintByteTags(*(GetMDCOutputStream())->GetStream());
+//	*(GetMDCOutputStream())->GetStream() << std::endl;
 
 
-	// The first few bytes of data will look like...
-	// event.GetEventId() << "|" << event.GetTime().GetSeconds() << "|" << MESSAGE BODY{Node=...
+	std::string s1, s2;
 
-	std::stringstream eventId, schedTime, sensedTime, collectTime, sinkTime;
+	ByteTagIterator bti = packet->GetByteTagIterator();
+	while (bti.HasNext())
+	{
+		ns3::ByteTagIterator::Item bt = bti.Next();
+		s1 = (bt.GetTypeId()).GetName();
+		s2 = (eventTag.GetTypeId()).GetName();
+		//std::cout << "Comparing " << s1 << " and " << s2 << std::endl;
 
-	std::string temp = std::string (reinterpret_cast<const char *>(buffer), 20);
-	char s1[10];
-	char s2[10];
-	int i = sscanf(temp.c_str(), "%s|%s|%*s", s1, s2);
+		if (s1.compare(s2)==0)
+		{
+			//std::cout << "Found a match for " << s2 << std::endl;
+			bt.GetTag(eventTag);
+			break;
+		}
+	}
 
-	eventId.clear();
-	schedTime.clear();
+	std::stringstream s, csv, sensedTime, collectTime, sinkTime;
+
 	sensedTime.clear();
 	collectTime.clear();
 	sinkTime.clear();
-
-	if (i>=2)
-	{
-		eventId << s1;
-		schedTime << s2;
-	}
-	else
-	{
-		std::cout << temp << std::endl;
-	}
 
 	if (sourceInd == 0) // print sinkTime
 		sinkTime << Simulator::Now ().GetSeconds ();
@@ -235,10 +234,10 @@ PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
 	else if (sourceInd == 2) // print sensedTime
 		sensedTime << Simulator::Now ().GetSeconds ();
 
-	s << "[EVENT_DELAY] Event Id=<" << eventId << "> SchedTime=<" << schedTime
-			<< "> SensedTime=<" << sensedTime << "> collectTime=<" << collectTime
-			<< "> SinkTime=<" << sinkTime << std::endl;
-    csv << "EVENT_DELAY," << eventId.str() << "," << schedTime.str() << "," << sensedTime.str() <<","
+	s << "[EVENT_DELAY] Event Id=<" << eventTag.GetEventId() << "> SchedTime=<" << eventTag.GetTime()
+			<< "> SensedTime=<" << sensedTime.str() << "> collectTime=<" << collectTime.str()
+			<< "> SinkTime=<" << sinkTime.str() << ">" << std::endl;
+    csv << "EVENT_DELAY," << eventTag.GetEventId() << "," << eventTag.GetTime() << "," << sensedTime.str() << ","
     		<< collectTime.str() << "," << sinkTime.str() << "," << 'N' << std::endl;
     *(GetMDCOutputStream())->GetStream() << csv.str();
     NS_LOG_INFO(s.str());
@@ -468,7 +467,6 @@ SensorDataSendTrace (TraceConstData * constData, Ptr<const Packet> packet)
 
 	NS_LOG_INFO (s.str ());
 	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//	*(constData->outputStream)->GetStream () << s.str() << std::endl;
 }
 
 // Trace function for MDC forwarding a packet
@@ -521,7 +519,6 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 					<< Simulator::Now ().GetSeconds ();
 			NS_LOG_INFO (s.str ());
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
 		}
 		else if (recdPktSize > expectedPktSize)
 		{
@@ -553,7 +550,6 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 						<< Simulator::Now ().GetSeconds ();
 				NS_LOG_INFO (s.str ());
 				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//				*(constData->outputStream)->GetStream () << s.str() << std::endl;
 				PrintEventTrace(1, packet );
 
 			}
@@ -588,7 +584,6 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 
 				NS_LOG_INFO (s.str ());
 				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-	//				*(constData->outputStream)->GetStream () << s.str() << std::endl;
 			}
 		}
 		else // the recdPktsize and expectedpacketsize are equal
@@ -621,7 +616,6 @@ MdcPacketFwdTrace (TraceConstData * constData, Ptr<const Packet> packet)
 
 			NS_LOG_INFO (s.str ());
 			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
 			PrintEventTrace(1, packet );
 
 		}
