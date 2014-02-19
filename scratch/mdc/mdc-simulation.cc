@@ -226,6 +226,9 @@ PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
 	sensedTime.clear();
 	collectTime.clear();
 	sinkTime.clear();
+	sensedTime << "0";
+	collectTime << "0";
+	sinkTime << "0";
 
 	if (sourceInd == 0) // print sinkTime
 		sinkTime << Simulator::Now ().GetSeconds ();
@@ -467,6 +470,7 @@ SensorDataSendTrace (TraceConstData * constData, Ptr<const Packet> packet)
 
 	NS_LOG_INFO (s.str ());
 	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+	PrintEventTrace(2, packet ); // Tace the event detection delay
 }
 
 // Trace function for MDC forwarding a packet
@@ -698,20 +702,22 @@ MdcMain::Configure(int argc, char **argv)
 	/* initialize random seed: */
 	srand (time(NULL));
 
-	/* generate a random seed number between 1 and 1000 */
-	int randomSeed = rand() % 1000 + 1;
-	/* generate a random run number between 1 and 1000 */
-	int randomRun = rand() % 1000 + 1;
 
 
-//	UniformVariable randomSeed(0,999);
-//	UniformVariable randomRun(0,999);
 
 	mdcConfig = MdcConfig::GetInstance();
-//	SeedManager::SetSeed (randomSeed.GetInteger(0,999));
-//	SeedManager::SetRun (randomRun.GetInteger(0,999));
-	SeedManager::SetSeed (randomSeed);
-	SeedManager::SetRun (randomRun);
+
+	// This gives you repeatable results
+	UniformVariable uRndSeed(0,999);
+	UniformVariable uRndRun(0,999);
+	SeedManager::SetSeed (uRndSeed.GetInteger(0,999));
+	SeedManager::SetRun (uRndRun.GetInteger(0,999));
+
+	// This gives you really random results...
+//	int randomSeed = rand() % 1000 + 1;
+//	int randomRun = rand() % 1000 + 1;
+//	SeedManager::SetSeed (randomSeed);
+//	SeedManager::SetRun (randomRun);
 
 
 	m_nSensors = mdcConfig->GetIntProperty("mdc.Sensors");
@@ -1214,7 +1220,8 @@ MdcMain::InstallApplications()
 	*/
 
 	if (m_nEvents > 1)
-		sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (m_simStartTime, m_simEndTime));
+		// Let the last event be simulated significant ti me before simulation ends so that it can get picked up.
+		sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (m_simStartTime, m_simEndTime*0.5));
 	else
 		sensorAppHelper.SetEventTimeRandomVariable (new ConstantVariable (m_simStartTime*2));
 

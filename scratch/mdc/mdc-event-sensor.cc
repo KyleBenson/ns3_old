@@ -126,7 +126,7 @@ MdcEventSensor::~MdcEventSensor()
   m_dataSize = 0;
 
   for (unsigned i=0; i< m_packetBuffer.size(); i++)
-	  m_packetBuffer[i].Cleanup();
+	  m_packetBuffer[i]->Cleanup();
 }
 
 void 
@@ -430,7 +430,7 @@ MdcEventSensor::RecordSensorData (Address dest, SensedEvent event)
     // so that tags added to the packet can be traced as well
     m_sendTrace (p);
 
-	m_packetBuffer.push_back(*p);
+	m_packetBuffer.push_back(p);
     // Event data is captured and will be held in a buffer for the MDC to come and pick up
     m_nOutstandingReadings++;
 
@@ -462,7 +462,7 @@ MdcEventSensor::Send (Address dest, uint32_t seq /* = 0*/)
   // If any then send them one after another.
   for (unsigned i = 0; i<m_nOutstandingReadings; i++)
     {
-	  p = &(m_packetBuffer[i]);
+	  p = m_packetBuffer[i];
 
       // some weird bug makes establishing a connection to the same address you did last time not work
       if (dest != m_lastConnection)

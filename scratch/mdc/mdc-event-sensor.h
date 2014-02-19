@@ -193,7 +193,7 @@ private:
   double m_sensorProcessingDelay; // This is a duration of time that the Sensors endure before transmitting a reply.
   double m_sensorTransmissionDelay; // This is a duration of time that the Sensors endure for transmitting a segment which is based on TCP segment size and capacity of the link
 
-  std::vector<Packet> m_packetBuffer; // This is a vector that contains the packets/messages that the sensor sends that need to be transmitted.
+  std::vector<Ptr<Packet> > m_packetBuffer; // This is a vector that contains the pointers to the packets/messages that the sensor sends that need to be transmitted.
 
 
   /// Callbacks for tracing

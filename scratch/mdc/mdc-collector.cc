@@ -456,7 +456,7 @@ MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
 void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
-  NS_LOG_INFO ("Forwarding packet to Sink");
+  NS_LOG_LOGIC ("Forwarding packet to Sink");
 
   //TODO: Why is this being done?
   //packet->RemoveAllPacketTags ();
