@@ -99,9 +99,9 @@ MdcEventSensorHelper::MdcEventSensorHelper (Ipv4Address address, int nEvents /* 
   m_factory.SetTypeId (MdcEventSensor::GetTypeId ());
   m_nEvents = nEvents;
 
-  m_eventTimeRandomVariable = new UniformVariable (2.0, 10.0);
-  m_radiusRandomVariable = new ConstantVariable (5.0);
-  m_posAllocator = CreateObject<RandomRectanglePositionAllocator> ();
+//  m_eventTimeRandomVariable = new UniformVariable (2.0, 10.0);
+//  m_radiusRandomVariable = new ConstantVariable (5.0);
+//  m_posAllocator = CreateObject<RandomRectanglePositionAllocator> ();
 
   SetAttribute ("RemoteAddress", Ipv4AddressValue (address));
   SetAttribute ("Port", UintegerValue (port));
@@ -176,52 +176,19 @@ MdcEventSensorHelper::InstallPriv (Ptr<Node> node)
 void
 MdcEventSensorHelper::ScheduleEvents (Ptr<Application> app)
 {
-  if (!m_events.size ())
-    {
-      for (int i = 0; i < m_nEvents; i++)
-        {
-          Vector pos = m_posAllocator->GetNext ();
-          double radius = m_radiusRandomVariable->GetValue ();
-          Time time = Seconds (m_eventTimeRandomVariable->GetValue ());
-          
-    	  std::stringstream s, csv;
-          s << "[EVENT_CREATED] Event scheduled for Time=" << time.GetSeconds () << " seconds at Location=[" << pos << "] with radius=" << radius << std::endl;
-          csv << "EVENT_CREATED," << i+1 << "," << time.GetSeconds () << "," << pos.x << "," << pos.y << "," << pos.z << "," << radius << std::endl;
-          *(GetMDCOutputStream())->GetStream() << csv.str();
-          NS_LOG_INFO(s.str());
-
-          m_events.push_back (SensedEvent ((i+1),pos, radius, time));
-        }
-    }
-  
-  for (std::list<SensedEvent>::iterator itr = m_events.begin ();
-       itr != m_events.end (); itr++)
-    DynamicCast<MdcEventSensor>(app)->ScheduleEventDetection (itr->GetTime (), *itr);
+	for (std::list<SensedEvent>::iterator itr = m_ptrToEventList->begin (); itr != m_ptrToEventList->end (); itr++)
+	{
+		DynamicCast<MdcEventSensor>(app)->ScheduleEventDetection (itr->GetTime (), *itr);
+	}
 }
+
 
 void
-MdcEventSensorHelper::SetEventPositionAllocator (Ptr<PositionAllocator> alloc)
+MdcEventSensorHelper::SetEventListReference (std::list<SensedEvent>* ptrToEventList)
 {
- m_posAllocator = alloc;
+  m_ptrToEventList = ptrToEventList;
 }
 
-void
-MdcEventSensorHelper::SetRadiusRandomVariable (RandomVariable * r)
-{
-  if (m_radiusRandomVariable)
-    delete m_radiusRandomVariable;
-
-  m_radiusRandomVariable = r;
-}
-
-void
-MdcEventSensorHelper::SetEventTimeRandomVariable (RandomVariable * r)
-{
-  if (m_eventTimeRandomVariable)
-    delete m_eventTimeRandomVariable;
-
-  m_eventTimeRandomVariable = r;
-}
 
 
 //////////////////////////////////////////////////////////////////////
@@ -281,31 +248,3 @@ MdcSinkHelper::InstallPriv (Ptr<Node> node) const
 
 } // namespace ns3
 
-/* working with packet headers
-int main (int argc, char *argv[])
-{
-  // instantiate a header.
-  MdcHeader sourceHeader;
-  sourceHeader.SetData (2);
-
-  // instantiate a packet
-  Ptr<Packet> p = Create<Packet> ();
-
-  // and store my header into the packet.
-  p->AddHeader (sourceHeader);
-
-  // print the content of my packet on the standard output.
-  p->Print (std::cout);
-  std::cout << std::endl;
-
-  // you can now remove the header from the packet:
-  MdcHeader destinationHeader;
-  p->RemoveHeader (destinationHeader);
-
-  // and check that the destination and source
-  // headers contain the same values.
-  NS_ASSERT (sourceHeader.GetData () == destinationHeader.GetData ());
-
-  return 0;
-}
-*/

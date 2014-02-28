@@ -25,6 +25,7 @@
 #include "ns3/random-variable-stream.h"
 #include "ns3/vector.h"
 #include "ns3/output-stream-wrapper.h"
+#include "sensed-event.h"
 //#include "mdc-helper.h"
 
 #include <math.h>
@@ -48,6 +49,8 @@ namespace ns3 {
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
 	int ExecuteSystemCommand(const char *TSPfileName);
 	std::queue<unsigned> ReadTSPOutput(const char *TSPfileName);
+	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second);
+
 
 } // namespace ns3
 

@@ -192,4 +192,10 @@ namespace ns3 {
 		return orderSeq;
 	}
 
+
+	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second)
+	{
+	  return ( first.GetTime().GetSeconds() < second.GetTime().GetSeconds() );
+	}
+
 } // namespace ns3 

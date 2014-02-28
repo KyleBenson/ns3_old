@@ -207,21 +207,15 @@ public:
    */
   ApplicationContainer Install (NodeContainer c);
 
-  void SetEventPositionAllocator (Ptr<PositionAllocator> alloc);
+  void SetEventListReference (std::list<SensedEvent>* ptrToEventList);
 
-  void SetRadiusRandomVariable (RandomVariable * r);
-
-  void SetEventTimeRandomVariable (RandomVariable * r);
 
 private:
   Ptr<Application> InstallPriv (Ptr<Node> node);
   void ScheduleEvents (Ptr<Application> app);
   ObjectFactory m_factory;
-  std::list<SensedEvent> m_events;
+  std::list<SensedEvent>* m_ptrToEventList;
   int m_nEvents;
-  Ptr<PositionAllocator> m_posAllocator;
-  RandomVariable * m_radiusRandomVariable;
-  RandomVariable * m_eventTimeRandomVariable;
 };
 
 

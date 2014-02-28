@@ -34,6 +34,13 @@ SensedEvent::GetEventId () const
   return m_eventId;
 }
 
+void
+SensedEvent::SetEventId (uint32_t eventId)
+{
+	m_eventId = eventId;
+}
+
+
 Vector
 SensedEvent::GetCenter () const
 {

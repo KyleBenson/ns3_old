@@ -145,14 +145,17 @@ private:
 	Ptr<UniformRandomVariable> randomPosX;
 	Ptr<UniformRandomVariable> randomPosY;
 
+	std::list<SensedEvent> m_events;
+
 private:
 	void CreateNodes();
 	void CreateChannels();
+    void SetupEventList();
 	void SetupMobility();
 	void InstallEnergyModel();
 	void InstallInternetStack();
 	void InstallApplications ();
-        void SetupTraces ();
+    void SetupTraces ();
 };
 
 //-----------------------------------------------------------------------------
@@ -816,6 +819,7 @@ MdcMain::Run()
 	CreateNodes();
 	CreateChannels();
 	InstallInternetStack();
+    SetupEventList();
 	SetupMobility();
 	// InstallEnergyModel(); TODO: This aspect has not been enabled for our tests
 	InstallApplications();
@@ -981,6 +985,56 @@ MdcMain::InstallInternetStack()
 	ipv4Hlpr.NewNetwork ();
 	sinkToMdcInterfaces = ipv4Hlpr.Assign (sinkToMdcDevices);
 	mdcToSinkInterfaces = ipv4Hlpr.Assign (mdcToSinkDevices);
+
+}
+
+void
+MdcMain::SetupEventList()
+{
+	Ptr<PositionAllocator> posAllocator;
+	posAllocator = randomPositionAllocator;
+
+	RandomVariable * radiusRandomVariable;
+	radiusRandomVariable = new ConstantVariable (m_eventRadius);
+
+	RandomVariable * eventTimeRandomVariable;
+	if (m_nEvents > 1)
+		// Let us create events a few secs after the start and last event before the end
+		eventTimeRandomVariable = new UniformVariable (m_simStartTime+5, m_simEndTime-5);
+	else
+		eventTimeRandomVariable = new ConstantVariable (m_simStartTime*2);
+
+
+
+    for (uint32_t i = 0; i < m_nEvents; i++)
+	{
+		Vector pos = posAllocator->GetNext ();
+		double radius = radiusRandomVariable->GetValue ();
+		Time time = Seconds (eventTimeRandomVariable->GetValue ());
+
+		/*
+		std::stringstream s, csv;
+		s << "[EVENT_CREATED] Event scheduled for Time=" << time.GetSeconds () << " seconds at Location=[" << pos << "] with radius=" << radius << std::endl;
+		csv << "EVENT_CREATED," << i+1 << "," << time.GetSeconds () << "," << pos.x << "," << pos.y << "," << pos.z << "," << radius << std::endl;
+		*(GetMDCOutputStream())->GetStream() << csv.str();
+		NS_LOG_INFO(s.str());
+		 */
+		m_events.push_back (SensedEvent ((i+1),pos, radius, time));
+	}
+
+	// Sort the events by time
+	m_events.sort(compare_sensedEvents);
+
+	uint32_t i = 1;
+	for (std::list<SensedEvent>::iterator itr = m_events.begin (); itr != m_events.end (); itr++)
+	{
+		itr->SetEventId(i++);
+		std::stringstream s, csv;
+		s << "[EVENT_CREATED] Event " << itr->GetEventId() << " scheduled for Time=" << itr->GetTime().GetSeconds () << " seconds at Location=[" << itr->GetCenter() << "] with radius=" << itr->GetRadius() << std::endl;
+		csv << "EVENT_CREATED," << itr->GetEventId() << "," << itr->GetTime().GetSeconds () << "," << itr->GetCenter().x << "," << itr->GetCenter().y << "," << itr->GetCenter().z << "," << itr->GetRadius() << std::endl;
+		*(GetMDCOutputStream())->GetStream() << csv.str();
+		NS_LOG_INFO(s.str());
+	}
 
 }
 
@@ -1212,18 +1266,12 @@ MdcMain::InstallApplications()
 	MdcEventSensorHelper sensorAppHelper (sinkInterfaces.GetAddress (0, 0), m_nEvents);
 	sensorAppHelper.SetAttribute ("PacketSize", UintegerValue (m_dataSize));
 	sensorAppHelper.SetAttribute ("SendFullData", BooleanValue (m_sendFullData));
-	sensorAppHelper.SetEventPositionAllocator (randomPositionAllocator);
-	sensorAppHelper.SetRadiusRandomVariable (new ConstantVariable (m_eventRadius));
+	sensorAppHelper.SetEventListReference(&m_events);
 
 	/*
-	* The sensor app here then creates all the events. Again, this might be done in an event helper class but keep this for now.
+	* The sensor app here then creates all the events.
+	* Again, this might be done in an event helper class but keep this for now.
 	*/
-
-	if (m_nEvents > 1)
-		// Let the last event be simulated significant ti me before simulation ends so that it can get picked up.
-		sensorAppHelper.SetEventTimeRandomVariable (new UniformVariable (m_simStartTime, m_simEndTime*0.5));
-	else
-		sensorAppHelper.SetEventTimeRandomVariable (new ConstantVariable (m_simStartTime*2));
 
 	ApplicationContainer sensorApps = sensorAppHelper.Install (sensorNodes);
 	sensorApps.Start (Seconds (m_simStartTime));
