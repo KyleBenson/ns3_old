@@ -27,29 +27,38 @@
 #include "ns3/output-stream-wrapper.h"
 #include "sensed-event.h"
 //#include "mdc-helper.h"
+#include "ns3/position-allocator.h"
 
 #include <math.h>
 #include <set>
 #include <queue>
+#include <map>
 
 
 #define EPSILON 0.0001
 
 namespace ns3 {
 
+//	static std::map<uint32_t, SensedEvent> m_allSensedEvents; // Keeps a list of all sensed events for easy translation
 	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
 	bool IsSameVector (Vector *aV, Vector *bV);
-	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> *inputVector, Vector refPoint);
-	std::vector<Vector> ReSortInputVector (std::vector<Vector> *inputVector, std::queue<unsigned> sortSeq);
+	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> * inputVector, Vector refPoint);
+	std::vector<Vector> ReSortInputVector (std::vector<Vector> * inputVector, std::queue<unsigned> sortSeq);
 
 	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream);
 	Ptr<OutputStreamWrapper> GetMDCOutputStream (void);
-	void CreateTSPInput(std::vector<Vector> *inputVector, std::stringstream &s);
+	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s);
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
 	int ExecuteSystemCommand(const char *TSPfileName);
 	std::queue<unsigned> ReadTSPOutput(const char *TSPfileName);
+	void PopulateTSPPosAllocator(std::vector<Vector> * inputVector, Ptr<ListPositionAllocator> listPosAllocator);
+	void RecomputePosAllocator(Vector vCurrPos, Vector vDepotPos, std::vector<Vector> *inputVector, Ptr<ListPositionAllocator> listPosAllocator);
+
 	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second);
+	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV);
+//	void RegisterSensedEvent (SensedEvent e);
+//	std::map<uint32_t, SensedEvent> GetAllSensedEvents();
 
 
 } // namespace ns3

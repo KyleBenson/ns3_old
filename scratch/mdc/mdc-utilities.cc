@@ -63,7 +63,7 @@ namespace ns3 {
 			return false;
 	}
 
-	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> *inputVector, Vector refPoint)
+	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> * inputVector, Vector refPoint)
 	{
 		std::queue<unsigned> orderSeq;
 		std::set<unsigned> visitedSet;
@@ -106,7 +106,7 @@ namespace ns3 {
 		return orderSeq;
 	}
 
-	std::vector<Vector> ReSortInputVector (std::vector<Vector> *inputVector, std::queue<unsigned> sortSeq)
+	std::vector<Vector> ReSortInputVector (std::vector<Vector> * inputVector, std::queue<unsigned> sortSeq)
 	{
 		std::vector<Vector> outputVector;
 		unsigned u;
@@ -132,7 +132,7 @@ namespace ns3 {
 	}
 
 
-	void CreateTSPInput(std::vector<Vector> *inputVector, std::stringstream &s)
+	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s)
 	{
 		s << "NAME : MDC SIMULATION - TSP INPUT " << std::endl
 				<< "COMMENT : Sensor Node Placement " << std::endl
@@ -192,10 +192,76 @@ namespace ns3 {
 		return orderSeq;
 	}
 
+	void PopulateTSPPosAllocator(
+			std::vector<Vector> *inputVector,
+			Ptr<ListPositionAllocator> listPosAllocator
+			)
+	{
+
+		// 		Write Sensor positions into TSPLIB format
+		// 		Generate TSP tour
+		//		Get Closest sensor
+		//		Populate ListPositionAllocator in TSP order
+		std::stringstream tspInputStr;
+		std::queue<unsigned> tempOrder;
+		std::vector<Vector> posVectorSorted;
+
+		CreateTSPInput(inputVector, tspInputStr);
+		WriteTSPInputToFile(tspInputStr, "mdcInput.tsp");
+		ExecuteSystemCommand("/u01/ns3/workspace/concorde/concorde_build/TSP/concorde mdcInput.tsp");
+		tempOrder = ReadTSPOutput("mdcInput.sol");
+		posVectorSorted = ReSortInputVector (inputVector, tempOrder);
+		listPosAllocator->Dispose();  // We will be populating this Allocator
+		for (uint32_t i=0; i< posVectorSorted.size(); i++)
+		{
+			listPosAllocator->Add(posVectorSorted[i]);
+		}
+
+	}
+
+	void RecomputePosAllocator(
+			Vector vCurrPos,
+			Vector vDepotPos,
+			std::vector<Vector> *inputVector,
+			Ptr<ListPositionAllocator> listPosAllocator
+			)
+	{
+		std::vector<Vector> revisedPosV;
+		for (std::vector<Vector>::iterator it = inputVector->begin() ; it != inputVector->end(); ++it)
+			revisedPosV.push_back(*it);
+		revisedPosV.push_back(vCurrPos);
+		revisedPosV.push_back(vDepotPos);
+
+		PopulateTSPPosAllocator(&revisedPosV, listPosAllocator);
+	}
+
+	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV)
+	{
+		std::vector<Vector>::iterator it;
+		it = inputVector->begin();
+		for (uint32_t i=0; i < inputVector->size(); i++)
+		{
+			if (fabs(((*it).x - refV.x)) < EPSILON)
+				if (fabs(((*it).y - refV.y)) < EPSILON)
+					if (fabs(((*it).z - refV.z)) < EPSILON)
+						inputVector->erase(inputVector->begin() + i);
+			it++;
+		}
+	}
 
 	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second)
 	{
 	  return ( first.GetTime().GetSeconds() < second.GetTime().GetSeconds() );
 	}
+/*********************
+	void RegisterSensedEvent (SensedEvent e)
+	{
+		m_allSensedEvents.insert(std::pair<uint32_t, SensedEvent>(e.GetEventId(), e));
+	}
 
+	std::map<uint32_t, SensedEvent> GetAllSensedEvents()
+	{
+		return m_allSensedEvents;
+	}
+*******/
 } // namespace ns3 

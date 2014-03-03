@@ -434,22 +434,6 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
     } // end of while socket has no more data
 }
 
-/*void
-MdcCollector::AckPacket (Ptr<Packet> packet, Address from)
-{
-  MdcHeader head;
-  packet->PeekHeader (head);
-  packet = Create<Packet> ();
-
-  head.SetDest (head.GetOrigin ());
-  head.SetOrigin (GetAddress ());
-
-  packet->AddHeader (head);
-
-  m_udpSensorSocket->SendTo (packet, 0, from);
-  }*/
-
-
 /*
  * This is the callback method called to forward the packets over to the Sink
  */
@@ -457,11 +441,6 @@ void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
   NS_LOG_LOGIC ("Forwarding packet to Sink");
-
-  //TODO: Why is this being done?
-  //packet->RemoveAllPacketTags ();
-  //packet->RemoveAllByteTags ();
-
   if (m_sinkSocket->Send (packet) < (int)packet->GetSize ())
   //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(m_sinkAddress, m_port)) < (int)packet->GetSize ())
     {
@@ -471,6 +450,7 @@ MdcCollector::ForwardPacket (Ptr<Packet> packet)
       Ipv4Address destination = head.GetDest ();
       NS_LOG_UNCOND ("Error forwarding packet from " << head.GetOrigin () << " to " << destination);
     }
+
 }
 
 Ipv4Address

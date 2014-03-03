@@ -231,16 +231,19 @@ class MdcSinkHelper
 public:
   MdcSinkHelper ();
   void SetAttribute (std::string name, const AttributeValue &value);
-  ApplicationContainer Install (NodeContainer c) const;
-  ApplicationContainer Install (Ptr<Node> node) const;
-  ApplicationContainer Install (std::string nodeName) const;
+  ApplicationContainer Install (NodeContainer c);
+  ApplicationContainer Install (Ptr<Node> node);
+  ApplicationContainer Install (std::string nodeName);
+  void SetEventListReference (std::list<SensedEvent>* ptrToEventList);
 
 private:
   /**
    * \internal
    */
-  Ptr<Application> InstallPriv (Ptr<Node> node) const;
+  Ptr<Application> InstallPriv (Ptr<Node> node);
   ObjectFactory m_factory;
+  std::list<SensedEvent>* m_ptrToEventList;
+  void ScheduleEvents (Ptr<Application> app);
 };
 
 } // namespace ns3

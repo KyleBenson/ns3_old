@@ -20,6 +20,7 @@
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
+#include "mdc-sink.h"
 #include "mdc-utilities.h"
 
 #include "ns3/uinteger.h"
@@ -213,20 +214,20 @@ MdcSinkHelper::SetAttribute (std::string name, const AttributeValue &value)
 }
 
 ApplicationContainer
-MdcSinkHelper::Install (Ptr<Node> node) const
+MdcSinkHelper::Install (Ptr<Node> node)
 {
   return ApplicationContainer (InstallPriv (node));
 }
 
 ApplicationContainer
-MdcSinkHelper::Install (std::string nodeName) const
+MdcSinkHelper::Install (std::string nodeName)
 {
   Ptr<Node> node = Names::Find<Node> (nodeName);
   return ApplicationContainer (InstallPriv (node));
 }
 
 ApplicationContainer
-MdcSinkHelper::Install (NodeContainer c) const
+MdcSinkHelper::Install (NodeContainer c)
 {
   ApplicationContainer apps;
   for (NodeContainer::Iterator i = c.Begin (); i != c.End (); ++i)
@@ -238,12 +239,29 @@ MdcSinkHelper::Install (NodeContainer c) const
 }
 
 Ptr<Application>
-MdcSinkHelper::InstallPriv (Ptr<Node> node) const
+MdcSinkHelper::InstallPriv (Ptr<Node> node)
 {
-  Ptr<Application> app = m_factory.Create<Application> ();
+  Ptr<Application> app = m_factory.Create<MdcSink> (); //m_factory.Create<Application> ();
   node->AddApplication (app);
 
+  ScheduleEvents(app);
   return app;
+}
+
+void
+MdcSinkHelper::ScheduleEvents (Ptr<Application> app)
+{
+	for (std::list<SensedEvent>::iterator itr = m_ptrToEventList->begin (); itr != m_ptrToEventList->end (); itr++)
+	{
+		DynamicCast<MdcSink>(app)->ScheduleEventDetection (itr->GetTime (), *itr);
+	}
+}
+
+
+void
+MdcSinkHelper::SetEventListReference (std::list<SensedEvent>* ptrToEventList)
+{
+  m_ptrToEventList = ptrToEventList;
 }
 
 } // namespace ns3

@@ -41,6 +41,8 @@
 #include <climits>
 #include "mdc-sink.h"
 #include "mdc-header.h"
+#include "mdc-utilities.h"
+#include "mdc-event-tag.h"
 using namespace std;
 
 namespace ns3 {
@@ -94,6 +96,15 @@ void MdcSink::DoDispose (void)
   m_mdcSocket = 0;
   m_acceptedSockets.clear ();
   m_mobilityModels.clear ();
+
+  std::cout << "Pos Vector contains... " << posVector.size() << " elements \n";
+  for (std::vector<Vector>::iterator it = posVector.begin() ; it != posVector.end(); ++it)
+	  std::cout << " [" << (*it).x << ":" << (*it).y << ":" << (*it).z << "]\n";
+  std::cout << '\n';
+
+  posVector.clear();
+  m_events.clear();
+  m_AllSensedEvents.clear();
 
   // chain up
   Application::DoDispose ();
@@ -160,6 +171,47 @@ void MdcSink::StopApplication ()     // Called at time specified by Stop
       m_sensorSocket->SetRecvCallback (MakeNullCallback<void, Ptr<Socket> > ());
     }
 }
+
+/* This tells the simulator to schedule a event detection at a specific simulation time
+ * Whether the sink here acts on the event or not is a decision that is done in the CheckEventDetection
+ */
+void
+MdcSink::ScheduleEventDetection (Time t, SensedEvent event)
+{
+  m_events.push_front (Simulator::Schedule (t, &MdcSink::CheckEventDetection, this, event));
+}
+
+/*
+ * Events are all setup globally and every sensors/sink knows about the events.
+ * When the event occurs, they also have a physical location of the event... An event has 3 other attributes... [time, location, size]
+ * This logic then determines the location on the event and keeps track of a list locations that the MDC should be traveling to,
+ * then supply a path to the MDC.
+ */
+void
+MdcSink::CheckEventDetection (SensedEvent event)
+{
+  NS_LOG_LOGIC ("Node " << GetNode ()->GetId () << " checking event detection.");
+
+  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+  std::stringstream s, csv;
+  s << "[SINK EVENT_DETECTION] Event detected at SINK Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]" << std::endl;
+  csv << "SINK_EVENT_DETECTION,"<< GetNode()->GetId () << "," << Simulator::Now().GetSeconds() << "," << pos.x << "," << pos.y << "," << pos.z << std::endl;
+  *(GetMDCOutputStream())->GetStream() << csv.str();
+  //std::cout << s.str();
+  NS_LOG_INFO(s.str());
+
+
+  // This is where we keep track of the event positions to send the MDC to
+  // From the event, extract the Position information.
+  posVector.push_back(event.GetCenter());
+  NS_LOG_FUNCTION ( " Recorded Event Location=[" << event.GetCenter() << "] [VectorSize =" << posVector.size() << "]\n");
+//  for (std::vector<Vector>::iterator it = posVector.begin() ; it != posVector.end(); ++it)
+//	  std::cout << " [" << (*it) << "]\n";
+
+
+  m_AllSensedEvents.insert(std::pair<uint32_t, SensedEvent>(event.GetEventId(), event));
+}
+
 
 
 /*
@@ -282,6 +334,7 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
 			// Note that the packet contains a part of the next segment but we will forward it anyway.
 			// IF YOU NEED TO FORWARD THE PACKET TO ANOTHER NODE/NETWORK, This is the place to do it.
 			// ForwardPacket (packet);
+			ProcessPacket(packet);
 
 			NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
 			// A segment has been forwarded... Now it looks like there are more segments
@@ -318,45 +371,108 @@ void MdcSink::HandlePeerError (Ptr<Socket> socket)
  */
 void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 {
-  NS_LOG_FUNCTION (this->GetTypeId() << s << from << Seconds (Simulator::Now ()));
-  s->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
+	NS_LOG_FUNCTION (this->GetTypeId() << s << from << Seconds (Simulator::Now ()));
+	s->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
 
-  // Get the mobility model associated with the MDC so that we know all their locations
-  NodeContainer allNodes = NodeContainer::GetGlobal ();
-  Ptr<Node> destNode;
-  Ipv4Address addr = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+	// Get the mobility model associated with the MDC so that we know all their locations
 
-  for (NodeContainer::Iterator i = allNodes.Begin (); i != allNodes.End (); ++i)
-    {
-      Ptr<Node> node = *i;
-      Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-      if (ipv4->GetInterfaceForAddress (addr) != -1)
+
+	// All you have is an IP address and so you need to find out what node this is.
+	NodeContainer allNodes = NodeContainer::GetGlobal ();
+	Ptr<Node> destNode;
+	Ipv4Address addr = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+
+	for (NodeContainer::Iterator i = allNodes.Begin (); i != allNodes.End (); ++i)
+	{
+		Ptr<Node> node = *i;
+		Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+		if (ipv4->GetInterfaceForAddress (addr) != -1)
         {
-          destNode = node;
-          break;
+			destNode = node;
+			break;
         }
     }
 
-  if (!destNode)
-    {
-      NS_LOG_ERROR ("Couldn't find dest node given the IP" << addr);
-      return;
-    }
-  
-  uint32_t id = destNode->GetId ();
-  m_acceptedSockets[id] = s;
-  //m_expectedBytes[s] = 0;
-  m_partialPacket[s] = Create<Packet> ();
+	if (!destNode)
+	{
+		NS_LOG_ERROR ("Couldn't find dest node given the IP" << addr);
+		return;
+	}
 
-  Ptr<WaypointMobilityModel> mobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
-  if (mobility)
-    {
-      m_mobilityModels[id] = mobility;
-    }
-  else
-    {
-      m_waypointRouting = false;
-    }
+	uint32_t id = destNode->GetId ();
+	string s1;
+	s1 = destNode->GetTypeId().GetName();
+	Ptr<WaypointMobilityModel> mdcMobility;
+	Vector pos;
+
+	if (s1.compare("ns3::MdcCollector")==0)
+	{
+		// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
+		mdcMobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
+		pos = destNode->GetObject <MobilityModel> ()->GetPosition();
+		Ptr<ListPositionAllocator> listPosAllocator = CreateObject<ListPositionAllocator> ();
+		Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
+
+		RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
+
+//		posVector.push_back(pos);
+	}
+	else
+	{
+		// Do nothing for now.
+	}
+
+
+	m_acceptedSockets[id] = s;
+	//m_expectedBytes[s] = 0;
+	m_partialPacket[s] = Create<Packet> ();
+	/*****
+	Ptr<WaypointMobilityModel> mobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
+	if (mobility)
+	{
+	  m_mobilityModels[id] = mobility;
+	}
+	else
+	{
+	  m_waypointRouting = false;
+	}
+	******/
 }
+	/*
+	 * A placeholder for any logic that would work on the packet data.
+	 */
+	void MdcSink::ProcessPacket(Ptr<Packet> packet)
+	{
+		MdcEventTag eventTag;
 
+		std::string s1, s2;
+
+		ByteTagIterator bti = packet->GetByteTagIterator();
+		while (bti.HasNext())
+		{
+			ns3::ByteTagIterator::Item bt = bti.Next();
+			s1 = (bt.GetTypeId()).GetName();
+			s2 = (eventTag.GetTypeId()).GetName();
+
+			if (s1.compare(s2)==0)
+			{
+				bt.GetTag(eventTag);
+				NS_LOG_FUNCTION (eventTag.GetEventId() << "-" << eventTag.GetTime() << "\n");
+
+				std::map<uint32_t, SensedEvent>::iterator it;
+				it = m_AllSensedEvents.find(eventTag.GetEventId());
+				if (it != m_AllSensedEvents.end())
+				{
+					SensedEvent se = (*it).second;
+					NS_LOG_FUNCTION ( "Pos Vector contains... " << posVector.size() << " elements \n");
+					NS_LOG_FUNCTION ( "  Removing Vector...[ " << se.GetCenter() << " ] \n");
+					RemoveVectorElement (&posVector, se.GetCenter());
+					NS_LOG_FUNCTION ( "Pos Vector conatins... " << posVector.size() << " elements \n");
+				}
+				break;
+			}
+		}
+
+
+	}
 } // Namespace ns3

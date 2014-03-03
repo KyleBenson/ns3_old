@@ -655,7 +655,7 @@ MacTxDrop(Ptr<const Packet> p)
 	csv 	<< "PACKET_DROP,MAC/TX,"
 			<< Simulator::Now ().GetSeconds ();
 
-	NS_LOG_INFO (s.str ());
+	NS_LOG_FUNCTION (s.str ());
 	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 ////  NS_LOG_INFO("Packet Drop MacTx");
 }
@@ -672,7 +672,7 @@ PhyTxDrop(Ptr<const Packet> p)
 	csv 	<< "PACKET_DROP,PHY/TX,"
 			<< Simulator::Now ().GetSeconds ();
 
-	NS_LOG_INFO (s.str ());
+	NS_LOG_FUNCTION (s.str ());
 	*(GetMDCOutputStream())->GetStream () <<  csv.str() << std::endl;
 ////  NS_LOG_INFO("Packet Drop PhyTx");
 }
@@ -689,7 +689,7 @@ PhyRxDrop(Ptr<const Packet> p)
 	csv 	<< "PACKET_DROP,PHY/RX,"
 			<< Simulator::Now ().GetSeconds ();
 
-	NS_LOG_INFO (s.str ());
+	NS_LOG_FUNCTION (s.str ());
 	*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
 ////  NS_LOG_INFO("Packet Drop PhyRx");
 }
@@ -1036,6 +1036,7 @@ MdcMain::SetupEventList()
 		NS_LOG_INFO(s.str());
 	}
 
+
 }
 
 void
@@ -1062,6 +1063,7 @@ MdcMain::SetupMobility()
 	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
 	Vector ns3SenPos;
 	std::vector<Vector> posVector;
+//	Ptr<std::vector<Vector> > posVector = Create<std::vector<Vector> >() ;
 	for (uint32_t i=0; i< m_nSensors; i++)
 	{
 		randomPositionAllocator->SetX (randomPosX);
@@ -1135,6 +1137,7 @@ MdcMain::SetupMobility()
 
 	} else if (m_mdcTrajectory == 2) // TSP Solver path
 	{
+		/*****
 		// If Go_TSP
 		// 		Write Sensor positions into TSPLIB format
 		// 		Generate TSP tour
@@ -1151,6 +1154,16 @@ MdcMain::SetupMobility()
 		{
 			sensorListPosAllocator->Add(posVectorSorted[i]);
 		}
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses TSP
+								 );
+		mobHlpr.Install (mdcNodes);
+		******************************************/
+		PopulateTSPPosAllocator(&posVector, sensorListPosAllocator);
+
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
@@ -1225,6 +1238,7 @@ MdcMain::InstallApplications()
 	// SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
 
 	MdcSinkHelper sinkHelper;
+	sinkHelper.SetEventListReference(&m_events);
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));
 	sinkApps.Stop (Seconds (m_simEndTime));

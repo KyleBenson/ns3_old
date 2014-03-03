@@ -4,6 +4,7 @@
       <name>mdc.Sensors</name>
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
+      <!-- Remember, you need to have enough room for unique IP addresses -->
       <value>10</value>
    </param> 
    <param> 

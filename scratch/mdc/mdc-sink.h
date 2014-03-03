@@ -25,6 +25,7 @@
 #include "ns3/buffer.h"
 #include <map>
 #include "ns3/waypoint-mobility-model.h"
+#include "sensed-event.h"
 
 namespace ns3 {
 
@@ -76,6 +77,7 @@ public:
    * \return the total bytes received in this sink app
    */
   uint32_t GetTotalRx () const;
+  void ScheduleEventDetection (Time t, SensedEvent event);
 
 protected:
   virtual void DoDispose (void);
@@ -88,6 +90,9 @@ private:
   void HandleAccept (Ptr<Socket>, const Address& from);
   void HandlePeerClose (Ptr<Socket>);
   void HandlePeerError (Ptr<Socket>);
+  void CheckEventDetection (SensedEvent event);
+  void ProcessPacket(Ptr<Packet> packet);
+
 
   // In the case of TCP, each socket accept returns a new socket, so the 
   // listening socket is stored seperately from the accepted sockets
@@ -113,6 +118,13 @@ private:
   TracedCallback<Ptr<const Packet>, const Address &> m_rxTrace;
 
   bool m_waypointRouting;//TODO: We may want to set a policy explicitly and not just a boolean here
+  std::list<EventId> m_events;
+
+  // Event Positions to be visited
+  std::vector<Vector> posVector;
+
+  std::map<uint32_t, SensedEvent> m_AllSensedEvents;
+
 };
 
 } // namespace ns3
