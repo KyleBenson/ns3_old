@@ -1016,7 +1016,8 @@ MdcMain::InstallApplications()
 	sinkHelper.SetEventListReference(&m_events);
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));
-	sinkApps.Stop (Seconds (m_simEndTime));
+//	sinkApps.Stop (Seconds (m_simEndTime));
+	sinkApps.Stop (Seconds (m_totalSimTime));
 	if (m_traces)
 	{
 		constData = new TraceConstData();
@@ -1034,8 +1035,8 @@ MdcMain::InstallApplications()
 	//mdcAppHelper.SetAttribute ("Port", UIntegerValue (9999));
 	ApplicationContainer mdcApps = mdcAppHelper.Install (mdcNodes);
 	mdcApps.Start (Seconds (m_simStartTime));
-	mdcApps.Stop (Seconds (m_simEndTime));
-
+//	mdcApps.Stop (Seconds (m_simEndTime));
+	mdcApps.Stop (Seconds (m_totalSimTime));
 
 	/*
 	* This tracing could be done in the helper itself but we can leave it as it is now
@@ -1065,8 +1066,8 @@ MdcMain::InstallApplications()
 
 	ApplicationContainer sensorApps = sensorAppHelper.Install (sensorNodes);
 	sensorApps.Start (Seconds (m_simStartTime));
-	sensorApps.Stop (Seconds (m_simEndTime));
-
+	//sensorApps.Stop (Seconds (m_simEndTime));
+	sensorApps.Stop (Seconds (m_totalSimTime));
 	/*
 	* Verbose tracing like before done for MDCs.
 	*/

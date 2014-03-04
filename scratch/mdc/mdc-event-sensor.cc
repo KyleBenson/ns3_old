@@ -108,7 +108,7 @@ MdcEventSensor::MdcEventSensor ()
   m_address = Ipv4Address((uint32_t)0);
 
   // TODO: Need to create config parameters for this
-  m_mdcProximityLimit = 4; // This is a distance within which the Sensors will consider as within proximity of an MDC.
+  m_mdcProximityLimit = 2; // This is a distance within which the Sensors will consider as within proximity of an MDC.
   m_sensorProcessingDelay = 0.05; // This is a duration of time in seconds that the Sensors endure before transmitting a reply.
   m_sensorTransmissionDelay = 0.01; // Transmission delay in seconds
 

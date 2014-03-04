@@ -83,7 +83,7 @@
       <name>mdc.TotalSimTime</name>
       <description>Total Simulation Time in seconds</description>
       <data-type>float</data-type>
-      <value>100.0</value>
+      <value>150.0</value>
    </param> 
    <param> 
       <name>mdc.Pcap</name>
