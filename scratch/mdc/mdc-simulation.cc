@@ -770,7 +770,7 @@ MdcMain::SetupEventList()
 	RandomVariable * eventTimeRandomVariable;
 	if (m_nEvents > 1)
 		// Let us create events a few secs after the start and last event before the end
-		eventTimeRandomVariable = new UniformVariable (m_simStartTime+20, m_simEndTime-20);
+		eventTimeRandomVariable = new UniformVariable (m_simStartTime+0.1*(m_simEndTime-m_simStartTime), m_simEndTime-0.2*(m_simEndTime-m_simStartTime));
 	else
 		eventTimeRandomVariable = new ConstantVariable (m_simStartTime*2);
 
@@ -831,18 +831,31 @@ MdcMain::SetupMobility()
 
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
 	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
+	Ptr<GridPositionAllocator> gridPA = CreateObject<GridPositionAllocator> ();
+	float x = std::sqrt(m_nSensors);
+	gridPA->SetAttribute("GridWidth",UintegerValue(x));
+	gridPA->SetAttribute("MinX",DoubleValue(0.0));
+	gridPA->SetAttribute("MinY",DoubleValue(0.0));
+	gridPA->SetAttribute("DeltaX",DoubleValue(m_boundaryLength/x));
+	gridPA->SetAttribute("DeltaY",DoubleValue(m_boundaryLength/x));
+
 	Vector ns3SenPos;
 	std::vector<Vector> posVector;
 	for (uint32_t i=0; i< m_nSensors; i++)
 	{
-		randomPositionAllocator->SetX (randomPosX);
-		randomPositionAllocator->SetY (randomPosY);
-		ns3SenPos = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
-		std::cout << "Random Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
+		ns3SenPos = gridPA->GetNext();
+		std::cout << "Grid Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
 		posVector.push_back(ns3SenPos);
 		sensorListPosAllocator->Add(ns3SenPos);
+//		randomPositionAllocator->SetX (randomPosX);
+//		randomPositionAllocator->SetY (randomPosY);
+//		ns3SenPos = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
+//		std::cout << "Random Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
+//		posVector.push_back(ns3SenPos);
+//		sensorListPosAllocator->Add(ns3SenPos);
 		// sensorListPosAllocator should have the node positions
 	}
+
 	mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 	mobHlpr.SetPositionAllocator (sensorListPosAllocator);
 	mobHlpr.Install (sensorNodes);

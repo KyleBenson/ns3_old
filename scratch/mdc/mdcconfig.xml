@@ -5,7 +5,7 @@
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
       <!-- Remember, you need to have enough room for unique IP addresses -->
-      <value>250</value>
+      <value>100</value>
    </param> 
    <param> 
       <name>mdc.MDCs</name>
@@ -17,7 +17,7 @@
       <name>mdc.Events</name>
       <description>Number of events to occur</description>
       <data-type>int</data-type>
-      <value>25</value>
+      <value>20</value>
    </param> 
    <param> 
       <name>mdc.DataSize</name>
@@ -29,7 +29,7 @@
       <name>mdc.EventRadius</name>
       <description>Radius of affect of the events</description>
       <data-type>float</data-type>
-      <value>4</value>
+      <value>5</value>
    </param> 
    <param> 
       <name>mdc.MdcSpeed</name>
