@@ -376,7 +376,7 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
 		  //    fullPacket is still assembling a complete packet (Don't send a trace)
 		  if (!alreadyNotified)
 		  {
-			  m_forwardTrace (packet);
+			  //m_forwardTrace (packet);
 			  alreadyNotified = true;
 		  }
 
@@ -419,7 +419,14 @@ MdcCollector::HandleRead (Ptr<Socket> socket)
           
           // Now that the segment is ready, just forward it.
           // Note that the packet contains a part of the next segment but we will forward it anyway.
-          ForwardPacket (packet);
+//          ForwardPacket (packet);
+		  //  This is the content of teh ForwardPacket method
+          NS_LOG_LOGIC ("Forwarding packet to Sink");
+          int pktFwded = m_sinkSocket->Send (packet);
+          NS_LOG_INFO (pktFwded << " Bytes Forwarded\n" );
+          //--------------------------------------------
+
+
 
           NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
           // A segment has been forwarded... Now it looks like there are more segments
@@ -441,6 +448,9 @@ void
 MdcCollector::ForwardPacket (Ptr<Packet> packet)
 {
   NS_LOG_LOGIC ("Forwarding packet to Sink");
+  int pktFwded = m_sinkSocket->Send (packet);
+  NS_LOG_INFO (pktFwded << " Bytes Forwarded\n" );
+  /*
   if (m_sinkSocket->Send (packet) < (int)packet->GetSize ())
   //if (m_sinkSocket->SendTo (packet, 0, InetSocketAddress(m_sinkAddress, m_port)) < (int)packet->GetSize ())
     {
@@ -450,7 +460,7 @@ MdcCollector::ForwardPacket (Ptr<Packet> packet)
       Ipv4Address destination = head.GetDest ();
       NS_LOG_UNCOND ("Error forwarding packet from " << head.GetOrigin () << " to " << destination);
     }
-
+  */
 }
 
 Ipv4Address

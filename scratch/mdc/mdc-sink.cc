@@ -289,7 +289,7 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
 
 			if (!alreadyNotified)
 			{
-	            m_rxTrace (packet, from); // This writes a trace output that the first segment of a message was received and processed.
+//	            m_rxTrace (packet, from); // This writes a trace output that the first segment of a message was received and processed.
 				alreadyNotified = true;
 			}
 
@@ -305,8 +305,10 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
 						<< "]");
 				// The fullPacket has a complete packet now.
 
+//				m_rxTrace (fullPacket, from); // This writes a trace output.
 
-				m_rxTrace (fullPacket, from); // This writes a trace output that the first segment of a message was received and processed.
+
+
 				//    but there may be some more from the next pkt
 				// extract just the portion of the packet that and leave the rest in the fullPacket... that was one idea.
 
@@ -335,6 +337,8 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
 			// IF YOU NEED TO FORWARD THE PACKET TO ANOTHER NODE/NETWORK, This is the place to do it.
 			// ForwardPacket (packet);
 			ProcessPacket(packet);
+			SinkPacketRecvTrace(packet, from);
+
 
 			NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
 			// A segment has been forwarded... Now it looks like there are more segments
@@ -465,7 +469,7 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 				{
 					SensedEvent se = (*it).second;
 					NS_LOG_FUNCTION ( "Pos Vector contains... " << posVector.size() << " elements \n");
-					NS_LOG_FUNCTION ( "  Removing Vector...[ " << se.GetCenter() << " ] \n");
+					NS_LOG_INFO ( "  Removing Event <" << it->first << "> at Vector...[ " << se.GetCenter() << " ] \n");
 					RemoveVectorElement (&posVector, se.GetCenter());
 					NS_LOG_FUNCTION ( "Pos Vector conatins... " << posVector.size() << " elements \n");
 				}
@@ -473,6 +477,197 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 			}
 		}
 
-
 	}
+
+
+	// Trace function for the Sink
+	void
+	MdcSink::SinkPacketRecvTrace (Ptr<const Packet> packet, const Address & from)
+	{
+		NS_LOG_FUNCTION_NOARGS ();
+
+		MdcHeader head;
+		packet->PeekHeader (head);
+		std::stringstream s;
+		Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
+
+		// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
+		// though this shouldn't happen as broadcast should be to a network?
+		if (   (head.GetFlags () == MdcHeader::mdcDataForward)
+			|| (head.GetFlags () == MdcHeader::mdcDataRequest)
+			|| (head.GetFlags () == MdcHeader::sensorDataNotify)
+			)
+		{
+			s << "[SINK__TRACE] IGNORED....."
+					<< GetNode ()->GetId ()
+					<< " received ["
+					<< head.GetPacketType ()
+					<< "] (" << head.GetData () + head.GetSerializedSize ()
+					<< "B) from node "
+					<< head.GetId ()
+					<< " via "
+					<< fromAddr
+					<< " at "
+					<< Simulator::Now ().GetSeconds ();
+
+	//		NS_LOG_LOGIC (s.str ());
+		}
+
+		if (	(head.GetFlags () == MdcHeader::sensorDataReply)
+			)
+		{
+			// Complete pkt received. Send an indication
+			uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
+			uint32_t recdPktSize = packet->GetSize();
+			std::stringstream s, csv;
+
+			if (recdPktSize < expectedPktSize)
+			{
+				s.str("");
+				csv.str("");
+				s		<< "[SINK__TRACE] Sink Node#"
+						<< GetNode ()->GetId ()
+						<< " FIRST_SEGMENT ["
+						<< head.GetPacketType ()
+						<< "] SegmentSize=" << recdPktSize
+						<< "B ExpectedFullPacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " via "
+						<< fromAddr
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "SINK__TRACE,"
+						<< GetNode ()->GetId ()
+						<< ",FIRST_SEGMENT,"
+						<< head.GetPacketType ()
+						<< "," << recdPktSize
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< fromAddr
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+			}
+			else if (recdPktSize > expectedPktSize)
+			{
+				s.str("");
+				csv.str("");
+				s		<< "[SINK__TRACE] Sink Node#"
+						<< GetNode ()->GetId ()
+						<< " FULL_PACKET ["
+						<< head.GetPacketType ()
+						<< "] CompletePacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " via "
+						<< fromAddr
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "SINK__TRACE,"
+						<< GetNode ()->GetId ()
+						<< ",FULL_PACKET,"
+						<< head.GetPacketType ()
+						<< "," << expectedPktSize
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< fromAddr
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+///				PrintEventTrace(0, packet );
+
+				// Reset s here for the next message for the partial pkt recd...
+				s.str("");
+				csv.str("");
+				s		<< "[SINK__TRACE] Sink Node#"
+						<< GetNode ()->GetId ()
+						<< " FIRST_SEGMENT ["
+						<< head.GetPacketType ()
+						<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
+						<< "B ExpectedFullPacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " via "
+						<< fromAddr
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "SINK__TRACE,"
+						<< GetNode ()->GetId ()
+						<< ",FIRST_SEGMENT,"
+						<< head.GetPacketType ()
+						<< "," << (recdPktSize - expectedPktSize)
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< fromAddr
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+
+
+				NS_LOG_INFO (s.str ());
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+			}
+			else // the recdPktsize and expectedpacketsize are equal
+			{
+				s.str("");
+				csv.str("");
+				s		<< "[SINK__TRACE] Sink Node#"
+						<< GetNode ()->GetId ()
+						<< " FULL_PACKET ["
+						<< head.GetPacketType ()
+						<< "] CompletePacketSize=" << expectedPktSize
+						<< "B from "
+						<< head.GetOrigin ()
+						<< " via "
+						<< fromAddr
+						<< " to "
+						<< head.GetDest ()
+						<< " at "
+						<< Simulator::Now ().GetSeconds ();
+				csv		<< "SINK__TRACE,"
+						<< GetNode ()->GetId ()
+						<< ",FULL_PACKET,"
+						<< head.GetPacketType ()
+						<< "," << expectedPktSize
+						<< "," << expectedPktSize
+						<< ","
+						<< head.GetOrigin ()
+						<< ","
+						<< fromAddr
+						<< ","
+						<< head.GetDest ()
+						<< ","
+						<< Simulator::Now ().GetSeconds ();
+				NS_LOG_INFO (s.str ());
+				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
+///				PrintEventTrace(0, packet );
+			}
+		}
+
+		return;
+	}
+
+
+
 } // Namespace ns3

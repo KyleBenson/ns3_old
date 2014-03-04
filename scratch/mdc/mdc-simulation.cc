@@ -55,6 +55,7 @@
 #include "mdc-helper.h"
 #include "mdc-event-sensor.h"
 #include "mdc-collector.h"
+#include "mdc-sink.h"
 #include "mdc-config.h"
 #include "mdc-header.h"
 #include "mdc-utilities.h"
@@ -193,255 +194,24 @@ MdcMain::MdcMain ()
 	m_simStartTime=1.0;
 	m_simEndTime=10.0;
 }
-
+/************* MOVED TO UTILITIES.CC ***************************
 // Trace function for the Events themselves
 static void
 PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
 {
-	// 0-SinkTime, 1-CollectTime, 2-SensedTime
-
-	MdcEventTag eventTag;
-
-//	packet->PrintByteTags(*(GetMDCOutputStream())->GetStream());
-//	*(GetMDCOutputStream())->GetStream() << std::endl;
-
-
-	std::string s1, s2;
-
-	ByteTagIterator bti = packet->GetByteTagIterator();
-	while (bti.HasNext())
-	{
-		ns3::ByteTagIterator::Item bt = bti.Next();
-		s1 = (bt.GetTypeId()).GetName();
-		s2 = (eventTag.GetTypeId()).GetName();
-		//std::cout << "Comparing " << s1 << " and " << s2 << std::endl;
-
-		if (s1.compare(s2)==0)
-		{
-			//std::cout << "Found a match for " << s2 << std::endl;
-			bt.GetTag(eventTag);
-			break;
-		}
-	}
-
-	std::stringstream s, csv, sensedTime, collectTime, sinkTime;
-
-	sensedTime.clear();
-	collectTime.clear();
-	sinkTime.clear();
-	sensedTime << "0";
-	collectTime << "0";
-	sinkTime << "0";
-
-	if (sourceInd == 0) // print sinkTime
-		sinkTime << Simulator::Now ().GetSeconds ();
-	else if (sourceInd == 1) // print collectTime
-		collectTime << Simulator::Now ().GetSeconds ();
-	else if (sourceInd == 2) // print sensedTime
-		sensedTime << Simulator::Now ().GetSeconds ();
-
-	s << "[EVENT_DELAY] Event Id=<" << eventTag.GetEventId() << "> SchedTime=<" << eventTag.GetTime()
-			<< "> SensedTime=<" << sensedTime.str() << "> collectTime=<" << collectTime.str()
-			<< "> SinkTime=<" << sinkTime.str() << ">" << std::endl;
-    csv << "EVENT_DELAY," << eventTag.GetEventId() << "," << eventTag.GetTime() << "," << sensedTime.str() << ","
-    		<< collectTime.str() << "," << sinkTime.str() << "," << 'N' << std::endl;
-    *(GetMDCOutputStream())->GetStream() << csv.str();
-    NS_LOG_INFO(s.str());
 }
+**************************************************************/
 
-
+/*
+ * THIS CODE HAS BEEN MOVED TO MDC-SINK.CC
 
 // Trace function for the Sink
 static void
 SinkPacketRecvTrace (TraceConstData * constData, Ptr<const Packet> packet, const Address & from)
 {
-	NS_LOG_FUNCTION_NOARGS ();
-
-	MdcHeader head;
-	packet->PeekHeader (head);
-	std::stringstream s;
-	Ipv4Address fromAddr = InetSocketAddress::ConvertFrom(from).GetIpv4 ();
-
-	// Ignore MDC's data requests, especially since they'll hit both interfaces and double up...
-	// though this shouldn't happen as broadcast should be to a network?
-	if (   (head.GetFlags () == MdcHeader::mdcDataForward)
-		|| (head.GetFlags () == MdcHeader::mdcDataRequest)
-		|| (head.GetFlags () == MdcHeader::sensorDataNotify)
-		)
-	{
-		s << "[SINK__TRACE] IGNORED....."
-				<< constData->nodeId
-				<< " received ["
-				<< head.GetPacketType ()
-				<< "] (" << head.GetData () + head.GetSerializedSize ()
-				<< "B) from node "
-				<< head.GetId ()
-				<< " via "
-				<< fromAddr
-				<< " at "
-				<< Simulator::Now ().GetSeconds ();
-
-//		NS_LOG_LOGIC (s.str ());
-	}
-
-	if (	(head.GetFlags () == MdcHeader::sensorDataReply)
-		)
-	{
-		// Complete pkt received. Send an indication
-		uint32_t expectedPktSize = head.GetData() + head.GetSerializedSize ();
-		uint32_t recdPktSize = packet->GetSize();
-		std::stringstream s, csv;
-
-		if (recdPktSize < expectedPktSize)
-		{
-			s.str("");
-			csv.str("");
-			s		<< "[SINK__TRACE] Sink Node#"
 					<< constData->nodeId
-					<< " FIRST_SEGMENT ["
-					<< head.GetPacketType ()
-					<< "] SegmentSize=" << recdPktSize
-					<< "B ExpectedFullPacketSize=" << expectedPktSize
-					<< "B from "
-					<< head.GetOrigin ()
-					<< " via "
-					<< fromAddr
-					<< " to "
-					<< head.GetDest ()
-					<< " at "
-					<< Simulator::Now ().GetSeconds ();
-			csv		<< "SINK__TRACE,"
-					<< constData->nodeId
-					<< ",FIRST_SEGMENT,"
-					<< head.GetPacketType ()
-					<< "," << recdPktSize
-					<< "," << expectedPktSize
-					<< ","
-					<< head.GetOrigin ()
-					<< ","
-					<< fromAddr
-					<< ","
-					<< head.GetDest ()
-					<< ","
-					<< Simulator::Now ().GetSeconds ();
-			NS_LOG_INFO (s.str ());
-			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-// 			*(constData->outputStream)->GetStream () << s.str() << std::endl;
-		}
-		else if (recdPktSize > expectedPktSize)
-		{
-			s.str("");
-			csv.str("");
-			s		<< "[SINK__TRACE] Sink Node#"
-					<< constData->nodeId
-					<< " FULL_PACKET ["
-					<< head.GetPacketType ()
-					<< "] CompletePacketSize=" << expectedPktSize
-					<< "B from "
-					<< head.GetOrigin ()
-					<< " via "
-					<< fromAddr
-					<< " to "
-					<< head.GetDest ()
-					<< " at "
-					<< Simulator::Now ().GetSeconds ();
-			csv		<< "SINK__TRACE,"
-					<< constData->nodeId
-					<< ",FULL_PACKET,"
-					<< head.GetPacketType ()
-					<< "," << expectedPktSize
-					<< "," << expectedPktSize
-					<< ","
-					<< head.GetOrigin ()
-					<< ","
-					<< fromAddr
-					<< ","
-					<< head.GetDest ()
-					<< ","
-					<< Simulator::Now ().GetSeconds ();
-			NS_LOG_INFO (s.str ());
-
-			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
-			PrintEventTrace(0, packet );
-
-			// Reset s here for the next message for the partial pkt recd...
-			s.str("");
-			csv.str("");
-			s		<< "[SINK__TRACE] Sink Node#"
-					<< constData->nodeId
-					<< " FIRST_SEGMENT ["
-					<< head.GetPacketType ()
-					<< "] SegmentSize=" << (recdPktSize - expectedPktSize)
-					<< "B ExpectedFullPacketSize=" << expectedPktSize
-					<< "B from "
-					<< head.GetOrigin ()
-					<< " via "
-					<< fromAddr
-					<< " to "
-					<< head.GetDest ()
-					<< " at "
-					<< Simulator::Now ().GetSeconds ();
-			csv		<< "SINK__TRACE,"
-					<< constData->nodeId
-					<< ",FIRST_SEGMENT,"
-					<< head.GetPacketType ()
-					<< "," << (recdPktSize - expectedPktSize)
-					<< "," << expectedPktSize
-					<< ","
-					<< head.GetOrigin ()
-					<< ","
-					<< fromAddr
-					<< ","
-					<< head.GetDest ()
-					<< ","
-					<< Simulator::Now ().GetSeconds ();
-
-
-			NS_LOG_INFO (s.str ());
-			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
-		}
-		else // the recdPktsize and expectedpacketsize are equal
-		{
-			s.str("");
-			csv.str("");
-			s		<< "[SINK__TRACE] Sink Node#"
-					<< constData->nodeId
-					<< " FULL_PACKET ["
-					<< head.GetPacketType ()
-					<< "] CompletePacketSize=" << expectedPktSize
-					<< "B from "
-					<< head.GetOrigin ()
-					<< " via "
-					<< fromAddr
-					<< " to "
-					<< head.GetDest ()
-					<< " at "
-					<< Simulator::Now ().GetSeconds ();
-			csv		<< "SINK__TRACE,"
-					<< constData->nodeId
-					<< ",FULL_PACKET,"
-					<< head.GetPacketType ()
-					<< "," << expectedPktSize
-					<< "," << expectedPktSize
-					<< ","
-					<< head.GetOrigin ()
-					<< ","
-					<< fromAddr
-					<< ","
-					<< head.GetDest ()
-					<< ","
-					<< Simulator::Now ().GetSeconds ();
-			NS_LOG_INFO (s.str ());
-			*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-//			*(constData->outputStream)->GetStream () << s.str() << std::endl;
-			PrintEventTrace(0, packet );
-		}
-	}
-
-	return;
 }
+********************************************************************************* */
 
 // Trace function for sensors sending a packet
 static void
@@ -1000,7 +770,7 @@ MdcMain::SetupEventList()
 	RandomVariable * eventTimeRandomVariable;
 	if (m_nEvents > 1)
 		// Let us create events a few secs after the start and last event before the end
-		eventTimeRandomVariable = new UniformVariable (m_simStartTime+5, m_simEndTime-5);
+		eventTimeRandomVariable = new UniformVariable (m_simStartTime+20, m_simEndTime-20);
 	else
 		eventTimeRandomVariable = new ConstantVariable (m_simStartTime*2);
 
@@ -1063,7 +833,6 @@ MdcMain::SetupMobility()
 	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
 	Vector ns3SenPos;
 	std::vector<Vector> posVector;
-//	Ptr<std::vector<Vector> > posVector = Create<std::vector<Vector> >() ;
 	for (uint32_t i=0; i< m_nSensors; i++)
 	{
 		randomPositionAllocator->SetX (randomPosX);
@@ -1137,41 +906,34 @@ MdcMain::SetupMobility()
 
 	} else if (m_mdcTrajectory == 2) // TSP Solver path
 	{
-		/*****
-		// If Go_TSP
-		// 		Write Sensor positions into TSPLIB format
-		// 		Generate TSP tour
-		//		Get Closest sensor
-		//		Populate ListPositionAllocator in TSP order
-		std::stringstream tspInputStr;
-		CreateTSPInput(&posVector, tspInputStr);
-		WriteTSPInputToFile(tspInputStr, "mdcInput.tsp");
-		ExecuteSystemCommand("/u01/ns3/workspace/concorde/concorde_build/TSP/concorde mdcInput.tsp");
-		tempOrder = ReadTSPOutput("mdcInput.sol");
-		posVectorSorted = ReSortInputVector (&posVector, tempOrder);
-		sensorListPosAllocator->Dispose();  // We will be populating this Allocator
-		for (uint32_t i=0; i< m_nSensors; i++)
-		{
-			sensorListPosAllocator->Add(posVectorSorted[i]);
-		}
-		mobHlpr.SetPositionAllocator (randomPositionAllocator);
-		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
-								 ,"Pause", PointerValue (constRandomPause)
-								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses TSP
-								 );
-		mobHlpr.Install (mdcNodes);
-		******************************************/
 		PopulateTSPPosAllocator(&posVector, sensorListPosAllocator);
 
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
 								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses TSP
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
 
+	} else if (m_mdcTrajectory == 3) // TSP Solver path around apriori event locations
+	{
+		// Create a vector of all apriori event locations
+		// Feed to TSP Solver
+		posVector.clear();
+		for (std::list<SensedEvent>::iterator it=m_events.begin(); it != m_events.end(); ++it)
+		{
+		    posVector.push_back((*it).GetCenter());
+		}
+		PopulateTSPPosAllocator(&posVector, sensorListPosAllocator);
+
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
+								 );
+		mobHlpr.Install (mdcNodes);
 	}
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
@@ -1247,7 +1009,8 @@ MdcMain::InstallApplications()
 		constData = new TraceConstData();
 		constData->outputStream = outputStream;
 		constData->nodeId = sinkNodes.Get (0)->GetId (); // There will be just 1 sink node
-		sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&SinkPacketRecvTrace, constData));
+		// Commented out as traces don't seem to fire all the time.
+		//sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&MdcSink::SinkPacketRecvTrace, constData));
 	}
 
 	// MOBILE DATA COLLECTORS

@@ -20,6 +20,7 @@
 #include "mdc-utilities.h"
 #include "ns3/log.h"
 #include "ns3/trace-helper.h"
+#include "mdc-event-tag.h"
 
 NS_LOG_COMPONENT_DEFINE ("MDCUtilities");
 
@@ -253,6 +254,63 @@ namespace ns3 {
 	{
 	  return ( first.GetTime().GetSeconds() < second.GetTime().GetSeconds() );
 	}
+
+
+	// Trace function for the Events themselves
+	void
+	PrintEventTrace(int sourceInd, Ptr<const Packet> packet )
+	{
+		// 0-SinkTime, 1-CollectTime, 2-SensedTime
+
+		MdcEventTag eventTag;
+
+	//	packet->PrintByteTags(*(GetMDCOutputStream())->GetStream());
+	//	*(GetMDCOutputStream())->GetStream() << std::endl;
+
+
+		std::string s1, s2;
+
+		ByteTagIterator bti = packet->GetByteTagIterator();
+		while (bti.HasNext())
+		{
+			ns3::ByteTagIterator::Item bt = bti.Next();
+			s1 = (bt.GetTypeId()).GetName();
+			s2 = (eventTag.GetTypeId()).GetName();
+			//std::cout << "Comparing " << s1 << " and " << s2 << std::endl;
+
+			if (s1.compare(s2)==0)
+			{
+				//std::cout << "Found a match for " << s2 << std::endl;
+				bt.GetTag(eventTag);
+				break;
+			}
+		}
+
+		std::stringstream s, csv, sensedTime, collectTime, sinkTime;
+
+		sensedTime.clear();
+		collectTime.clear();
+		sinkTime.clear();
+		sensedTime << "0";
+		collectTime << "0";
+		sinkTime << "0";
+
+		if (sourceInd == 0) // print sinkTime
+			sinkTime << Simulator::Now ().GetSeconds ();
+		else if (sourceInd == 1) // print collectTime
+			collectTime << Simulator::Now ().GetSeconds ();
+		else if (sourceInd == 2) // print sensedTime
+			sensedTime << Simulator::Now ().GetSeconds ();
+
+		s << "[EVENT_DELAY] Event Id=<" << eventTag.GetEventId() << "> SchedTime=<" << eventTag.GetTime()
+				<< "> SensedTime=<" << sensedTime.str() << "> collectTime=<" << collectTime.str()
+				<< "> SinkTime=<" << sinkTime.str() << ">" << std::endl;
+	    csv << "EVENT_DELAY," << eventTag.GetEventId() << "," << eventTag.GetTime() << "," << sensedTime.str() << ","
+	    		<< collectTime.str() << "," << sinkTime.str() << "," << 'N' << std::endl;
+	    *(GetMDCOutputStream())->GetStream() << csv.str();
+	    NS_LOG_INFO(s.str());
+	}
+
 /*********************
 	void RegisterSensedEvent (SensedEvent e)
 	{

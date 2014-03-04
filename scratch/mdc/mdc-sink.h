@@ -78,6 +78,7 @@ public:
    */
   uint32_t GetTotalRx () const;
   void ScheduleEventDetection (Time t, SensedEvent event);
+  void SinkPacketRecvTrace (Ptr<const Packet> packet, const Address & from);
 
 protected:
   virtual void DoDispose (void);
@@ -92,6 +93,7 @@ private:
   void HandlePeerError (Ptr<Socket>);
   void CheckEventDetection (SensedEvent event);
   void ProcessPacket(Ptr<Packet> packet);
+
 
 
   // In the case of TCP, each socket accept returns a new socket, so the 

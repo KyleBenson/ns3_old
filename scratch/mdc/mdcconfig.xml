@@ -5,7 +5,7 @@
       <description>Number of sensor nodes</description>
       <data-type>int</data-type>
       <!-- Remember, you need to have enough room for unique IP addresses -->
-      <value>10</value>
+      <value>250</value>
    </param> 
    <param> 
       <name>mdc.MDCs</name>
@@ -29,7 +29,7 @@
       <name>mdc.EventRadius</name>
       <description>Radius of affect of the events</description>
       <data-type>float</data-type>
-      <value>5.0</value>
+      <value>4</value>
    </param> 
    <param> 
       <name>mdc.MdcSpeed</name>
@@ -100,9 +100,9 @@
    <param> 
       <name>mdc.MDCTrajectory</name>
       <description>This is a config parameter where you can specify the mobility trajectory that can be applied to an MDC</description>
-      <!-- Valid Values... 0-Random, 1-NearestNeighbor from center, 2-TSP ... -->
+      <!-- Valid Values... 0-Random, 1-NearestNeighbor from center, 2-TSP, 3-AprioriEventLoc  ... -->
       <data-type>int</data-type>
-      <value>2</value>
+      <value>3</value>
    </param> 
    </startup-options>
 
@@ -134,6 +134,10 @@
          <name>MdcCollectorApplication</name>
          <!-- <level>LOG_LEVEL_LOGIC</level> --> 
          <level>LOG_LEVEL_INFO</level> 
+      </module>
+      <module>
+         <name>MdcSink</name>
+         <level>LOG_LEVEL_INFO</level>
       </module>
       <module>
          <name>MdcMainSimulation</name>
