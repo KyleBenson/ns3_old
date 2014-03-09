@@ -947,7 +947,20 @@ MdcMain::SetupMobility()
 								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
+	} else if (m_mdcTrajectory == 4) // TSP Solver path changed on event occurences
+	{
+		posVector.clear();
+		sensorListPosAllocator->Dispose();
+		// Sensor just remains stationary until first event occurs
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
+								 );
+		mobHlpr.Install (mdcNodes);
 	}
+
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
 	for (NodeContainer::Iterator it = mdcNodes.Begin ();
@@ -1013,6 +1026,8 @@ MdcMain::InstallApplications()
 	// SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
 
 	MdcSinkHelper sinkHelper;
+//	Ptr<NodeContainer> pMdcNC = mdcNodes;
+	sinkHelper.SetAttribute("MDC_NC_Pointer", mdcNodes);
 	sinkHelper.SetEventListReference(&m_events);
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));
@@ -1026,6 +1041,7 @@ MdcMain::InstallApplications()
 		// Commented out as traces don't seem to fire all the time.
 		//sinkApps.Get (0)->TraceConnectWithoutContext ("Rx", MakeBoundCallback (&MdcSink::SinkPacketRecvTrace, constData));
 	}
+
 
 	// MOBILE DATA COLLECTORS
 	//BulkSendHelper mdcAppHelper ("ns3::TcpSocketFactory", sinkDestAddress);

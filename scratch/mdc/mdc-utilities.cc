@@ -311,15 +311,5 @@ namespace ns3 {
 	    NS_LOG_INFO(s.str());
 	}
 
-/*********************
-	void RegisterSensedEvent (SensedEvent e)
-	{
-		m_allSensedEvents.insert(std::pair<uint32_t, SensedEvent>(e.GetEventId(), e));
-	}
 
-	std::map<uint32_t, SensedEvent> GetAllSensedEvents()
-	{
-		return m_allSensedEvents;
-	}
-*******/
 } // namespace ns3 

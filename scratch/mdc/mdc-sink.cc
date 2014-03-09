@@ -37,6 +37,7 @@
 #include "ns3/trace-source-accessor.h"
 #include "ns3/udp-socket-factory.h"
 #include "ns3/node-container.h"
+#include "ns3/pointer.h"
 
 #include <climits>
 #include "mdc-sink.h"
@@ -64,8 +65,12 @@ MdcSink::GetTypeId (void)
                    AddressValue (),
                    MakeAddressAccessor (&MdcSink::m_sensorLocal),
                    MakeAddressChecker ())
+    .AddAttribute ("MDC_NC_Pointer", "The pointer to the MDC Node Container.",
+    			   PointerValue (),
+    			   MakePointerAccessor (&MdcSink::m_allMDCNodes),
+    			   MakePointerChecker<Ptr<NodeContainer> > ())
     .AddTraceSource ("Rx", "A packet has been received",
-                     MakeTraceSourceAccessor (&MdcSink::m_rxTrace))
+				   MakeTraceSourceAccessor (&MdcSink::m_rxTrace))
   ;
   return tid;
 }
@@ -210,6 +215,7 @@ MdcSink::CheckEventDetection (SensedEvent event)
 
 
   m_AllSensedEvents.insert(std::pair<uint32_t, SensedEvent>(event.GetEventId(), event));
+  ResetMobility();
 }
 
 
@@ -339,6 +345,9 @@ void MdcSink::HandleRead (Ptr<Socket> socket)
 			ProcessPacket(packet);
 			SinkPacketRecvTrace(packet, from);
 
+			// We might want to change the path/route whenever a new event shows up.
+			//ResetMobility();
+
 
 			NS_LOG_LOGIC("**6** FullPktSize=" << fullPacket->GetSize () << " ExpectedPktSize=" << packetSize << " CurrentPktSize=" << packet->GetSize());
 			// A segment has been forwarded... Now it looks like there are more segments
@@ -377,7 +386,6 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 {
 	NS_LOG_FUNCTION (this->GetTypeId() << s << from << Seconds (Simulator::Now ()));
 	s->SetRecvCallback (MakeCallback (&MdcSink::HandleRead, this));
-
 	// Get the mobility model associated with the MDC so that we know all their locations
 
 
@@ -404,44 +412,87 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 	}
 
 	uint32_t id = destNode->GetId ();
+/********************
 	string s1;
 	s1 = destNode->GetTypeId().GetName();
-	Ptr<WaypointMobilityModel> mdcMobility;
 	Vector pos;
 
 	if (s1.compare("ns3::MdcCollector")==0)
 	{
 		// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
-		mdcMobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
+//		mdcMobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
 		pos = destNode->GetObject <MobilityModel> ()->GetPosition();
 		Ptr<ListPositionAllocator> listPosAllocator = CreateObject<ListPositionAllocator> ();
 		Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
 
 		RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
-
+		(destNode->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
 //		posVector.push_back(pos);
 	}
 	else
 	{
 		// Do nothing for now.
 	}
-
+**************************/
 
 	m_acceptedSockets[id] = s;
 	//m_expectedBytes[s] = 0;
 	m_partialPacket[s] = Create<Packet> ();
-	/*****
-	Ptr<WaypointMobilityModel> mobility = DynamicCast <WaypointMobilityModel> (destNode->GetObject <MobilityModel> ());
-	if (mobility)
-	{
-	  m_mobilityModels[id] = mobility;
-	}
-	else
-	{
-	  m_waypointRouting = false;
-	}
-	******/
 }
+
+	/*
+	 * A placeholder to reset the mobility of an MDC.
+	 */
+	void MdcSink::ResetMobility()
+	{
+		// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
+
+		// Now position all the MDCs in the center of the grid. This is the INITIAL position.
+		for (NodeContainer::Iterator it = m_allMDCNodes->Begin ();
+		it != m_allMDCNodes->End (); it++)
+		{
+//			(*it)->GetObject<MobilityModel>()->SetPosition (center);
+
+			/*
+			// All you have is an IP address and so you need to find out what node this is.
+			NodeContainer allNodes = NodeContainer::GetGlobal ();
+			Ptr<Node> destNode;
+			Ipv4Address addr = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
+
+			for (NodeContainer::Iterator i = allNodes.Begin (); i != allNodes.End (); ++i)
+			{
+				Ptr<Node> node = *i;
+				Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
+				if (ipv4->GetInterfaceForAddress (addr) != -1)
+				{
+					destNode = node;
+					break;
+				}
+			}
+
+			if (!destNode)
+			{
+				NS_LOG_ERROR ("Couldn't find dest node given the IP" << addr);
+				return;
+			}
+			*/
+			Vector pos;
+
+			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
+			pos = (*it)->GetObject <MobilityModel> ()->GetPosition();
+
+			Ptr<ListPositionAllocator> listPosAllocator = CreateObject<ListPositionAllocator> ();
+
+			// Consider the currentPos, depotPos and the list of pending vectors and then come with a most efficient path here.
+			Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
+			RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
+
+			// Apply the new path to the MDC node
+			((*it)->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
+		}
+
+	}
+
 	/*
 	 * A placeholder for any logic that would work on the packet data.
 	 */
@@ -590,7 +641,7 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 				NS_LOG_INFO (s.str ());
 
 				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-///				PrintEventTrace(0, packet );
+				PrintEventTrace(0, packet );
 
 				// Reset s here for the next message for the partial pkt recd...
 				s.str("");
@@ -661,7 +712,7 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 						<< Simulator::Now ().GetSeconds ();
 				NS_LOG_INFO (s.str ());
 				*(GetMDCOutputStream())->GetStream () << csv.str() << std::endl;
-///				PrintEventTrace(0, packet );
+				PrintEventTrace(0, packet );
 			}
 		}
 

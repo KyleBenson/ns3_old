@@ -93,6 +93,8 @@ private:
   void HandlePeerError (Ptr<Socket>);
   void CheckEventDetection (SensedEvent event);
   void ProcessPacket(Ptr<Packet> packet);
+  void ResetMobility();
+
 
 
 
@@ -126,6 +128,8 @@ private:
   std::vector<Vector> posVector;
 
   std::map<uint32_t, SensedEvent> m_AllSensedEvents;
+  Ptr<NodeContainer> m_allMDCNodes; // This is a pointer to the NodeContainer containing all  MDC nodes
+
 
 };
 

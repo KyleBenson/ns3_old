@@ -61,9 +61,6 @@ namespace ns3 {
 	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV);
 	void PrintEventTrace(int sourceInd, Ptr<const Packet> packet );
 
-//	void RegisterSensedEvent (SensedEvent e);
-//	std::map<uint32_t, SensedEvent> GetAllSensedEvents();
-
 
 } // namespace ns3
 
