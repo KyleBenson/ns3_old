@@ -629,9 +629,6 @@ void
 MdcMain::CreateNodes()
 {
 	NS_LOG_FUNCTION_NOARGS();
-	NS_LOG_LOGIC ("Create Sensor nodes.");
-	sensorNodes.Create (m_nSensors);
-
 	//
 	// Explicitly create the MDCs.
 	// Each of the MDCs are APs. So we are assuming that they will all have the same SSID
@@ -639,6 +636,13 @@ MdcMain::CreateNodes()
 	//
 	NS_LOG_LOGIC ("Create MDC nodes.");
 	mdcNodes.Create (m_nMdcs);
+	// Caution... Don't move this part as there seems to be no easy way to get just the MDCNodes!!
+	for (uint32_t i = 0; i <NodeContainer::GetGlobal().GetN(); i++)
+		AddMDCNodeToVector(NodeContainer::GetGlobal().Get(i));
+
+
+	NS_LOG_LOGIC ("Create Sensor nodes.");
+	sensorNodes.Create (m_nSensors);
 
 	//
 	// Create the Sink.
@@ -819,6 +823,7 @@ MdcMain::SetupMobility()
 	//   to be the bounds of the mobility of the MDC
 	MobilityHelper mobHlpr;
 
+	Vector depot = Vector3D (0.0, 0.0, 0.0);
 	Vector center = Vector3D (m_boundaryLength/2, m_boundaryLength/2, 0.0);
 	Vector sinkPos = Vector3D (m_boundaryLength, m_boundaryLength, 0.0);
 
@@ -952,6 +957,9 @@ MdcMain::SetupMobility()
 		posVector.clear();
 		sensorListPosAllocator->Dispose();
 		// Sensor just remains stationary until first event occurs
+		sensorListPosAllocator->Add(depot); // To be removed
+		sensorListPosAllocator->Add(center); // To be removed
+		sensorListPosAllocator->Add(sinkPos); // To be removed
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
@@ -1026,8 +1034,8 @@ MdcMain::InstallApplications()
 	// SINK   ---   TCP sink for data from MDCs, UDP sink for data/notifications directly from sensors
 
 	MdcSinkHelper sinkHelper;
-//	Ptr<NodeContainer> pMdcNC = mdcNodes;
-	sinkHelper.SetAttribute("MDC_NC_Pointer", mdcNodes);
+//	Ptr<NodeContainer> pMdcNC = &mdcNodes;
+//	sinkHelper.SetAttribute("MDC_NC_Pointer", PointerValue(&mdcNodes));
 	sinkHelper.SetEventListReference(&m_events);
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));

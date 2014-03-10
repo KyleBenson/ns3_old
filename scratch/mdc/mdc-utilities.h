@@ -22,6 +22,7 @@
 #define MDC_UTILITIES_H
 
 #include "ns3/ptr.h"
+#include "ns3/node.h"
 #include "ns3/packet.h"
 #include "ns3/object.h"
 #include "ns3/random-variable-stream.h"
@@ -41,6 +42,7 @@
 
 namespace ns3 {
 
+	static std::vector<Ptr<Node> > m_allMDCNodes; // Keeping track of all the MDC Nodes
 //	static std::map<uint32_t, SensedEvent> m_allSensedEvents; // Keeps a list of all sensed events for easy translation
 	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
@@ -60,6 +62,9 @@ namespace ns3 {
 	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second);
 	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV);
 	void PrintEventTrace(int sourceInd, Ptr<const Packet> packet );
+
+	void AddMDCNodeToVector(Ptr<Node>  node);
+	std::vector<Ptr<Node> > GetMDCNodeVector();
 
 
 } // namespace ns3

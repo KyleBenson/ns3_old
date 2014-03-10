@@ -128,7 +128,7 @@ private:
   std::vector<Vector> posVector;
 
   std::map<uint32_t, SensedEvent> m_AllSensedEvents;
-  Ptr<NodeContainer> m_allMDCNodes; // This is a pointer to the NodeContainer containing all  MDC nodes
+//  Ptr<NodeContainer> m_allMDCNodes; // This is a pointer to the NodeContainer containing all  MDC nodes
 
 
 };

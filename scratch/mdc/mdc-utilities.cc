@@ -227,13 +227,33 @@ namespace ns3 {
 			Ptr<ListPositionAllocator> listPosAllocator
 			)
 	{
+		/**** Ideally this is what we need
+		listPosAllocator->Add(vCurrPos);
+		for (std::vector<Vector>::iterator it = inputVector->begin() ; it != inputVector->end(); ++it)
+			listPosAllocator->Add(*it);
+		listPosAllocator->Add(vDepotPos);
+		***************/
+
+
+
 		std::vector<Vector> revisedPosV;
 		for (std::vector<Vector>::iterator it = inputVector->begin() ; it != inputVector->end(); ++it)
 			revisedPosV.push_back(*it);
-		revisedPosV.push_back(vCurrPos);
-		revisedPosV.push_back(vDepotPos);
+		Ptr<ListPositionAllocator> tempLPA = CreateObject<ListPositionAllocator> ();
 
-		PopulateTSPPosAllocator(&revisedPosV, listPosAllocator);
+
+		if (inputVector->size() > 1)
+			// First compute the TSP route among the positions provided
+			PopulateTSPPosAllocator(&revisedPosV, tempLPA);
+		else if (inputVector->size() == 1)
+			tempLPA->Add(inputVector->at(0));
+
+		// Now copy the content of the TSP tour into the return param... Add the curr and Depot at either end
+		listPosAllocator->Add(vCurrPos);
+		for (uint32_t i=0; i<inputVector->size(); i++)
+			listPosAllocator->Add(tempLPA->GetNext());
+		listPosAllocator->Add(vDepotPos);
+
 	}
 
 	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV)
@@ -310,6 +330,17 @@ namespace ns3 {
 	    *(GetMDCOutputStream())->GetStream() << csv.str();
 	    NS_LOG_INFO(s.str());
 	}
+
+	void AddMDCNodeToVector(Ptr<Node>  n)
+	{
+		m_allMDCNodes.push_back(n);
+	}
+
+	std::vector<Ptr<Node> > GetMDCNodeVector()
+	{
+		return m_allMDCNodes;
+	}
+
 
 
 } // namespace ns3 

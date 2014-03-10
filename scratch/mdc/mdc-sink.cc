@@ -38,6 +38,8 @@
 #include "ns3/udp-socket-factory.h"
 #include "ns3/node-container.h"
 #include "ns3/pointer.h"
+#include "ns3/node-list.h"
+#include "ns3/random-waypoint-mobility-model.h"
 
 #include <climits>
 #include "mdc-sink.h"
@@ -65,10 +67,10 @@ MdcSink::GetTypeId (void)
                    AddressValue (),
                    MakeAddressAccessor (&MdcSink::m_sensorLocal),
                    MakeAddressChecker ())
-    .AddAttribute ("MDC_NC_Pointer", "The pointer to the MDC Node Container.",
-    			   PointerValue (),
-    			   MakePointerAccessor (&MdcSink::m_allMDCNodes),
-    			   MakePointerChecker<Ptr<NodeContainer> > ())
+//    .AddAttribute ("MDC_NC_Pointer", "The pointer to the MDC Node Container.",
+//    			   PointerValue (),
+//    			   MakePointerAccessor (&MdcSink::m_allMDCNodes),
+//    			   MakePointerChecker<Ptr<NodeContainer> > ())
     .AddTraceSource ("Rx", "A packet has been received",
 				   MakeTraceSourceAccessor (&MdcSink::m_rxTrace))
   ;
@@ -197,7 +199,8 @@ MdcSink::CheckEventDetection (SensedEvent event)
 {
   NS_LOG_LOGIC ("Node " << GetNode ()->GetId () << " checking event detection.");
 
-  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+//  Vector pos = GetNode ()->GetObject<MobilityModel> ()->GetPosition ();
+  Vector pos = event.GetCenter();
   std::stringstream s, csv;
   s << "[SINK EVENT_DETECTION] Event detected at SINK Node=" << GetNode()->GetId () << " at Time=" << Simulator::Now().GetSeconds() << " seconds at Location=[" << pos << "]" << std::endl;
   csv << "SINK_EVENT_DETECTION,"<< GetNode()->GetId () << "," << Simulator::Now().GetSeconds() << "," << pos.x << "," << pos.y << "," << pos.z << std::endl;
@@ -447,48 +450,34 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 	{
 		// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
 
-		// Now position all the MDCs in the center of the grid. This is the INITIAL position.
-		for (NodeContainer::Iterator it = m_allMDCNodes->Begin ();
-		it != m_allMDCNodes->End (); it++)
+		Ptr<MobilityModel> mdcMobility;
+
+		std::vector<Ptr<Node> >  vNodes = GetMDCNodeVector();
+		Ptr<Node> pN;
+		for (uint32_t i=0; i<vNodes.size();i++)
 		{
-//			(*it)->GetObject<MobilityModel>()->SetPosition (center);
 
-			/*
-			// All you have is an IP address and so you need to find out what node this is.
-			NodeContainer allNodes = NodeContainer::GetGlobal ();
-			Ptr<Node> destNode;
-			Ipv4Address addr = InetSocketAddress::ConvertFrom (from).GetIpv4 ();
-
-			for (NodeContainer::Iterator i = allNodes.Begin (); i != allNodes.End (); ++i)
-			{
-				Ptr<Node> node = *i;
-				Ptr<Ipv4> ipv4 = node->GetObject<Ipv4> ();
-				if (ipv4->GetInterfaceForAddress (addr) != -1)
-				{
-					destNode = node;
-					break;
-				}
-			}
-
-			if (!destNode)
-			{
-				NS_LOG_ERROR ("Couldn't find dest node given the IP" << addr);
-				return;
-			}
-			*/
 			Vector pos;
+			pN = vNodes.at(i);
+
+//			mdcMobility = DynamicCast <WaypointMobilityModel> (pN->GetObject <MobilityModel> ());
+			mdcMobility = pN->GetObject <MobilityModel> ();
 
 			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
-			pos = (*it)->GetObject <MobilityModel> ()->GetPosition();
+//			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
+			pos = mdcMobility->GetPosition();
+
+//			std::cout << pos << std::endl;
 
 			Ptr<ListPositionAllocator> listPosAllocator = CreateObject<ListPositionAllocator> ();
-
 			// Consider the currentPos, depotPos and the list of pending vectors and then come with a most efficient path here.
 			Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
 			RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
 
+
 			// Apply the new path to the MDC node
-			((*it)->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
+//			(pN->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
+			mdcMobility->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
 		}
 
 	}
