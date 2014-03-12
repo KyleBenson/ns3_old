@@ -234,25 +234,21 @@ namespace ns3 {
 		listPosAllocator->Add(vDepotPos);
 		***************/
 
-
-
-		std::vector<Vector> revisedPosV;
-		for (std::vector<Vector>::iterator it = inputVector->begin() ; it != inputVector->end(); ++it)
-			revisedPosV.push_back(*it);
-		Ptr<ListPositionAllocator> tempLPA = CreateObject<ListPositionAllocator> ();
-
-
-		if (inputVector->size() > 1)
-			// First compute the TSP route among the positions provided
-			PopulateTSPPosAllocator(&revisedPosV, tempLPA);
-		else if (inputVector->size() == 1)
-			tempLPA->Add(inputVector->at(0));
-
-		// Now copy the content of the TSP tour into the return param... Add the curr and Depot at either end
-		listPosAllocator->Add(vCurrPos);
-		for (uint32_t i=0; i<inputVector->size(); i++)
-			listPosAllocator->Add(tempLPA->GetNext());
+		// Now copy the event locations yet to be visited as a tour into the return param...
+		// Add the currPos and DepotPos at either end
+		uint32_t i=0;
+		//listPosAllocator->Add(vCurrPos); This is becoming very inaccurate somehow
+		for (i=0; i<inputVector->size(); i++)
+			listPosAllocator->Add(inputVector->at(i));
 		listPosAllocator->Add(vDepotPos);
+
+		// We need to optimize this route if possible.
+
+		std::cout << "New Vector is:- \n";
+		for (uint32_t j=0; j<i+1; j++)
+			std::cout << "  " << listPosAllocator->GetNext() << std::endl;
+		std::cout << "---- End of New Vector \n";
+
 
 	}
 

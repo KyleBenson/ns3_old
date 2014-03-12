@@ -110,6 +110,7 @@ private:
 
   std::map<uint32_t, Ptr<Socket> > m_acceptedSockets; //the accepted MDC sockets
   std::map<uint32_t, Ptr<MobilityModel> > m_mobilityModels;
+  std::map<uint32_t, Ptr<ListPositionAllocator> > m_posAllocators;
 
   // Need to keep track of the # expected bytes left in the next packet for each stream
   //std::map<Ptr<Socket>, uint32_t> m_expectedBytes;

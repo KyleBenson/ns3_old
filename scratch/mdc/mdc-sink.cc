@@ -450,7 +450,10 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 	{
 		// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
 
-		Ptr<MobilityModel> mdcMobility;
+//		Ptr<MobilityModel> mdcMobility;
+		Ptr<RandomWaypointMobilityModel> mdcMobility;
+
+		std::map<uint32_t, Ptr<ListPositionAllocator> >::iterator lpaIter;
 
 		std::vector<Ptr<Node> >  vNodes = GetMDCNodeVector();
 		Ptr<Node> pN;
@@ -459,17 +462,36 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 
 			Vector pos;
 			pN = vNodes.at(i);
-
-//			mdcMobility = DynamicCast <WaypointMobilityModel> (pN->GetObject <MobilityModel> ());
-			mdcMobility = pN->GetObject <MobilityModel> ();
+			mdcMobility = DynamicCast <RandomWaypointMobilityModel> (pN->GetObject <RandomWaypointMobilityModel> ());
+//			mdcMobility = pN->GetObject <RandomWaypointMobilityModel> ();
 
 			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
 //			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
 			pos = mdcMobility->GetPosition();
 
-//			std::cout << pos << std::endl;
 
-			Ptr<ListPositionAllocator> listPosAllocator = CreateObject<ListPositionAllocator> ();
+			// Get the position allocators if saved already
+			lpaIter = m_posAllocators.find(i);
+			if (lpaIter	== m_posAllocators.end())
+			{
+				m_posAllocators.insert(
+						std::pair<uint32_t, Ptr<ListPositionAllocator> >
+							(i, CreateObject<ListPositionAllocator> ())
+							);
+				lpaIter = m_posAllocators.find(i); // This time the entry should be present.
+			}
+			else
+			{
+				// If it exists then you should remove the existing one and replace with new
+				m_posAllocators.erase(lpaIter);
+				m_posAllocators.insert(
+						std::pair<uint32_t, Ptr<ListPositionAllocator> >
+							(i, CreateObject<ListPositionAllocator> ())
+							);
+				lpaIter = m_posAllocators.find(i); // This time the entry should be pointing to the new LPA.
+			}
+			Ptr<ListPositionAllocator> listPosAllocator = lpaIter->second;
+
 			// Consider the currentPos, depotPos and the list of pending vectors and then come with a most efficient path here.
 			Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
 			RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);

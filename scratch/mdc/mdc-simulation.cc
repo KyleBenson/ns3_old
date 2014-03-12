@@ -852,12 +852,6 @@ MdcMain::SetupMobility()
 		std::cout << "Grid Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
 		posVector.push_back(ns3SenPos);
 		sensorListPosAllocator->Add(ns3SenPos);
-//		randomPositionAllocator->SetX (randomPosX);
-//		randomPositionAllocator->SetY (randomPosY);
-//		ns3SenPos = Vector3D(randomPosX->GetValue(), randomPosY->GetValue(), 0.0);
-//		std::cout << "Random Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
-//		posVector.push_back(ns3SenPos);
-//		sensorListPosAllocator->Add(ns3SenPos);
 		// sensorListPosAllocator should have the node positions
 	}
 
@@ -893,6 +887,7 @@ MdcMain::SetupMobility()
 	}
 	else if (m_mdcTrajectory == 1) // Nearest Neighbor from center path
 	{
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
 		// If Go_NearestNeighborOrder
 		//		Get ClosestSensor
 		//		Generate NearestNeighborTour from ClosestSensor
@@ -903,68 +898,70 @@ MdcMain::SetupMobility()
 		std::cout << "Closest sensor to center = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
 		tempOrder = NearestNeighborOrder (&posVector, ns3SenPos);
 		posVectorSorted = ReSortInputVector (&posVector, tempOrder);
-		sensorListPosAllocator->Dispose();  // We will be populating this Allocator
+		mdcListPosAllocator->Dispose();  // We will be populating this Allocator
 		for (uint32_t i=0; i< m_nSensors; i++)
 		{
-			sensorListPosAllocator->Add(posVectorSorted[i]);
+			mdcListPosAllocator->Add(posVectorSorted[i]);
 		}
-
-		//for (uint32_t i=0; i< m_nSensors; i++)
-		//{
-		//	std::cout << "Sorted Sensor Position " << i << " = [" << posVectorSorted[i].x << "," << posVectorSorted[i].y << "," << posVectorSorted[i].z << "].\n";
-		//}
 
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
 								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator) // This uses NearestNeighbor
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator) // This uses NearestNeighbor
 								 );
 		mobHlpr.Install (mdcNodes);
 
 	} else if (m_mdcTrajectory == 2) // TSP Solver path
 	{
-		PopulateTSPPosAllocator(&posVector, sensorListPosAllocator);
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
+		PopulateTSPPosAllocator(&posVector, mdcListPosAllocator);
 
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
 								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
 
 	} else if (m_mdcTrajectory == 3) // TSP Solver path around apriori event locations
 	{
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
 		// Create a vector of all apriori event locations
 		// Feed to TSP Solver
 		posVector.clear();
+		mdcListPosAllocator->Dispose();
 		for (std::list<SensedEvent>::iterator it=m_events.begin(); it != m_events.end(); ++it)
 		{
 		    posVector.push_back((*it).GetCenter());
 		}
-		PopulateTSPPosAllocator(&posVector, sensorListPosAllocator);
+		PopulateTSPPosAllocator(&posVector, mdcListPosAllocator);
+
+		std::cout << posVector.size() << "\n";
+		for (int i=0; i< 25; i++) std::cout << "Pos " << i << " " << mdcListPosAllocator->GetNext() << "\n";
 
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
 								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
-	} else if (m_mdcTrajectory == 4) // TSP Solver path changed on event occurences
+	} else if (m_mdcTrajectory == 4) // The path changes on event locations
 	{
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
 		posVector.clear();
-		sensorListPosAllocator->Dispose();
+		mdcListPosAllocator->Dispose();
 		// Sensor just remains stationary until first event occurs
-		sensorListPosAllocator->Add(depot); // To be removed
-		sensorListPosAllocator->Add(center); // To be removed
-		sensorListPosAllocator->Add(sinkPos); // To be removed
+		mdcListPosAllocator->Add(depot); // To be removed
+		mdcListPosAllocator->Add(center); // To be removed
+//		mdcListPosAllocator->Add(sinkPos); // To be removed
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
 								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (sensorListPosAllocator)
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
 	}
