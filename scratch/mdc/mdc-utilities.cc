@@ -64,6 +64,16 @@ namespace ns3 {
 			return false;
 	}
 
+	Vector CleanPosVector (Vector v)
+	{
+		Vector w;
+		if (fabs(v.x) < EPSILON) w.x = 0.0;
+		if (fabs(v.y) < EPSILON) w.y = 0.0;
+		if (fabs(v.z) < EPSILON) w.z = 0.0;
+		w.z = 0.0; // we are in a 2D world here.
+		return w;
+	}
+
 	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> * inputVector, Vector refPoint)
 	{
 		std::queue<unsigned> orderSeq;
@@ -252,8 +262,9 @@ namespace ns3 {
 
 	}
 
-	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV)
+	bool RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV)
 	{
+		bool ret = false;
 		std::vector<Vector>::iterator it;
 		it = inputVector->begin();
 		for (uint32_t i=0; i < inputVector->size(); i++)
@@ -261,9 +272,13 @@ namespace ns3 {
 			if (fabs(((*it).x - refV.x)) < EPSILON)
 				if (fabs(((*it).y - refV.y)) < EPSILON)
 					if (fabs(((*it).z - refV.z)) < EPSILON)
+					{
 						inputVector->erase(inputVector->begin() + i);
+						ret = true;
+					}
 			it++;
 		}
+		return ret;
 	}
 
 	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second)

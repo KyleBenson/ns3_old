@@ -122,7 +122,7 @@ private:
   uint32_t        m_totalRx;      // Total bytes received
   TracedCallback<Ptr<const Packet>, const Address &> m_rxTrace;
 
-  bool m_waypointRouting;//TODO: We may want to set a policy explicitly and not just a boolean here
+  bool m_waypointRouting;//Used to indicate waypoint routing changes are enabled or not
   std::list<EventId> m_events;
 
   // Event Positions to be visited

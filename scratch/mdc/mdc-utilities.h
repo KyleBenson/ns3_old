@@ -47,6 +47,7 @@ namespace ns3 {
 	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
 	bool IsSameVector (Vector *aV, Vector *bV);
+	Vector CleanPosVector (Vector v);
 	std::queue<unsigned> NearestNeighborOrder (std::vector<Vector> * inputVector, Vector refPoint);
 	std::vector<Vector> ReSortInputVector (std::vector<Vector> * inputVector, std::queue<unsigned> sortSeq);
 
@@ -60,7 +61,7 @@ namespace ns3 {
 	void RecomputePosAllocator(Vector vCurrPos, Vector vDepotPos, std::vector<Vector> *inputVector, Ptr<ListPositionAllocator> listPosAllocator);
 
 	bool compare_sensedEvents (const SensedEvent& first, const SensedEvent& second);
-	void RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV);
+	bool RemoveVectorElement (std::vector<Vector> *inputVector, Vector refV);
 	void PrintEventTrace(int sourceInd, Ptr<const Packet> packet );
 
 	void AddMDCNodeToVector(Ptr<Node>  node);

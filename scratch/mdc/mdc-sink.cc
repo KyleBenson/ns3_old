@@ -21,6 +21,7 @@
  * RRAJ - Find the diffs between SocketRead and SocketAccept
  */
 #include "ns3/address.h"
+#include "ns3/boolean.h"
 #include "ns3/address-utils.h"
 #include "ns3/ipv4.h"
 #include "ns3/log.h"
@@ -67,6 +68,10 @@ MdcSink::GetTypeId (void)
                    AddressValue (),
                    MakeAddressAccessor (&MdcSink::m_sensorLocal),
                    MakeAddressChecker ())
+    .AddAttribute ("SetWayPointRouting", "This will indicate that the sink changes MDC routes on the fly.",
+ 				   BooleanValue (true),
+				   MakeBooleanAccessor (&MdcSink::m_waypointRouting),
+				   MakeBooleanChecker ())
 //    .AddAttribute ("MDC_NC_Pointer", "The pointer to the MDC Node Container.",
 //    			   PointerValue (),
 //    			   MakePointerAccessor (&MdcSink::m_allMDCNodes),
@@ -75,6 +80,7 @@ MdcSink::GetTypeId (void)
 				   MakeTraceSourceAccessor (&MdcSink::m_rxTrace))
   ;
   return tid;
+
 }
 
 MdcSink::MdcSink ()
@@ -450,6 +456,9 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 	{
 		// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
 
+		if (!m_waypointRouting) return;
+		// This is valid only when you want to optimize the route on the fly
+
 //		Ptr<MobilityModel> mdcMobility;
 		Ptr<RandomWaypointMobilityModel> mdcMobility;
 
@@ -467,8 +476,8 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 
 			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
 //			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
-			pos = mdcMobility->GetPosition();
-
+			pos = CleanPosVector(mdcMobility->GetPosition());
+			std::cout << "Current Pos = " << pos << std::endl;
 
 			// Get the position allocators if saved already
 			lpaIter = m_posAllocators.find(i);
@@ -530,10 +539,14 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 				if (it != m_AllSensedEvents.end())
 				{
 					SensedEvent se = (*it).second;
-					NS_LOG_FUNCTION ( "Pos Vector contains... " << posVector.size() << " elements \n");
-					NS_LOG_INFO ( "  Removing Event <" << it->first << "> at Vector...[ " << se.GetCenter() << " ] \n");
-					RemoveVectorElement (&posVector, se.GetCenter());
-					NS_LOG_FUNCTION ( "Pos Vector conatins... " << posVector.size() << " elements \n");
+					if (RemoveVectorElement (&posVector, se.GetCenter()))
+					{
+						NS_LOG_FUNCTION ( "Pos Vector contains... " << posVector.size() << " elements \n");
+						NS_LOG_INFO ( "  Removed Event Occurance <" << it->first << "> at Vector...[ " << se.GetCenter() << " ] \n");
+						RemoveVectorElement (&posVector, se.GetCenter());
+						NS_LOG_FUNCTION ( "Pos Vector conatins... " << posVector.size() << " elements \n");
+						ResetMobility();
+					}
 				}
 				break;
 			}

@@ -102,7 +102,7 @@
       <description>This is a config parameter where you can specify the mobility trajectory that can be applied to an MDC</description>
       <!-- Valid Values... 0-Random, 1-NearestNeighbor from center, 2-TSP, 3-AprioriEventLoc  ... -->
       <data-type>int</data-type>
-      <value>4</value>
+      <value>3</value>
    </param> 
    </startup-options>
 

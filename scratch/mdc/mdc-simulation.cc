@@ -938,9 +938,6 @@ MdcMain::SetupMobility()
 		}
 		PopulateTSPPosAllocator(&posVector, mdcListPosAllocator);
 
-		std::cout << posVector.size() << "\n";
-		for (int i=0; i< 25; i++) std::cout << "Pos " << i << " " << mdcListPosAllocator->GetNext() << "\n";
-
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
 								 ,"Pause", PointerValue (constRandomPause)
@@ -955,7 +952,7 @@ MdcMain::SetupMobility()
 		mdcListPosAllocator->Dispose();
 		// Sensor just remains stationary until first event occurs
 		mdcListPosAllocator->Add(depot); // To be removed
-		mdcListPosAllocator->Add(center); // To be removed
+//		mdcListPosAllocator->Add(center); // To be removed
 //		mdcListPosAllocator->Add(sinkPos); // To be removed
 		mobHlpr.SetPositionAllocator (randomPositionAllocator);
 		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
@@ -1033,6 +1030,12 @@ MdcMain::InstallApplications()
 	MdcSinkHelper sinkHelper;
 //	Ptr<NodeContainer> pMdcNC = &mdcNodes;
 //	sinkHelper.SetAttribute("MDC_NC_Pointer", PointerValue(&mdcNodes));
+
+	if (m_mdcTrajectory == 4)
+		sinkHelper.SetAttribute("SetWayPointRouting", BooleanValue (true));
+	else
+		sinkHelper.SetAttribute("SetWayPointRouting", BooleanValue (false));
+
 	sinkHelper.SetEventListReference(&m_events);
 	ApplicationContainer sinkApps = sinkHelper.Install (sinkNodes);
 	sinkApps.Start (Seconds (m_simStartTime));
