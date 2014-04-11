@@ -37,14 +37,78 @@
 #include <queue>
 #include <map>
 
+#include <boost/config.hpp>
+#include <iostream>
+#include <fstream>
+
+#include <boost/graph/graph_traits.hpp>
+#include <boost/graph/adjacency_list.hpp>
+#include <boost/graph/dijkstra_shortest_paths.hpp>
+#include <boost/property_map/property_map.hpp>
+
+
+
 
 #define EPSILON 0.0001
 
 namespace ns3 {
 
+	//------------------------
+	struct EdgeDataT
+	{
+		unsigned nodeFrom;
+		unsigned nodeTo;
+		double weight;
+	};
+
+	struct Vertex_infoT
+	{
+		unsigned nodeId;
+		std::string vertexName;
+	};
+
+	// These are used in the Shortest Path Computation
+	struct WayPointT
+	{
+		Vector vLoc;
+		double dETA;
+	};
+
+	struct EventStatsT
+	{
+		SensedEvent evnt;
+		double sinkDataCaptureTime;
+		double mdcDataCaptureTime;
+		double sensorDataCaptureTime;
+	};
+
+	typedef boost::adjacency_list < boost::listS, boost::vecS, boost::undirectedS,
+									Vertex_infoT, boost::property < boost::edge_weight_t, int > > GraphT;
+	typedef boost::graph_traits < GraphT >::vertex_descriptor VertexDescriptor;
+	typedef boost::graph_traits < GraphT >::edge_descriptor EdgeDescriptor;
+	typedef boost::graph_traits< GraphT >::vertex_iterator VertexIterator;
+	typedef boost::graph_traits< GraphT >::edge_iterator EdgeIterator;
+
+	typedef std::pair<int, int> Edge;
+
+	// These are the property accessors
+	typedef boost::property_map<GraphT, std::string Vertex_infoT::*>::type VertexNamePropertyMap;
+	typedef boost::property_map<GraphT, unsigned Vertex_infoT::*>::type VertexIdPropertyMap;
+	typedef boost::property_map<GraphT, boost::edge_weight_t>::type EdgeWeightPropertyMap;
+
+	// We keep track of the sensor locations here again...
+	// Ideally, we shoul dhave just one copy.
+	// We use these to compute the mobility values
+	static std::vector<Vector> x_sensorLocations;
+	static std::vector<EventStatsT> x_eventStats;
+	static std::multimap<int,std::string> x_nodeGraphMultimap;
+	static std::map<std::string, int> x_depotLocations;
+
 	static std::vector<Ptr<Node> > m_allMDCNodes; // Keeping track of all the MDC Nodes
 //	static std::map<uint32_t, SensedEvent> m_allSensedEvents; // Keeps a list of all sensed events for easy translation
 	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
+
+
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
 	bool IsSameVector (Vector *aV, Vector *bV);
 	Vector CleanPosVector (Vector v);
@@ -67,6 +131,21 @@ namespace ns3 {
 	void AddMDCNodeToVector(Ptr<Node>  node);
 	std::vector<Ptr<Node> > GetMDCNodeVector();
 
+	std::vector<Vector> ReadVertexList(const char *vertexFileName);
+	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Vector> vertexList);
+	void printTheGraph(GraphT g, const char *graphFileName);
+
+	std::vector<Vector> GetSensorPositions();
+	std::vector<EventStatsT> GetEventStats();
+	void SetSensorPositions(std::vector<Vector> senPos);
+	void StoreEventLocation(SensedEvent se);
+	void UpdateEventStats(uint32_t eventId, int statItem, double capTime);
+	void PrintEventStats();
+
+	void AddNodeToMultimap(int nodeId, std::string graphName);
+	std::vector<std::string> NodeIdToGraph(int nodeId);
+	unsigned GetSensorNodeId(Vector pos);
+	void PrintNodeGraphMultimap();
 
 } // namespace ns3
 

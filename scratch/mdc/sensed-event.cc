@@ -28,6 +28,10 @@ namespace ns3 {
   m_time = time;
 }
 
+  SensedEvent::SensedEvent ()
+{
+}
+
 uint32_t
 SensedEvent::GetEventId () const
 {

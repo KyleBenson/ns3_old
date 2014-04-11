@@ -146,7 +146,15 @@ private:
 	Ptr<UniformRandomVariable> randomPosX;
 	Ptr<UniformRandomVariable> randomPosY;
 
+	Ptr<UniformRandomVariable> randomVar;
+
 	std::list<SensedEvent> m_events;
+
+	// We keep track of the sensor locations here globally
+	//    so that we can simulate events at or close to the node ocations.
+	//    in reality not all the events occuring in a rectangular coordinate space can be picked up unless there are sensors in the vicinity
+	//    Therefore, we use this to simulate random events across these sensor node locations.
+	std::vector<Vector> m_sensorLocations;
 
 private:
 	void CreateNodes();
@@ -623,6 +631,7 @@ void
 MdcMain::Report (std::ostream &)
 {
 	NS_LOG_FUNCTION("MdcMain Report.");
+	PrintEventStats();
 }
 
 void
@@ -765,8 +774,14 @@ MdcMain::InstallInternetStack()
 void
 MdcMain::SetupEventList()
 {
-	Ptr<PositionAllocator> posAllocator;
-	posAllocator = randomPositionAllocator;
+
+	// Generate a random number which would be the index location of one of the sensor nodes.
+	int rnd;
+
+	// First populate the vector of the sensor locations...
+	m_sensorLocations = ReadVertexList("mdcSampleNodeList.txt");
+	SetSensorPositions(m_sensorLocations);
+
 
 	RandomVariable * radiusRandomVariable;
 	radiusRandomVariable = new ConstantVariable (m_eventRadius);
@@ -782,7 +797,9 @@ MdcMain::SetupEventList()
 
     for (uint32_t i = 0; i < m_nEvents; i++)
 	{
-		Vector pos = posAllocator->GetNext ();
+    	// Now use this random number and generate ids [0 - MaxSensors-1] which will coincide with the locations.
+    	rnd = rand() % m_sensorLocations.size();
+		Vector pos = m_sensorLocations[rnd];
 		double radius = radiusRandomVariable->GetValue ();
 		Time time = Seconds (eventTimeRandomVariable->GetValue ());
 
@@ -802,7 +819,10 @@ MdcMain::SetupEventList()
 	uint32_t i = 1;
 	for (std::list<SensedEvent>::iterator itr = m_events.begin (); itr != m_events.end (); itr++)
 	{
+		// This sets the value of the SensedEvent's EventId. Otherwise it is blank.
 		itr->SetEventId(i++);
+		StoreEventLocation(*itr); // Stores the value in the EventStats for further use.
+
 		std::stringstream s, csv;
 		s << "[EVENT_CREATED] Event " << itr->GetEventId() << " scheduled for Time=" << itr->GetTime().GetSeconds () << " seconds at Location=[" << itr->GetCenter() << "] with radius=" << itr->GetRadius() << std::endl;
 		csv << "EVENT_CREATED," << itr->GetEventId() << "," << itr->GetTime().GetSeconds () << "," << itr->GetCenter().x << "," << itr->GetCenter().y << "," << itr->GetCenter().z << "," << itr->GetRadius() << std::endl;
@@ -836,22 +856,17 @@ MdcMain::SetupMobility()
 
 	NS_LOG_LOGIC ("Assign the Mobility Model to the sensors.");
 	Ptr<ListPositionAllocator> sensorListPosAllocator = CreateObject<ListPositionAllocator> ();
-	Ptr<GridPositionAllocator> gridPA = CreateObject<GridPositionAllocator> ();
-	float x = std::sqrt(m_nSensors);
-	gridPA->SetAttribute("GridWidth",UintegerValue(x));
-	gridPA->SetAttribute("MinX",DoubleValue(0.0));
-	gridPA->SetAttribute("MinY",DoubleValue(0.0));
-	gridPA->SetAttribute("DeltaX",DoubleValue(m_boundaryLength/x));
-	gridPA->SetAttribute("DeltaY",DoubleValue(m_boundaryLength/x));
 
-	Vector ns3SenPos;
-	std::vector<Vector> posVector;
+	// This list would have been populated earlier.
+	std::vector<Vector> posVector = m_sensorLocations;
+	if (posVector.size() != m_nSensors)
+	{
+		std::cout << "NOTE: Number of Sensor Vertices from input file [" << posVector.size() << "] does not match the init parameter [" << m_nSensors << "].\n";
+		m_nSensors = posVector.size();
+	}
 	for (uint32_t i=0; i< m_nSensors; i++)
 	{
-		ns3SenPos = gridPA->GetNext();
-		std::cout << "Grid Sensor Position " << i << " = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
-		posVector.push_back(ns3SenPos);
-		sensorListPosAllocator->Add(ns3SenPos);
+		sensorListPosAllocator->Add(posVector.at(i));
 		// sensorListPosAllocator should have the node positions
 	}
 
@@ -860,6 +875,7 @@ MdcMain::SetupMobility()
 	mobHlpr.Install (sensorNodes);
 	// The sensors should be positioned at random now within the x y bounds.
 	// The positions are all recorded hopefully in the sensorListPosAllocator
+
 
 	std::vector<Vector> posVectorSorted;
 	std::queue<unsigned> tempOrder;
@@ -894,6 +910,7 @@ MdcMain::SetupMobility()
 		//		Populate ListPositionAllocator in NearestNeighbor order
 
 		// Get the closest sensor position
+		Vector ns3SenPos;
 		ns3SenPos = GetClosestVector(posVector, center);
 		std::cout << "Closest sensor to center = [" << ns3SenPos.x << "," << ns3SenPos.y << "," << ns3SenPos.z << "].\n";
 		tempOrder = NearestNeighborOrder (&posVector, ns3SenPos);
@@ -948,7 +965,7 @@ MdcMain::SetupMobility()
 	} else if (m_mdcTrajectory == 4) // The path changes on event locations
 	{
 		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
-		posVector.clear();
+//		posVector.clear();
 		mdcListPosAllocator->Dispose();
 		// Sensor just remains stationary until first event occurs
 		mdcListPosAllocator->Add(depot); // To be removed
@@ -961,6 +978,81 @@ MdcMain::SetupMobility()
 								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
 								 );
 		mobHlpr.Install (mdcNodes);
+	} else if (m_mdcTrajectory == 5) // The mobility model now uses the graph network
+	{
+		// Note that we are indeed hardcoding the graph network here...
+		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
+		GraphT g1, g2, g3, g4;
+
+		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_sensorLocations);
+		printTheGraph(g1, "g1.dot");
+//		PrintNodeGraphMultimap();
+
+		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_sensorLocations);
+		printTheGraph(g2, "g2.dot");
+//		PrintNodeGraphMultimap();
+
+		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_sensorLocations);
+		printTheGraph(g3, "g3.dot");
+//		PrintNodeGraphMultimap();
+
+		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_sensorLocations);
+		printTheGraph(g4, "g4.dot");
+//		PrintNodeGraphMultimap();
+
+		/* At this point in the logic, we should know the following...
+		 * - Sensor Locations
+		 * - Road network represented as a graph
+		 * - Event coordinates and the time of occurrence of the event.
+		 *
+		 * Here is what we will do...
+		 * We will use an ns2Mobility Trace input that will allow us to specify positions of a specific node at some time duration.
+		 * This trace will be computed based on the most optimal path that the node will take to reach its next destination along the road network.
+		 * We will assume that the node will stay at the last destination for now and so any reroute will be computed only from that location.
+		 *
+		 */
+
+		/*
+		 * What to implement...
+		 * Assume there will be 1 MDC per graph.
+		 * For each Graph...
+		 *   Assign the first node in the graph as the Depot location for that MDC.
+		 *
+		 * For each Event location... Note that we will assume that events occur on a node...
+		 * in other words there will be a sensor at that event location to send some data over.
+		 *   Find the subgraph to which the sensor belongs/resides in
+		 *   Add the EventLoc to the VisitList[subgraph] of the MDC(s) for that subgraph.
+		 *   This may be a logic that needs to be polished...
+		 *
+		 *   Assuming the VisitList[sg] has been updated for the subgraph. Note that the VisitList is simply a set of locations
+		 *   that the MDC is supposed to cycle through and get the data from the nodes therein.
+		 *   There must be some way to determine which location has been added.
+		 *   Now the system must determine the exact location where the NewLocation needs to be placed.
+		 *   This is based on a choice made by the program to insert the NewLocation in the VisitList that generates the least cost for the MDC.
+		 *      There are two components to the cost of the path chosen thus...
+		 *      1. Total distance traveled should be minimal
+		 *      2. The sum of the delta time (ETA - EventDetectionTime) computed should be minimized... or if the delta > EventExpirationTime, then discard the route.
+		 *      One can use a combination of the same.
+		 *   Once a final visit sequence has been specified, update the MobilityModel of the MDC(s) running in that subgraph.
+		 *
+		 *   Now to update the MobilityModel, you must convert the route into equivalent ns2MobilityTrace input.
+		 *   Then apply the mobility model.
+		 */
+
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
+		mdcListPosAllocator->Dispose();
+		// Sensor just remains stationary until first event occurs
+		mdcListPosAllocator->Add(depot); // To be set to the first node of each subgraph
+//		mdcListPosAllocator->Add(center); // To be removed
+//		mdcListPosAllocator->Add(sinkPos); // To be removed
+		mobHlpr.SetPositionAllocator (randomPositionAllocator);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
+								 );
+		mobHlpr.Install (mdcNodes);
+
 	}
 
 

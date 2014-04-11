@@ -27,6 +27,7 @@ namespace ns3 {
 class SensedEvent
 {
  public:
+  SensedEvent ();
   SensedEvent (uint32_t eventId, Vector center, double radius, Time time);
   Vector GetCenter () const;
   bool WithinEventRegion (Vector loc) const;

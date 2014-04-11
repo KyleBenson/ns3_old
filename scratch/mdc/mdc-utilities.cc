@@ -67,9 +67,9 @@ namespace ns3 {
 	Vector CleanPosVector (Vector v)
 	{
 		Vector w;
-		if (fabs(v.x) < EPSILON) w.x = 0.0;
-		if (fabs(v.y) < EPSILON) w.y = 0.0;
-		if (fabs(v.z) < EPSILON) w.z = 0.0;
+		if (fabs(v.x) < EPSILON) w.x = 0.0; else w.x=v.x;
+		if (fabs(v.y) < EPSILON) w.y = 0.0; else w.y=v.y;
+		if (fabs(v.z) < EPSILON) w.z = 0.0; else w.z=v.z;
 		w.z = 0.0; // we are in a 2D world here.
 		return w;
 	}
@@ -327,11 +327,20 @@ namespace ns3 {
 		sinkTime << "0";
 
 		if (sourceInd == 0) // print sinkTime
+		{
 			sinkTime << Simulator::Now ().GetSeconds ();
+			UpdateEventStats(eventTag.GetEventId(), sourceInd, Simulator::Now ().GetSeconds());
+		}
 		else if (sourceInd == 1) // print collectTime
+		{
 			collectTime << Simulator::Now ().GetSeconds ();
+			UpdateEventStats(eventTag.GetEventId(), sourceInd, Simulator::Now ().GetSeconds());
+		}
 		else if (sourceInd == 2) // print sensedTime
+		{
 			sensedTime << Simulator::Now ().GetSeconds ();
+			UpdateEventStats(eventTag.GetEventId(), sourceInd, Simulator::Now ().GetSeconds());
+		}
 
 		s << "[EVENT_DELAY] Event Id=<" << eventTag.GetEventId() << "> SchedTime=<" << eventTag.GetTime()
 				<< "> SensedTime=<" << sensedTime.str() << "> collectTime=<" << collectTime.str()
@@ -352,6 +361,333 @@ namespace ns3 {
 		return m_allMDCNodes;
 	}
 
+	std::vector<Vector> ReadVertexList(const char *vertexFileName)
+	{
+		std::vector<Vector> posVector;
+		std::string s;
+		unsigned count;
+		Vector v;
+		unsigned nodeId;
+		std::ifstream vertexFile(vertexFileName);
+
+		// The first few lines will be:
+		// NAME MDC SIMULATION - SAMPLE SHANTYTOWN NODELIST INPUT
+		// COMMENT Sensor Node Relative Placement in a 7 X 7 plane
+		// DIMENSION 30
+		// NODE_COORD_SECTION
+
+		while (!vertexFile.eof())
+		{
+			getline(vertexFile,s);
+			if (s.length() == 0)
+				continue;
+
+			if (	(s.compare(0, 4, "NAME") == 0) ||
+					(s.compare(0, 7, "COMMENT") == 0) ||
+					(s.compare(0, 18, "NODE_COORD_SECTION") == 0) ||
+					(s.compare(0, 3, "EOF") == 0) )
+				std::cout << "Reading..." << s << std::endl;
+			else if ((s.compare(0, 9, "DIMENSION") == 0))
+			{
+				if (sscanf(s.c_str(),"DIMENSION %u", &count) == 1)
+					std::cout << "Expectng..." << count << " nodes." << std::endl;
+				else
+					std::cout << "... UNKNOWN DIMENSION..." << s << std::endl;
+
+				count = 0;
+			}
+			else
+			{
+				// Each node is represented as:
+				// 1	0.75	2.5
+				// 2	1.75	2.25
+				// 3	1.75	2.75
+				// 4	2	3
+				v.x=0; v.y=0; v.z=0;
+				if (sscanf(s.c_str(),"%u %lf %lf", &nodeId, &v.x, &v.y) == 3)
+				{
+					posVector.push_back(v);
+					std::cout << "... Adding Vertex [" << nodeId << "] at [" << v << "]." << std::endl;
+				}
+				else
+					std::cout << "... No Vertex info found in.." << s << std::endl;
+
+				count++;
+			}
+
+
+		}
+		std::cout << "Recorded..." << count << " nodes." << std::endl;
+
+		return posVector;
+	}
+
+	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Vector> vertexList)
+	{
+		std::vector<EdgeDataT> edgeList;
+		std::string s;
+		unsigned count;
+		EdgeDataT eDat;
+
+		std::ifstream edgeFile(edgeFileName);
+
+		/* The first few lines will be:
+		 * NAME MDC SIMULATION - SAMPLE SHANTYTOWN EDGELIST INPUT
+		 * COMMENT Undirectoed EdgeLists and weight by Subgraph
+		 * DIMENSION 69
+		 * EDGE_LIST_SECTION
+		 * A1	A2	g1	258
+		 * A2	A3	g1	125
+		 * A3	A4	g1	88
+		 * A4	A5	g1	280
+		 */
+		while (!edgeFile.eof())
+		{
+			getline(edgeFile,s);
+			if (s.length() == 0)
+				continue;
+
+			if (	(s.compare(0, 4, "NAME") == 0) ||
+					(s.compare(0, 7, "COMMENT") == 0) ||
+					(s.compare(0, 17, "EDGE_LIST_SECTION") == 0) ||
+					(s.compare(0, 3, "EOF") == 0) )
+				std::cout << "Reading..." << s << std::endl;
+			else if ((s.compare(0, 5, "DEPOT") == 0))
+			{
+				char s1[10], s2[10];
+
+				if (sscanf(s.c_str(),"%s %s", s1, s2) == 2)
+				{
+					if (strcmp(s2,graphName) == 0)
+					{
+						s1[0]=' ';
+						int nodeId = std::atoi(s1) -1;
+						std::cout << "Depot Location for Graph " << s1 << " set to Node " << nodeId << ".\n";
+
+						// Store the depot location of this graph
+						x_depotLocations.insert(std::pair<std::string, int>(s1, nodeId));
+					}
+					else
+						std::cout << "... Skipping entry [" << s << "]." << std::endl;
+				}
+				else
+					std::cout << "... UNKNOWN DEPOT CONFIGURATION..." << s << std::endl;
+			}
+			else if ((s.compare(0, 9, "DIMENSION") == 0))
+			{
+				if (sscanf(s.c_str(),"DIMENSION %u", &count) == 1)
+					std::cout << "Expectng..." << count << " edges." << std::endl;
+				else
+					std::cout << "... UNKNOWN DIMENSION..." << s << std::endl;
+
+				count = 0;
+			}
+			else
+			{
+				/* Each edge is represented as:
+				 * A1	A2	g1	258
+				 * A2	A3	g1	125
+				 * A3	A4	g1	88
+				 * A4	A5	g1	280
+				 */
+
+				char s1[10], s2[10], s3[10];
+				double wt;
+
+				if (sscanf(s.c_str(),"%s %s %s %lf", s1, s2, s3, &wt) == 4)
+				{
+					if (strcmp(s3,graphName) ==0)
+					{
+						s1[0]=' ';
+						s2[0]=' ';
+						eDat.nodeFrom = std::atoi(s1) -1;
+						eDat.nodeTo = std::atoi(s2) -1;
+						eDat.weight = wt;
+						edgeList.push_back(eDat);
+						std::cout << "Adding edge " << eDat.nodeFrom << "<===>" << eDat.nodeTo << " with weight =" << eDat.weight << ".\n";
+						count++;
+
+						// Store the node <==> graph association
+						AddNodeToMultimap(eDat.nodeFrom, s3);
+						AddNodeToMultimap(eDat.nodeTo, s3);
+					}
+					else
+						std::cout << "... Skipping entry [" << s << "]." << std::endl;
+				}
+				else
+					std::cout << "... Edge Info Not found in.." << s << std::endl;
+			}
+		}
+		std::cout << "Recorded..." << count << " nodes." << std::endl;
+
+
+		Edge edge_array[count];
+		double weights[count];
+		for (unsigned i=0; i<count; i++)
+		{
+			edge_array[i] = Edge(edgeList.at(i).nodeFrom, edgeList.at(i).nodeTo);
+			weights[i] = edgeList.at(i).weight;
+		}
+		int num_arcs = sizeof(edge_array) / sizeof(Edge);
+		int num_nodes = vertexList.size();
+
+		GraphT g(edge_array, edge_array + num_arcs, weights, num_nodes);
+
+		VertexNamePropertyMap vertexName = boost::get(&Vertex_infoT::vertexName, g);
+		VertexIdPropertyMap vertexId = boost::get(&Vertex_infoT::nodeId, g);
+		VertexDescriptor vd;
+		for (int i=0; i<num_nodes; i++)
+		{
+			vd = vertex(i,g);
+			vertexId[vd] = i;
+//			vertexName[vd] = "A";
+//			vertexName[vd] += (i+1);
+			char buf[20];
+			std::sprintf(buf, "A%d", (i+1));
+			vertexName[vd] = buf;
+		}
+
+		return g;
+	}
+
+	void printTheGraph(GraphT g, const char *graphFileName)
+	{
+
+		// This code snippet simply creates a visualization of the shortest path.
+		EdgeWeightPropertyMap weightMap = boost::get(boost::edge_weight, g);
+		VertexNamePropertyMap vertexName = boost::get(&Vertex_infoT::vertexName, g);
+		//std::ofstream dot_file("figs/dijkstra-eg.dot");
+		std::ofstream dot_file(graphFileName, std::ofstream::out);
+
+		dot_file << "digraph D {\n"
+		<< "  rankdir=LR\n"
+		<< "  size=\"4,3\"\n"
+		<< "  ratio=\"fill\"\n"
+		<< "  edge[style=\"bold\"]\n" << "  node[shape=\"circle\"]\n";
+
+		EdgeDescriptor e;
+		VertexDescriptor u, v;
+		EdgeIterator ei, ei_end;
+		for (boost::tie(ei, ei_end) = edges(g); ei != ei_end; ++ei)
+		{
+			e = *ei;
+			u = source(e, g), v = target(e, g);
+			//dot_file
+			dot_file << vertexName[u] << " -> " << vertexName[v]
+			  << "[label=\"" << get(weightMap, e) << "\"" ;
+
+			// Use this snippet below to show the shortest path... comment the hard code to black below.
+			dot_file << ", color=\"black\"";
+			//		if (p[v] == u)
+			//			dot_file << ", color=\"black\"";
+			//		else
+			//			dot_file << ", color=\"grey\"";
+			dot_file << "]" << std::endl;
+		}
+		dot_file << "}" << std::endl;
+
+	}
+
+	std::vector<Vector> GetSensorPositions()
+	{
+		return x_sensorLocations;
+	}
+	std::vector<EventStatsT> GetEventStats()
+	{
+		return x_eventStats;
+	}
+
+	void SetSensorPositions(std::vector<Vector> senPos)
+	{
+		x_sensorLocations = senPos;
+	}
+
+	void StoreEventLocation(SensedEvent se)
+	{
+		EventStatsT es;
+		es.evnt = se;
+		es.sinkDataCaptureTime=0;
+		es.mdcDataCaptureTime=0;
+		es.sensorDataCaptureTime=0;
+		x_eventStats.push_back(es);
+	}
+
+	void UpdateEventStats(uint32_t eventId, int statItem, double capTime)
+	{
+		// See the values sent by PrintEventTrace
+		// Note that eventId starts from 1 for readability...
+		if ((x_eventStats[eventId-1].sinkDataCaptureTime == 0) && (statItem == 0))
+			x_eventStats[eventId-1].sinkDataCaptureTime = capTime;
+		else if ((x_eventStats[eventId-1].mdcDataCaptureTime == 0) && (statItem == 1))
+			x_eventStats[eventId-1].mdcDataCaptureTime = capTime;
+		else if ((x_eventStats[eventId-1].sensorDataCaptureTime == 0) && (statItem == 2))
+			x_eventStats[eventId-1].sensorDataCaptureTime = capTime;
+	}
+
+	void PrintEventStats()
+	{
+		std::cout << "Event Data Capture Statistics....Begin" << std::endl;
+		for(size_t i=0; i<x_eventStats.size(); i++)
+		{
+			std::cout << "Id: " << x_eventStats[i].evnt.GetEventId() <<
+					" Location: " << x_eventStats[i].evnt.GetCenter() <<
+					" EventTime: " << x_eventStats[i].evnt.GetTime().GetSeconds() <<
+					" SensedTime: " << x_eventStats[i].sensorDataCaptureTime <<
+					" CollectedTime: " << x_eventStats[i].mdcDataCaptureTime <<
+					" SinkTime: " << x_eventStats[i].sinkDataCaptureTime <<
+					std::endl;
+		}
+		std::cout << "Event Data Capture Statistics....End" << std::endl;
+
+	}
+
+	void AddNodeToMultimap(int nodeId, std::string graphName)
+	{
+		bool found = false;
+
+	    std::pair <std::multimap<int,std::string>::iterator, std::multimap<int,std::string>::iterator> rangeKeys;
+	    rangeKeys = x_nodeGraphMultimap.equal_range(nodeId);
+	    for (std::multimap<int,std::string>::iterator it=rangeKeys.first; it!=rangeKeys.second; ++it)
+	    {
+	    	if (graphName.compare(it->second)==0)
+	    	{
+	    		found = true;
+	    		break;
+	    	}
+	    }
+	    if (!found)
+	    	x_nodeGraphMultimap.insert(std::pair<int,std::string>(nodeId, graphName));
+	}
+
+	std::vector<std::string> NodeIdToGraph(int nodeId)
+	{
+		std::vector<std::string> gNames;
+	    std::pair <std::multimap<int,std::string>::iterator, std::multimap<int,std::string>::iterator> rangeKeys;
+	    rangeKeys = x_nodeGraphMultimap.equal_range(nodeId);
+
+	    for (std::multimap<int,std::string>::iterator it=rangeKeys.first; it!=rangeKeys.second; ++it)
+	    	gNames.push_back(it->second);
+
+	    return gNames;
+	}
+
+	unsigned GetSensorNodeId(Vector pos)
+	{
+		for (unsigned i=0; i< x_sensorLocations.size(); i++)
+		{
+			if (IsSameVector(&x_sensorLocations[i],&pos))
+				return i;
+		}
+		return -1;
+	}
+
+	void PrintNodeGraphMultimap()
+	{
+		std::cout << "Multimap has " << x_nodeGraphMultimap.size() << " entries.\n";
+	    for (std::multimap<int,std::string>::iterator it=x_nodeGraphMultimap.begin(); it!=x_nodeGraphMultimap.end(); ++it)
+		       std::cout << (*it).first << " => " << (*it).second << '\n';
+		std::cout << "End of multimap entries.\n";
+	}
 
 
 } // namespace ns3 

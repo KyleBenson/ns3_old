@@ -471,13 +471,15 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 
 			Vector pos;
 			pN = vNodes.at(i);
+//			mdcMobility = pN->GetObject <MobilityModel> ();
 			mdcMobility = DynamicCast <RandomWaypointMobilityModel> (pN->GetObject <RandomWaypointMobilityModel> ());
-//			mdcMobility = pN->GetObject <RandomWaypointMobilityModel> ();
+			//mdcMobility = pN->GetObject <RandomWaypointMobilityModel> ();
 
 			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
 //			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
+//			std::cout << "Current Pos(pre-clean) = " << pos << std::endl;
 			pos = CleanPosVector(mdcMobility->GetPosition());
-			std::cout << "Current Pos = " << pos << std::endl;
+			std::cout << "Current Pos = [" << pos << "] at " << Simulator::Now ().GetSeconds () << std::endl;
 
 			// Get the position allocators if saved already
 			lpaIter = m_posAllocators.find(i);
