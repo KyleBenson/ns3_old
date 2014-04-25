@@ -11,7 +11,7 @@
       <name>mdc.MDCs</name>
       <description>Number of Mobile Data Collectors</description>
       <data-type>int</data-type>
-      <value>1</value>
+      <value>4</value>
    </param> 
    <param> 
       <name>mdc.Events</name>

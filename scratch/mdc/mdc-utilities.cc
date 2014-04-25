@@ -794,6 +794,85 @@ namespace ns3 {
 		}
 	}
 
+	void CreateNS2TraceFromWaypointVector(uint32_t mdcNodeId, std::string graphName, const char *ns2TraceFileName, const std::ofstream::openmode openmode)
+	{
+		std::vector<WayPointT> v;
+		std::map<std::string, std::vector<WayPointT> >::iterator it = x_WPVectorMap.find(graphName);
+
+		GraphT g = GetGraph(graphName);
+		std::vector<VertexDescriptor> predVector(num_vertices(g));
+		std::vector<int> distVector(num_vertices(g));
+//		VertexDescriptor src;
+//		VertexDescriptor dest;
+		std::vector<VertexDescriptor> segmentPath;
+
+		std::ofstream ns2Trcfile(ns2TraceFileName, openmode);
+
+		if (it == x_WPVectorMap.end())
+		{
+			std::cout << "ERROR... Waypoint Vector Not available... NULL returned\n";
+		}
+		else
+		{
+			/*
+			 * The ns2 trace file format goes something like this...
+			 *  $node_(0) set X_ 329.82427591159615
+				$node_(0) set Y_ 66.06016140869389
+				$ns_ at 91.87745989691848 "$node_(0) setdest 378.37542668840655 45.5928630482057 0.0"
+				$ns_ at 219.47118355124258 "$node_(0) setdest 286.6872580249029 142.51631507750932 0.0"
+				$ns_ at 352.52885253886916 "$node_(0) setdest 246.3202938897401 107.57197005511536 0.0"
+				$ns_ at 579.1889287677668 "$node_(0) setdest 27.380316338943658 186.9421090132031 0.0"
+				$ns_ at 874.8806114578338 "$node_(0) setdest 241.0193442850251 42.45159418309071 0.0"
+
+				$ns at $time $node setdest \<x2\> \<y2\> \<speed\>
+				At $time sec, the node would start moving from its initial position of (x1,y1) towards a destination (x2,y2) at the defined speed.
+
+			 *
+			 */
+/*
+*/
+			Vector mdcLoc = GetDepotPosition(graphName);
+			ns2Trcfile << "$node_(" << mdcNodeId << ") set X_ " << mdcLoc.x << std::endl;
+			ns2Trcfile << "$node_(" << mdcNodeId << ") set Y_ " << mdcLoc.y << std::endl;
+
+			std::vector<WayPointT> wpVec = it->second;
+			for (int i=0; i<(int)wpVec.size(); i++)
+			{
+				ns2Trcfile << "$ns_ at " << wpVec[i].dETA << " \"$node_(" <<
+						mdcNodeId << ") setdest "
+						<< wpVec[i].vLoc.x << " "
+						<< wpVec[i].vLoc.y << " "
+						<< " 1.0"    // This is the speed
+						<< "\""
+						<< std::endl;
+
+				/* This somehow failed to move the nodes properly
+				ns2Trcfile << "$ns at " << wpVec[i].dETA << " " <<
+						mdcNodeId << " setdest "
+						<< wpVec[i].vLoc.x << " "
+						<< wpVec[i].vLoc.y << " "
+						<< " 5.0"    // This is the speed
+						<< " "
+						<< std::endl;
+						*/
+
+
+
+//				if (i>0)
+//				{
+//					src = vertex(GetSensorNodeId(wpVec[i-1].vLoc),g);
+//					dest = vertex(GetSensorNodeId(wpVec[i].vLoc),g);
+//					distVector = GetShortestPathsFromSource(g, src, &predVector);
+//					segmentPath = GetShortestPathBetweenVertices(g, predVector, src, dest);
+//				}
+
+			}
+//			std::cout << "Waypoint Vector for " << graphName << " has "<< wpVec.size() << " entries." << std::endl;
+
+		}
+	}
+
+
 	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec)
 	{
 		std::map<std::string, std::vector<WayPointT> >::iterator it = x_WPVectorMap.find(graphName);

@@ -145,6 +145,7 @@ namespace ns3 {
 	Vector GetDepotPosition(std::string graphName);
 	std::vector<WayPointT> GetWaypointVector(std::string graphName);
 	void PrintWaypointVector(std::string graphName);
+	void CreateNS2TraceFromWaypointVector(uint32_t mdcNodeId, std::string graphName, const char *ns2TraceFileName, const std::ofstream::openmode openmode);
 	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec);
 	void AddGraph(std::string graphName, GraphT g);
 	GraphT GetGraph(std::string graphName);

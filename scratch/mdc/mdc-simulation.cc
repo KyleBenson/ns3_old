@@ -1011,6 +1011,11 @@ MdcMain::SetupMobility()
 		PrintWaypointVector("g2");
 		PrintWaypointVector("g3");
 		PrintWaypointVector("g4");
+		const char* traceFile = "mdcNS2TraceFile.txt";
+		CreateNS2TraceFromWaypointVector(0, "g1", traceFile, std::ofstream::out);
+		CreateNS2TraceFromWaypointVector(0, "g2", traceFile, std::ofstream::app);
+		CreateNS2TraceFromWaypointVector(0, "g3", traceFile, std::ofstream::app);
+		CreateNS2TraceFromWaypointVector(0, "g4", traceFile, std::ofstream::app);
 		// At the end of this, all the graphs will have their Waypoint vectors set and we can technically generate a static mobility model.
 
 		// Generate the ns2TraceFile
@@ -1053,29 +1058,32 @@ MdcMain::SetupMobility()
 		 *   Now to update the MobilityModel, you must convert the route into equivalent ns2MobilityTrace input.
 		 *   Then apply the mobility model.
 		 */
-
 		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
 		mdcListPosAllocator->Dispose();
-		// Sensor just remains stationary until first event occurs
-		mdcListPosAllocator->Add(depot); // To be set to the first node of each subgraph
-//		mdcListPosAllocator->Add(center); // To be removed
-//		mdcListPosAllocator->Add(sinkPos); // To be removed
-		mobHlpr.SetPositionAllocator (randomPositionAllocator);
-		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
-								 ,"Pause", PointerValue (constRandomPause)
-								 ,"Speed", PointerValue (constRandomSpeed)
-								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
-								 );
+		mdcListPosAllocator->Add(center);
+		mobHlpr.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
+		mobHlpr.SetPositionAllocator (mdcListPosAllocator);
 		mobHlpr.Install (mdcNodes);
 
+		Ns2MobilityHelper ns2mobHlpr = Ns2MobilityHelper (traceFile);
+		ns2mobHlpr.Install();
 	}
 
 
 	// Now position all the MDCs in the center of the grid. This is the INITIAL position.
-	for (NodeContainer::Iterator it = mdcNodes.Begin ();
-	it != mdcNodes.End (); it++)
+	std::string gName;
+	int gid = 1;
+	Vector v;
+	for (NodeContainer::Iterator it = mdcNodes.Begin ();it != mdcNodes.End (); it++)
 	{
-		(*it)->GetObject<MobilityModel>()->SetPosition (center);
+		if (gid==1) gName="g1";
+		else if (gid==2) gName="g2";
+		else if (gid==3) gName="g3";
+		else if (gid==4) gName="g4";
+		gid++;
+		v = GetDepotPosition(gName);
+std::cout << gName << " " << v << std::endl;
+		(*it)->GetObject<MobilityModel>()->SetPosition (v);
 	}
 
 }
