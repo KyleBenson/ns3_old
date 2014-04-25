@@ -53,8 +53,8 @@ namespace ns3 {
 	{
 		if (aV == bV)
 			return true;
-		else
-			return false;
+//		else
+//			return false;
 
 		if ((fabs((aV->x - bV->x)) < EPSILON) &&
 			(fabs((aV->y - bV->y)) < EPSILON) &&
@@ -141,6 +141,9 @@ namespace ns3 {
 	{
 		return m_mdcoutputStream;
 	}
+
+	void SetMDCVelocity (double vel) {} //TODO:
+	double GetMDCVelocity () { return 100.0;} //TODO:
 
 
 	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s)
@@ -456,12 +459,12 @@ namespace ns3 {
 			{
 				char s1[10], s2[10];
 
-				if (sscanf(s.c_str(),"%s %s", s1, s2) == 2)
+				if (sscanf(s.c_str(),"DEPOT %s %s", s1, s2) == 2)
 				{
-					if (strcmp(s2,graphName) == 0)
+					if (strcmp(s1,graphName) == 0)
 					{
-						s1[0]=' ';
-						int nodeId = std::atoi(s1) -1;
+						s2[0]=' ';
+						int nodeId = std::atoi(s2) -1;
 						std::cout << "Depot Location for Graph " << s1 << " set to Node " << nodeId << ".\n";
 
 						// Store the depot location of this graph
@@ -512,10 +515,14 @@ namespace ns3 {
 						AddNodeToMultimap(eDat.nodeTo, s3);
 					}
 					else
-						std::cout << "... Skipping entry [" << s << "]." << std::endl;
+					{
+						//std::cout << "... Skipping entry [" << s << "]." << std::endl;
+					}
 				}
 				else
-					std::cout << "... Edge Info Not found in.." << s << std::endl;
+				{
+					//std::cout << "... Edge Info Not found in.." << s << std::endl;
+				}
 			}
 		}
 		std::cout << "Recorded..." << count << " nodes." << std::endl;
@@ -643,6 +650,8 @@ namespace ns3 {
 
 	void AddNodeToMultimap(int nodeId, std::string graphName)
 	{
+		// As a node is added to the graph, this method is called so that we keep track of it in a separate structure outside the graph itself.
+		// In reality, i am sure there may be many different ways to achieve this but this is one naive way.
 		bool found = false;
 
 	    std::pair <std::multimap<int,std::string>::iterator, std::multimap<int,std::string>::iterator> rangeKeys;
@@ -661,6 +670,8 @@ namespace ns3 {
 
 	std::vector<std::string> NodeIdToGraph(int nodeId)
 	{
+		// This translates the NodeId to a graph or set of graphs
+		// Useful if you want to change the route of multiple MDCs running on different trajectories.
 		std::vector<std::string> gNames;
 	    std::pair <std::multimap<int,std::string>::iterator, std::multimap<int,std::string>::iterator> rangeKeys;
 	    rangeKeys = x_nodeGraphMultimap.equal_range(nodeId);
@@ -671,8 +682,9 @@ namespace ns3 {
 	    return gNames;
 	}
 
-	unsigned GetSensorNodeId(Vector pos)
+	int GetSensorNodeId(Vector pos)
 	{
+		// TODO: Obviously not very efficient... Will take O(n) time
 		for (unsigned i=0; i< x_sensorLocations.size(); i++)
 		{
 			if (IsSameVector(&x_sensorLocations[i],&pos))
@@ -683,11 +695,430 @@ namespace ns3 {
 
 	void PrintNodeGraphMultimap()
 	{
+		// Use for debugging purposes only.
 		std::cout << "Multimap has " << x_nodeGraphMultimap.size() << " entries.\n";
 	    for (std::multimap<int,std::string>::iterator it=x_nodeGraphMultimap.begin(); it!=x_nodeGraphMultimap.end(); ++it)
 		       std::cout << (*it).first << " => " << (*it).second << '\n';
 		std::cout << "End of multimap entries.\n";
 	}
 
+	// This is a utility function that will be needed
+	Vector GetDepotPosition(std::string graphName)
+	{
+		Vector v;
+		v.x=0; v.y=0; v.z=0;
+		std::map<std::string, int>::iterator it = x_depotLocations.find(graphName);
+		if (it == x_depotLocations.end())
+		{
+			std::cout << "ERROR... Depot Location Not available... Assuming [0,0,0]\n";
+			return v;
+		}
+		else
+		{
+			if (it->second < (int)x_sensorLocations.size()) // Just trying to prevent chances of core dumps
+				return (x_sensorLocations[it->second]);
+			else
+				return v;
+		}
 
-} // namespace ns3 
+	}
+
+	std::vector<WayPointT> GetWaypointVector(std::string graphName)
+	{
+		std::vector<WayPointT> v;
+		std::map<std::string, std::vector<WayPointT> >::iterator it = x_WPVectorMap.find(graphName);
+		if (it == x_WPVectorMap.end())
+		{
+			std::cout << "ERROR... Waypoint Vector Not available... NULL returned\n";
+			return (v);
+		}
+		else
+		{
+			// Make sure that the WP Vector has atleast the depot. The starting place for the MDC.
+			if (it->second.size()==0)
+			{
+				// This will get executed only once per initialization/graph
+				WayPointT depotPoint;
+				depotPoint.dDistance = 0.0;
+				depotPoint.dETA = 0.0;
+				depotPoint.dEventTime = 0.0;
+				depotPoint.vLoc = GetDepotPosition(graphName);
+				it->second.push_back(depotPoint);
+			}
+
+			//std::cout << "Waypoint Vector contains ..." << it->second.size() << " entries\n";
+			return (it->second);
+		}
+
+	}
+
+	void PrintWaypointVector(std::string graphName)
+	{
+		std::vector<WayPointT> v;
+		std::map<std::string, std::vector<WayPointT> >::iterator it = x_WPVectorMap.find(graphName);
+
+		GraphT g = GetGraph(graphName);
+		std::vector<VertexDescriptor> predVector(num_vertices(g));
+		std::vector<int> distVector(num_vertices(g));
+		VertexDescriptor src;
+		VertexDescriptor dest;
+		std::vector<VertexDescriptor> segmentPath;
+
+		if (it == x_WPVectorMap.end())
+		{
+			std::cout << "ERROR... Waypoint Vector Not available... NULL returned\n";
+		}
+		else
+		{
+			std::cout << "\nPRINTING Waypoint Vector : " << graphName << std::endl;
+			std::vector<WayPointT> wpVec = it->second;
+			for (int i=0; i<(int)wpVec.size(); i++)
+			{
+				std::cout << " EventTime=" << wpVec[i].dEventTime
+						<< " Location=" << wpVec[i].vLoc
+						<< " Distance=" << wpVec[i].dDistance
+						<< " ETA=" << wpVec[i].dETA
+						<< std::endl;
+
+				if (i>0)
+				{
+					src = vertex(GetSensorNodeId(wpVec[i-1].vLoc),g);
+					dest = vertex(GetSensorNodeId(wpVec[i].vLoc),g);
+					distVector = GetShortestPathsFromSource(g, src, &predVector);
+					segmentPath = GetShortestPathBetweenVertices(g, predVector, src, dest);
+				}
+
+			}
+			std::cout << "Waypoint Vector for " << graphName << " has "<< wpVec.size() << " entries." << std::endl;
+
+		}
+	}
+
+	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec)
+	{
+		std::map<std::string, std::vector<WayPointT> >::iterator it = x_WPVectorMap.find(graphName);
+		if (it == x_WPVectorMap.end())
+		{
+			std::cout << "ERROR... Waypoint Vector Not available... NULL returned\n";
+			x_WPVectorMap.insert(std::pair<std::string, std::vector<WayPointT> >(graphName, newWPVec) );
+		}
+		else
+		{
+			it->second = newWPVec;
+			//std::cout << "Waypoint Vector contains ..." << it->second.size() << " entries\n";
+		}
+	}
+
+	void AddGraph(std::string graphName, GraphT g)
+	{
+    	x_GraphMap.insert(std::pair<std::string, GraphT>(graphName, g));
+
+    	// If you are adding a new graph entry then make sure you add a new entry for the Waypoint vector for the graph
+    	std::vector<WayPointT> newWPVec;
+		x_WPVectorMap.insert(std::pair<std::string, std::vector<WayPointT> >(graphName, newWPVec) );
+	}
+
+	GraphT GetGraph(std::string graphName)
+	{
+		GraphT g;
+		std::map<std::string, GraphT >::iterator it = x_GraphMap.find(graphName);
+		if (it == x_GraphMap.end())
+		{
+			std::cout << "ERROR... Graph Object Not available... NULL returned\n";
+			return (g);
+		}
+		else
+		{
+			return (it->second);
+		}
+	}
+
+	// newPoint will be added 'after' insertLoc position (0-based)
+	std::vector<WayPointT> CreateNewWaypointVector(std::string graphName, int insertLoc, WayPointT newPoint)
+	{
+		// Start with the Waypoint vector saved already.
+		std::vector<WayPointT> prevWPVector = GetWaypointVector(graphName);
+		std::vector<WayPointT> newWPVector;
+
+		// Fetch the graph object where this new waypoint should be evaluated
+		GraphT g = GetGraph(graphName);
+
+		// First copy all the waypoints until and incl the insertLoc into a new WP Vector.
+		for (int i=0; i<(int)prevWPVector.size(); i++)
+		{
+			newWPVector.push_back(prevWPVector[i]);
+			if (i==insertLoc) break;
+		}
+
+		int newNodeId = GetSensorNodeId(newPoint.vLoc);
+		if (newNodeId == -1)
+		{
+			std::cout << "ERROR... Unable to insert waypoint... " << newPoint.vLoc << std::endl;
+		}
+		else
+		{
+			WayPointT wp;
+			// Add the node into the New WP Vector and evaluate the route from insertLoc --> newNodeLoc
+
+			// This is the NodeId of the node after which the new Node will be added
+			int insertLocNodeId = GetSensorNodeId(prevWPVector[insertLoc].vLoc);
+
+			VertexDescriptor src = vertex(insertLocNodeId, g);
+			VertexDescriptor dest = vertex(newNodeId, g);
+
+			// This will be a collection of the predecessors on the shortest path in the graph.
+			// Note that this needs to be passed as ref so that the shortest path algo can write to it
+			std::vector<VertexDescriptor> predVector(num_vertices(g));
+
+			// This is a collecton that gets populated to get the distances
+			// from the source identified to each of the other vertices on the shortest path
+			std::vector<int> distVector(num_vertices(g));
+			// First Run the Dijkstra's Shortest path algorithm to populate the distance and predecessor vectors.
+			distVector = GetShortestPathsFromSource(g, src, &predVector);
+
+			// You may not need this but this gives you the actual route of the best path between src and dest
+			// getShortestPathBetweenVertices(g, predVector, src, dest);
+
+			double newLocDistance1 = GetBestCostBetweenVertices(g, distVector, src, dest);
+			// Compute the ETA
+			wp.dDistance = prevWPVector[insertLoc].dDistance + newLocDistance1;
+			wp.dEventTime = newPoint.dEventTime;
+			// The ETA will be the max(ETA of the Previous Location, CurrEventTime) + Time to travel to the new location
+			wp.dETA = ((wp.dEventTime > prevWPVector[insertLoc].dETA) ? wp.dEventTime : prevWPVector[insertLoc].dETA)  + newLocDistance1/GetMDCVelocity(); // Really assuming the velocity is the same all along the route
+			wp.vLoc = newPoint.vLoc;
+			newWPVector.push_back(wp);
+
+			// If the insertLoc is after the last way point, then you are done.
+			// If not, compute the root from the newLoc to that waypoint.
+			if (insertLoc+1 < (int)prevWPVector.size())
+			{
+				// Now the next step is to analyze the next leg... newLoc --> insertLoc+1
+				insertLocNodeId = GetSensorNodeId(prevWPVector[insertLoc+1].vLoc);
+
+				src = vertex(newNodeId, g);
+				dest = vertex(insertLocNodeId, g);
+
+				// Run the Dijkstra's Shortest path algorithm again and populate the distance and predecessor vectors.
+				distVector = GetShortestPathsFromSource(g, src, &predVector);
+
+				// You may not need this but this gives you the actual route of the best path between src and dest
+				// getShortestPathBetweenVertices(g, predVector, src, dest);
+
+				double newLocDistance2 = GetBestCostBetweenVertices(g, distVector, src, dest);
+				// Compute the ETA
+				wp.dDistance = prevWPVector[insertLoc+1].dDistance + newLocDistance2;
+				wp.dEventTime = prevWPVector[insertLoc+1].dEventTime;
+				// ETA is based on ETA on the previous node
+				wp.dETA = ((wp.dEventTime > newWPVector[insertLoc].dETA) ? wp.dEventTime : newWPVector[insertLoc].dETA )  + newLocDistance2/GetMDCVelocity(); // Again assuming uniform velocity
+				wp.vLoc = prevWPVector[insertLoc+1].vLoc;
+				newWPVector.push_back(wp); // This will mean the vector will have isertLoc+2 entries
+
+				// At this point, you have handled... prevWPVector[insertLoc+1]
+				//     and newWPVector[insertLoc+2] <-- Because we added the newLoc just now.
+
+
+				// If there are any more waypoints, you need to handle them one by one...
+				// ... starting with prevWPVector[insertLoc+2] in the newWPVector[insertLoc+3]
+				// We will need to compute the shortest path from the previous to the next
+				// Note that the overall distance and ETA will increase as we have added a waypoint.
+				for (int i=insertLoc+2; i<(int)prevWPVector.size(); i++) // essentially perform this for all remaining vertices...
+				{
+					src = vertex(GetSensorNodeId(prevWPVector[i-1].vLoc), g);
+					dest = vertex(GetSensorNodeId(prevWPVector[i].vLoc), g);
+					// Run the Dijkstra's Shortest path algorithm again and populate the distance and predecessor vectors.
+					distVector = GetShortestPathsFromSource(g, src, &predVector);
+					double newLocDistance = GetBestCostBetweenVertices(g, distVector, src, dest);
+					// Compute the ETA
+					wp.dDistance = prevWPVector[i].dDistance + newLocDistance;
+					wp.vLoc = prevWPVector[i].vLoc;
+					wp.dEventTime = prevWPVector[i].dEventTime;
+					wp.dETA = ((wp.dEventTime > newWPVector[i+1].dETA) ? wp.dEventTime : newWPVector[i+1].dETA ) + newLocDistance/GetMDCVelocity(); // Again assuming uniform velocity
+					newWPVector.push_back(wp); // This will mean the vector will have isertLoc+2 entries
+				}
+			} // now you handled all locations after the insertLoc and considered other maypoints after that
+
+			// If the last waypoint is not the Depot, then you want to add that step as the MDCs, when idle are at the depot
+			Vector vDep = GetDepotPosition(graphName);
+			if (IsSameVector(&(newWPVector[newWPVector.size()-1].vLoc), &vDep))
+			{
+				// Do nothing
+			}
+			else
+			{
+				uint32_t lst = newWPVector.size()-1;
+				src = vertex(GetSensorNodeId(newWPVector[lst].vLoc), g);
+				dest = vertex(GetSensorNodeId(vDep), g);
+				// Run the Dijkstra's Shortest path algorithm again and populate the distance and predecessor vectors.
+				distVector = GetShortestPathsFromSource(g, src, &predVector);
+				double newDepotDistance = GetBestCostBetweenVertices(g, distVector, src, dest);
+				// Compute the ETA
+				wp.dDistance = newWPVector[lst].dDistance + newDepotDistance;
+				wp.vLoc = vDep;
+				wp.dEventTime = newWPVector[lst].dEventTime;
+				wp.dETA = ((wp.dEventTime > newWPVector[lst].dETA) ? wp.dEventTime : newWPVector[lst].dETA ) + newDepotDistance/GetMDCVelocity(); // Again assuming uniform velocity
+				newWPVector.push_back(wp); // This will add the final depot location
+			}
+		}
+		return (newWPVector);
+	}
+
+
+	std::vector<int> GetShortestPathsFromSource(GraphT g, VertexDescriptor src, std::vector<VertexDescriptor>* predVectorPtr)
+	{
+		std::vector<int> distVector(num_vertices(g));
+		dijkstra_shortest_paths(g, src,
+							  predecessor_map(boost::make_iterator_property_map(predVectorPtr->begin(), get(boost::vertex_index, g))).
+							  distance_map(boost::make_iterator_property_map(distVector.begin(), get(boost::vertex_index, g))));
+
+		return distVector;
+
+	}
+
+	double GetBestCostBetweenVertices(GraphT g, std::vector<int> distVector, VertexDescriptor src, VertexDescriptor dest)
+	{
+		//VertexNamePropertyMap vertexNameMap = boost::get(&Vertex_infoT::vertexName, g);
+		//std::cout << "Best Cost to " << vertexNameMap[dest]  << " is " << distVector[dest] << std::endl ;
+		return distVector[dest];
+	}
+
+
+	std::vector<VertexDescriptor> GetShortestPathBetweenVertices(GraphT g, std::vector<VertexDescriptor> predVector, VertexDescriptor src, VertexDescriptor dest)
+	{
+		std::vector<VertexDescriptor> segmentPath;
+		std::vector<VertexDescriptor>::iterator spi, spEnd;
+
+		VertexNamePropertyMap vertexNameMap = boost::get(&Vertex_infoT::vertexName, g);
+
+		// You will be inserting items from the bottom here. Start with the dest. Then work your way up to the source.
+		segmentPath.insert(segmentPath.begin(), dest);
+
+		VertexDescriptor curr = dest;
+		while (curr != src)
+		{
+			curr = predVector[curr]; // Fetch the next predecessor
+			segmentPath.insert(segmentPath.begin(), curr);
+		}
+
+		// Print the shortest segment
+		std::cout << "  Shortest Path requested = ";
+		for ( size_t i = 0; i< segmentPath.size(); )
+		{
+			std::cout << vertexNameMap[segmentPath.at(i)] ;
+			if (++i< segmentPath.size())
+				std::cout << " --> ";
+			else
+				std::cout << std::endl;
+		}
+
+		return segmentPath;
+	}
+
+	void StoreEventList(std::list<SensedEvent> m_events)
+	{
+		int i = 0;
+		for (std::list<SensedEvent>::iterator it = m_events.begin(); it!=m_events.end(); ++it)
+		{
+			m_allEvents.insert(std::pair<uint32_t, SensedEvent> (i++, *it) );
+		}
+	}
+
+	// Ideally, you want to do this logic each time you get a new event.
+	// However, ns3 does not provide a way to dynamically change the path on a graph like we want.
+	// That is why we are computing the entire path upfront and running the simulation
+	void ComputeAllGraphWayPoints()
+	{
+		// Start with the m_allEvents and build the waypoint vectors one by one
+		std::map<uint32_t, SensedEvent>::iterator evIt;
+		SensedEvent currEvent;
+		for (uint32_t i=0; i<m_allEvents.size(); i++)
+		{
+			currEvent = m_allEvents[i];
+			WayPointT newWayPoint;
+			newWayPoint.dDistance = 0.0;
+			newWayPoint.dETA = 0.0;
+			newWayPoint.dEventTime = currEvent.GetTime().GetSeconds();
+			newWayPoint.vLoc = currEvent.GetCenter();
+
+			// Get the list of graphs that the node would be reachable from
+			// There can be nodes that can be on more than one graph
+			std::vector<std::string> graphStrVec = NodeIdToGraph(GetSensorNodeId(currEvent.GetCenter()));
+
+			// Repeat for each graph found...
+			// Add the newWayPoint at the best possible location in each graph
+			// Update the WayPointVector with distance and ETAs.
+			for (unsigned j=0; j<graphStrVec.size(); j++)
+			{
+				std::string graphStr = graphStrVec.at(j);
+
+				// Obtain the graph object to work with
+				GraphT g = GetGraph(graphStr);
+
+				// Get the WPVector is one exists already. If not, build one with the MDC at the Depot
+				std::vector<WayPointT> currWPVec = GetWaypointVector(graphStr);
+				int insertLoc = 0;
+				// Let us hold a reference to the best WP vector
+				std::vector<WayPointT> bestWPVec;
+				// This will be the new WP vector that will be returned.
+				std::vector<WayPointT> newWPVec;
+				// Compute the cost of this route and determine if it is the best. If so, keep a record and try the next insertLocation.
+				double bestDistance = INFINITY;
+				double newBestDistance = 0;
+
+
+				// Now you need to figure out the best position to insert the newWayPoint into the currWPVec.
+				// The insertPosition should be after the WayPoint for which the ETA is less than currEvent's sensedTime
+				// If the last Waypoint in the vector has an ETA less than the currEvent time then the Waypoint is simply added at the end of the vector.
+				insertLoc = GetInsertLocation(currWPVec, currEvent.GetTime().GetSeconds());
+
+				// Repeat these steps for each valid insertLocation within this graph.
+				// A valid insertLocation is anywhere from this point to the end after all others found so far.
+				for (;insertLoc < (int)currWPVec.size(); insertLoc++)
+				{
+					// Next obtain the New WayPoint vector with the waypoint added at a specific insert location
+					newWPVec = CreateNewWaypointVector(graphStr, insertLoc, newWayPoint);
+
+					// Compute the cost of this route and determine if it is the best. If so, keep a copy and try the next insertLocation.
+					newBestDistance = CompareWaypointVectorDistance(newWPVec, bestDistance);
+
+					if (newBestDistance < bestDistance)
+						bestWPVec = newWPVec;
+
+					// Now go and try the next InsertLocation.
+				}
+
+				// At this point, you should have tried all possible insertion points of the new node.
+				// The bestWPVec should be pointing to the WPVector that has the best possible sequence of traversing this graph.
+
+				// Replace the WPVector for this graph with the best option seen.
+				SetWaypointVector(graphStr, bestWPVec);
+			}
+			// Go back now and add this waypoint for all the graphs where the waypoint is reachable.
+
+		}
+		// Go back and add the next event location
+
+	}
+
+
+	int GetInsertLocation(std::vector<WayPointT> WPVec, double eventTime)
+	{
+		for (int i=WPVec.size()-1; i>=0; i--)
+		{
+			if (WPVec[i].dETA < eventTime)
+				return i;
+		}
+		return 0;
+	}
+
+	double CompareWaypointVectorDistance(std::vector<WayPointT> WPVec, double currLowestDistance)
+	{
+		double newLowestDistance = WPVec[WPVec.size()-1].dDistance;
+
+		if (newLowestDistance < currLowestDistance)
+			return newLowestDistance;
+		else
+			return currLowestDistance;
+	}
+
+
+} // namespace ns3

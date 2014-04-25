@@ -90,7 +90,6 @@ public:
 	/// Report results
 	void Report (std::ostream & os);
 
-
 private:
 	// This allows these parameters to be passed and and interpreted on the command line
 	uint32_t m_nSensors;
@@ -780,6 +779,7 @@ MdcMain::SetupEventList()
 
 	// First populate the vector of the sensor locations...
 	m_sensorLocations = ReadVertexList("mdcSampleNodeList.txt");
+	// We are saving all the sensor Locations in the mdc-utilities code as well.
 	SetSensorPositions(m_sensorLocations);
 
 
@@ -816,12 +816,15 @@ MdcMain::SetupEventList()
 	// Sort the events by time
 	m_events.sort(compare_sensedEvents);
 
+	// Taking the short cut here... Copy the m_events in mdc-utilities as we need that info there
+	StoreEventList(m_events);
+
 	uint32_t i = 1;
 	for (std::list<SensedEvent>::iterator itr = m_events.begin (); itr != m_events.end (); itr++)
 	{
 		// This sets the value of the SensedEvent's EventId. Otherwise it is blank.
 		itr->SetEventId(i++);
-		StoreEventLocation(*itr); // Stores the value in the EventStats for further use.
+		StoreEventLocation(*itr); // Stores the value in the mdc-utilities EventStats for further use.
 
 		std::stringstream s, csv;
 		s << "[EVENT_CREATED] Event " << itr->GetEventId() << " scheduled for Time=" << itr->GetTime().GetSeconds () << " seconds at Location=[" << itr->GetCenter() << "] with radius=" << itr->GetRadius() << std::endl;
@@ -982,23 +985,35 @@ MdcMain::SetupMobility()
 	{
 		// Note that we are indeed hardcoding the graph network here...
 		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
+		//SetMDCVelocity(100.0); // TODO: Set this value from the config file hopefully.
+		std::cout << GetMDCVelocity() << std::endl;
 		GraphT g1, g2, g3, g4;
 
 		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_sensorLocations);
 		printTheGraph(g1, "g1.dot");
-//		PrintNodeGraphMultimap();
+		AddGraph("g1", g1);
 
 		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_sensorLocations);
 		printTheGraph(g2, "g2.dot");
-//		PrintNodeGraphMultimap();
+		AddGraph("g2", g2);
 
 		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_sensorLocations);
 		printTheGraph(g3, "g3.dot");
-//		PrintNodeGraphMultimap();
+		AddGraph("g3", g3);
 
 		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_sensorLocations);
 		printTheGraph(g4, "g4.dot");
-//		PrintNodeGraphMultimap();
+		AddGraph("g4", g4);
+
+		// Now call this method in mdc-utilities that will populate all the Waypoint vectors corresponding to the event locations
+		ComputeAllGraphWayPoints();
+		PrintWaypointVector("g1");
+		PrintWaypointVector("g2");
+		PrintWaypointVector("g3");
+		PrintWaypointVector("g4");
+		// At the end of this, all the graphs will have their Waypoint vectors set and we can technically generate a static mobility model.
+
+		// Generate the ns2TraceFile
 
 		/* At this point in the logic, we should know the following...
 		 * - Sensor Locations

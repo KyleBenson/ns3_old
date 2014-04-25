@@ -67,11 +67,13 @@ namespace ns3 {
 		std::string vertexName;
 	};
 
-	// These are used in the Shortest Path Computation
+	// This structure is used in the Optimal Path Computation
 	struct WayPointT
 	{
-		Vector vLoc;
-		double dETA;
+		double dEventTime; // This is just to keep track when the waypoint was first registered.
+		Vector vLoc; // This is the coordinate vector of this waypoint
+		double dETA; // This is the expected time of arrival at this waypoint
+		double dDistance; // This is the cumulative distance traveled  upto this waypoint
 	};
 
 	struct EventStatsT
@@ -96,17 +98,6 @@ namespace ns3 {
 	typedef boost::property_map<GraphT, unsigned Vertex_infoT::*>::type VertexIdPropertyMap;
 	typedef boost::property_map<GraphT, boost::edge_weight_t>::type EdgeWeightPropertyMap;
 
-	// We keep track of the sensor locations here again...
-	// Ideally, we shoul dhave just one copy.
-	// We use these to compute the mobility values
-	static std::vector<Vector> x_sensorLocations;
-	static std::vector<EventStatsT> x_eventStats;
-	static std::multimap<int,std::string> x_nodeGraphMultimap;
-	static std::map<std::string, int> x_depotLocations;
-
-	static std::vector<Ptr<Node> > m_allMDCNodes; // Keeping track of all the MDC Nodes
-//	static std::map<uint32_t, SensedEvent> m_allSensedEvents; // Keeps a list of all sensed events for easy translation
-	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
 
 
 	Vector GetClosestVector (std::vector<Vector> posVector, Vector refPoint);
@@ -117,6 +108,11 @@ namespace ns3 {
 
 	void SetMDCOutputStream (Ptr<OutputStreamWrapper> outputStream);
 	Ptr<OutputStreamWrapper> GetMDCOutputStream (void);
+
+	// A static variable keeping track of the velocity to compute ETA
+	void SetMDCVelocity (double vel);
+	double GetMDCVelocity ();
+
 	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s);
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
 	int ExecuteSystemCommand(const char *TSPfileName);
@@ -144,8 +140,72 @@ namespace ns3 {
 
 	void AddNodeToMultimap(int nodeId, std::string graphName);
 	std::vector<std::string> NodeIdToGraph(int nodeId);
-	unsigned GetSensorNodeId(Vector pos);
+	int GetSensorNodeId(Vector pos);
 	void PrintNodeGraphMultimap();
+	Vector GetDepotPosition(std::string graphName);
+	std::vector<WayPointT> GetWaypointVector(std::string graphName);
+	void PrintWaypointVector(std::string graphName);
+	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec);
+	void AddGraph(std::string graphName, GraphT g);
+	GraphT GetGraph(std::string graphName);
+	std::vector<WayPointT> CreateNewWaypointVector(std::string graphName, int insertLoc, WayPointT newPoint);
+	std::vector<int> GetShortestPathsFromSource(GraphT g, VertexDescriptor src, std::vector<VertexDescriptor>* predVectorPtr);
+	double GetBestCostBetweenVertices(GraphT g, std::vector<int> distVector, VertexDescriptor src, VertexDescriptor dest);
+	std::vector<VertexDescriptor> GetShortestPathBetweenVertices(GraphT g, std::vector<VertexDescriptor> predVector, VertexDescriptor src, VertexDescriptor dest);
+
+	void StoreEventList(std::list<SensedEvent> m_events);
+
+	// This is the method that will create the desired waypoints for all the graphs.
+	void ComputeAllGraphWayPoints();
+
+	int GetInsertLocation(std::vector<WayPointT> WPVec, double eventTime);
+	double CompareWaypointVectorDistance(std::vector<WayPointT> WPVec, double currLowestCost);
+
+
+
+
+
+
+	//--------------------------------- STATIC VARIABLES ARE DEFINED HERE ---------------------------
+	// We keep track of the sensor locations here again...
+	// Ideally, we should have just one copy.
+	// We use these to compute the mobility values
+	static std::vector<Vector> x_sensorLocations;
+
+	// This is a structure that keeps the event data capture times in each stage
+	static std::vector<EventStatsT> x_eventStats;
+
+	// This keeps an associate between a nodeId (0-based) and a set of graphs on which it is reachable
+	// It is very useful when you need to route an MDC to this node.
+	static std::multimap<int,std::string> x_nodeGraphMultimap;
+
+	// This keeps track of the depot locations on each graph.
+	// We assume that there is just 1 depot per graph for simplicity.
+	// The depot is one of the nodes on the graph and usually a central node.
+	// The MDC will usually be stationary in the depot, ready to leave on short notice to collect data for an event.
+	static std::map<std::string, int> x_depotLocations;
+
+
+	// Map of MDC waypoint vectors indexed by graph
+	// This will let you keep a reference of a WayPoint vector for each graph
+	static std::map<std::string, std::vector<WayPointT> > x_WPVectorMap;
+
+	// Map of Graphs indexed by graphName
+	// This will let you keep a reference of a Graph object for each graphName
+	static std::map<std::string, GraphT > x_GraphMap;
+
+
+
+
+	// We keep a reference to all the ns3 objects for MDC nodes here
+	static std::vector<Ptr<Node> > m_allMDCNodes; // Keeping track of all the MDC Nodes
+	static std::map<uint32_t, SensedEvent> m_allEvents; // Keeps a list of all sensed events for easy translation
+	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
+	//--------------------------------- END OF STATIC VARIABLES ---------------------------
+
+
+
+
 
 } // namespace ns3
 
