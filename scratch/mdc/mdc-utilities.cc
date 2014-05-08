@@ -364,6 +364,7 @@ namespace ns3 {
 		return m_allMDCNodes;
 	}
 
+	/*
 	std::vector<Vector> ReadVertexList(const char *vertexFileName)
 	{
 		std::vector<Vector> posVector;
@@ -374,9 +375,9 @@ namespace ns3 {
 		std::ifstream vertexFile(vertexFileName);
 
 		// The first few lines will be:
-		// NAME MDC SIMULATION - SAMPLE SHANTYTOWN NODELIST INPUT
-		// COMMENT Sensor Node Relative Placement in a 7 X 7 plane
-		// DIMENSION 30
+		// NAME ...
+		// COMMENT ...
+		// DIMENSION ...
 		// NODE_COORD_SECTION
 
 		while (!vertexFile.eof())
@@ -401,16 +402,100 @@ namespace ns3 {
 			}
 			else
 			{
-				// Each node is represented as:
-				// 1	0.75	2.5
-				// 2	1.75	2.25
-				// 3	1.75	2.75
-				// 4	2	3
+				//
+				//	NAME MDC SIMULATION - SHANTYTOWN NODELIST INPUT
+				//	COMMENT Sensor Node Relative Placement provided by IIST
+				//	DIMENSION 11868
+				//	NODE_COORD_SECTION
+				//	1	30518346	-686.5472222223	-202.6833333332
+				//	2	30518455	-68.7583333333	216.0444444446
+				//	3	30518460	601.6888888889	681.7750000002
+				//	4	30518464	817.713888889	858.8138888891
+				//	5	213033769	757.5083333334	794.6361111114
+				// *
+				//
+				char nodeNameStr[20];
 				v.x=0; v.y=0; v.z=0;
-				if (sscanf(s.c_str(),"%u %lf %lf", &nodeId, &v.x, &v.y) == 3)
+				if (sscanf(s.c_str(),"%u %s %lf %lf", &nodeId, nodeNameStr, &v.x, &v.y) == 4)
 				{
 					posVector.push_back(v);
-					std::cout << "... Adding Vertex [" << nodeId << "] at [" << v << "]." << std::endl;
+					std::cout << "... Adding Vertex [" << nodeId << "] NodeName [" << nodeNameStr << "] at [" << v << "]." << std::endl;
+				}
+				else
+					std::cout << "... No Vertex info found in.." << s << std::endl;
+
+				count++;
+			}
+
+
+		}
+		std::cout << "Recorded..." << count << " nodes." << std::endl;
+
+		return posVector;
+	}
+	*/
+
+	std::vector<Node_infoT> ReadVertexList(const char *vertexFileName)
+	{
+		std::vector<Node_infoT> posVector;
+		std::string s;
+		unsigned count;
+		Node_infoT v;
+		unsigned nodeId;
+		std::ifstream vertexFile(vertexFileName);
+
+		// The first few lines will be:
+		// NAME ...
+		// COMMENT ...
+		// DIMENSION ...
+		// NODE_COORD_SECTION
+
+		// Clear the x_sensorPositions vector first.
+		x_sensorLocations.clear();
+
+		while (!vertexFile.eof())
+		{
+			getline(vertexFile,s);
+			if (s.length() == 0)
+				continue;
+
+			if (	(s.compare(0, 4, "NAME") == 0) ||
+					(s.compare(0, 7, "COMMENT") == 0) ||
+					(s.compare(0, 18, "NODE_COORD_SECTION") == 0) ||
+					(s.compare(0, 3, "EOF") == 0) )
+				std::cout << "Reading..." << s << std::endl;
+			else if ((s.compare(0, 9, "DIMENSION") == 0))
+			{
+				if (sscanf(s.c_str(),"DIMENSION %u", &count) == 1)
+					std::cout << "Expectng..." << count << " nodes." << std::endl;
+				else
+					std::cout << "... UNKNOWN DIMENSION..." << s << std::endl;
+
+				count = 0;
+			}
+			else
+			{
+				/*
+					NAME MDC SIMULATION - SHANTYTOWN NODELIST INPUT
+					COMMENT Sensor Node Relative Placement provided by IIST
+					DIMENSION 11868
+					NODE_COORD_SECTION
+					1	30518346	-686.5472222223	-202.6833333332
+					2	30518455	-68.7583333333	216.0444444446
+					3	30518460	601.6888888889	681.7750000002
+					4	30518464	817.713888889	858.8138888891
+					5	213033769	757.5083333334	794.6361111114
+				 *
+				 */
+				char nodeNameStr[20];
+				v.nodePos.x=0; v.nodePos.y=0; v.nodePos.z=0;
+				if (sscanf(s.c_str(),"%u %s %lf %lf", &nodeId, nodeNameStr, &v.nodePos.x, &v.nodePos.y) == 4)
+				{
+					v.nodeId = nodeId;
+					v.nodeName = nodeNameStr;
+					posVector.push_back(v);
+					x_sensorLocations.push_back(v.nodePos);
+					std::cout << "... Adding Vertex [" << v.nodeId << "] NodeName [" << v.nodeName << "] at [" << v.nodePos << "]." << std::endl;
 				}
 				else
 					std::cout << "... No Vertex info found in.." << s << std::endl;
@@ -425,7 +510,7 @@ namespace ns3 {
 		return posVector;
 	}
 
-	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Vector> vertexList)
+	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Node_infoT> vertexList)
 	{
 		std::vector<EdgeDataT> edgeList;
 		std::string s;
@@ -435,14 +520,16 @@ namespace ns3 {
 		std::ifstream edgeFile(edgeFileName);
 
 		/* The first few lines will be:
-		 * NAME MDC SIMULATION - SAMPLE SHANTYTOWN EDGELIST INPUT
-		 * COMMENT Undirectoed EdgeLists and weight by Subgraph
-		 * DIMENSION 69
-		 * EDGE_LIST_SECTION
-		 * A1	A2	g1	258
-		 * A2	A3	g1	125
-		 * A3	A4	g1	88
-		 * A4	A5	g1	280
+			NAME MDC SIMULATION - SHANTYTOWN NODELIST INPUT
+			COMMENT Sensor Node Relative Placement provided by IIST
+			DIMENSION 12315
+			DEPOT	g1	24
+			EDGE_LIST_SECTION
+			24    22    g1    86.9941483975268
+			22    231    g1    58.5001204787593
+			11864    11865    g1    11.6996078566915
+			11865    11866    g1    6.54295068641896
+			11866    11868    g1    32.0056339697657
 		 */
 		while (!edgeFile.eof())
 		{
@@ -463,8 +550,7 @@ namespace ns3 {
 				{
 					if (strcmp(s1,graphName) == 0)
 					{
-						s2[0]=' ';
-						int nodeId = std::atoi(s2) -1;
+						int nodeId = std::atoi(s2);
 						std::cout << "Depot Location for Graph " << s1 << " set to Node " << nodeId << ".\n";
 
 						// Store the depot location of this graph
@@ -488,10 +574,11 @@ namespace ns3 {
 			else
 			{
 				/* Each edge is represented as:
-				 * A1	A2	g1	258
-				 * A2	A3	g1	125
-				 * A3	A4	g1	88
-				 * A4	A5	g1	280
+				24    22    g1    86.9941483975268
+				22    231    g1    58.5001204787593
+				11864    11865    g1    11.6996078566915
+				11865    11866    g1    6.54295068641896
+				11866    11868    g1    32.0056339697657
 				 */
 
 				char s1[10], s2[10], s3[10];
@@ -501,10 +588,8 @@ namespace ns3 {
 				{
 					if (strcmp(s3,graphName) ==0)
 					{
-						s1[0]=' ';
-						s2[0]=' ';
-						eDat.nodeFrom = std::atoi(s1) -1;
-						eDat.nodeTo = std::atoi(s2) -1;
+						eDat.nodeFrom = std::atoi(s1);
+						eDat.nodeTo = std::atoi(s2);
 						eDat.weight = wt;
 						edgeList.push_back(eDat);
 						std::cout << "Adding edge " << eDat.nodeFrom << "<===>" << eDat.nodeTo << " with weight =" << eDat.weight << ".\n";
@@ -546,12 +631,12 @@ namespace ns3 {
 		for (int i=0; i<num_nodes; i++)
 		{
 			vd = vertex(i,g);
-			vertexId[vd] = i;
-//			vertexName[vd] = "A";
-//			vertexName[vd] += (i+1);
-			char buf[20];
-			std::sprintf(buf, "A%d", (i+1));
-			vertexName[vd] = buf;
+//			vertexId[vd] = i;
+			vertexId[vd] = vertexList[i].nodeId;
+//			char buf[20];
+//			std::sprintf(buf, "A%d", (i+1));
+//			vertexName[vd] = buf;
+			vertexName[vd] = vertexList[i].nodeName;
 		}
 
 		return g;

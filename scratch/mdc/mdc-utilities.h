@@ -67,6 +67,14 @@ namespace ns3 {
 		std::string vertexName;
 	};
 
+	//TODO: Should be used in place of Vertex_infoT
+	struct Node_infoT // A structure that helps capture the info read from the Node list.
+	{
+		unsigned nodeId;
+		std::string nodeName;
+		Vector nodePos;
+	};
+
 	// This structure is used in the Optimal Path Computation
 	struct WayPointT
 	{
@@ -127,8 +135,9 @@ namespace ns3 {
 	void AddMDCNodeToVector(Ptr<Node>  node);
 	std::vector<Ptr<Node> > GetMDCNodeVector();
 
-	std::vector<Vector> ReadVertexList(const char *vertexFileName);
-	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Vector> vertexList);
+//	std::vector<Vector> ReadVertexList(const char *vertexFileName);
+	std::vector<Node_infoT> ReadVertexList(const char *vertexFileName);
+	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Node_infoT> vertexList);
 	void printTheGraph(GraphT g, const char *graphFileName);
 
 	std::vector<Vector> GetSensorPositions();

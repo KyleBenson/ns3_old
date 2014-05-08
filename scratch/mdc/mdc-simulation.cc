@@ -154,6 +154,7 @@ private:
 	//    in reality not all the events occuring in a rectangular coordinate space can be picked up unless there are sensors in the vicinity
 	//    Therefore, we use this to simulate random events across these sensor node locations.
 	std::vector<Vector> m_sensorLocations;
+	std::vector<Node_infoT> m_nodeLocations;
 
 private:
 	void CreateNodes();
@@ -778,9 +779,9 @@ MdcMain::SetupEventList()
 	int rnd;
 
 	// First populate the vector of the sensor locations...
-	m_sensorLocations = ReadVertexList("mdcSampleNodeList.txt");
+	m_nodeLocations = ReadVertexList("mdcSampleNodeList.txt");
 	// We are saving all the sensor Locations in the mdc-utilities code as well.
-	SetSensorPositions(m_sensorLocations);
+	m_sensorLocations = GetSensorPositions();
 
 
 	RandomVariable * radiusRandomVariable;
@@ -1005,19 +1006,19 @@ MdcMain::SetupMobility()
 		std::cout << GetMDCVelocity() << std::endl;
 		GraphT g1, g2, g3, g4;
 
-		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_sensorLocations);
+		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
 		printTheGraph(g1, "g1.dot");
 		AddGraph("g1", g1);
 
-		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_sensorLocations);
+		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_nodeLocations);
 		printTheGraph(g2, "g2.dot");
 		AddGraph("g2", g2);
 
-		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_sensorLocations);
+		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_nodeLocations);
 		printTheGraph(g3, "g3.dot");
 		AddGraph("g3", g3);
 
-		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_sensorLocations);
+		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_nodeLocations);
 		printTheGraph(g4, "g4.dot");
 		AddGraph("g4", g4);
 
@@ -1098,19 +1099,19 @@ MdcMain::SetupMobility()
 		std::cout << GetMDCVelocity() << std::endl;
 		GraphT g1, g2, g3, g4;
 
-		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_sensorLocations);
+		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
 		printTheGraph(g1, "g1.dot");
 		AddGraph("g1", g1);
 
-		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_sensorLocations);
+		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_nodeLocations);
 		printTheGraph(g2, "g2.dot");
 		AddGraph("g2", g2);
 
-		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_sensorLocations);
+		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_nodeLocations);
 		printTheGraph(g3, "g3.dot");
 		AddGraph("g3", g3);
 
-		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_sensorLocations);
+		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_nodeLocations);
 		printTheGraph(g4, "g4.dot");
 		AddGraph("g4", g4);
 
