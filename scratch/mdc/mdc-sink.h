@@ -124,6 +124,7 @@ private:
   TracedCallback<Ptr<const Packet>, const Address &> m_rxTrace;
 
   bool m_waypointRouting;//Used to indicate waypoint routing changes are enabled or not
+  uint32_t m_mdcTrajectory; // Used to indicate the MDC Path Planning algorithm in use
   std::list<EventId> m_events;
 
   // Event Positions to be visited

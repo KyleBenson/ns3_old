@@ -72,6 +72,10 @@ MdcSink::GetTypeId (void)
  				   BooleanValue (true),
 				   MakeBooleanAccessor (&MdcSink::m_waypointRouting),
 				   MakeBooleanChecker ())
+	.AddAttribute ("SetTrajectory", "This will indicate the Path Planning Scheme selected for the simulation.",
+					UintegerValue (0),
+					MakeUintegerAccessor (&MdcSink::m_mdcTrajectory),
+					MakeUintegerChecker<uint16_t> ())
 //    .AddAttribute ("MDC_NC_Pointer", "The pointer to the MDC Node Container.",
 //    			   PointerValue (),
 //    			   MakePointerAccessor (&MdcSink::m_allMDCNodes),
@@ -90,6 +94,7 @@ MdcSink::MdcSink ()
   m_mdcSocket = 0;
   m_totalRx = 0;
   m_waypointRouting = true;
+  m_mdcTrajectory = 0;
 }
 
 MdcSink::~MdcSink()
@@ -454,64 +459,75 @@ void MdcSink::HandleAccept (Ptr<Socket> s, const Address& from)
 	 */
 	void MdcSink::ResetMobility()
 	{
-		// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
 
-		if (!m_waypointRouting) return;
-		// This is valid only when you want to optimize the route on the fly
-
-//		Ptr<MobilityModel> mdcMobility;
-		Ptr<RandomWaypointMobilityModel> mdcMobility;
-
-		std::map<uint32_t, Ptr<ListPositionAllocator> >::iterator lpaIter;
-
-		std::vector<Ptr<Node> >  vNodes = GetMDCNodeVector();
-		Ptr<Node> pN;
-		for (uint32_t i=0; i<vNodes.size();i++)
+		if (m_mdcTrajectory==4)
 		{
+			if (!m_waypointRouting) return;
+			// This is valid only when you want to optimize the route on the fly
 
-			Vector pos;
-			pN = vNodes.at(i);
-//			mdcMobility = pN->GetObject <MobilityModel> ();
-			mdcMobility = DynamicCast <RandomWaypointMobilityModel> (pN->GetObject <RandomWaypointMobilityModel> ());
-			//mdcMobility = pN->GetObject <RandomWaypointMobilityModel> ();
+			// TODO: For now, I will be setting the route of all the MDCs. Need to have an ability to send each MDC on its own path.
+	//		Ptr<MobilityModel> mdcMobility;
+			Ptr<RandomWaypointMobilityModel> mdcMobility;
 
-			// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
-//			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
-//			std::cout << "Current Pos(pre-clean) = " << pos << std::endl;
-			pos = CleanPosVector(mdcMobility->GetPosition());
-			std::cout << "Current Pos = [" << pos << "] at " << Simulator::Now ().GetSeconds () << std::endl;
+			std::map<uint32_t, Ptr<ListPositionAllocator> >::iterator lpaIter;
 
-			// Get the position allocators if saved already
-			lpaIter = m_posAllocators.find(i);
-			if (lpaIter	== m_posAllocators.end())
+			std::vector<Ptr<Node> >  vNodes = GetMDCNodeVector();
+			Ptr<Node> pN;
+			for (uint32_t i=0; i<vNodes.size();i++)
 			{
-				m_posAllocators.insert(
-						std::pair<uint32_t, Ptr<ListPositionAllocator> >
-							(i, CreateObject<ListPositionAllocator> ())
-							);
-				lpaIter = m_posAllocators.find(i); // This time the entry should be present.
+
+				Vector pos;
+				pN = vNodes.at(i);
+	//			mdcMobility = pN->GetObject <MobilityModel> ();
+				mdcMobility = DynamicCast <RandomWaypointMobilityModel> (pN->GetObject <RandomWaypointMobilityModel> ());
+				//mdcMobility = pN->GetObject <RandomWaypointMobilityModel> ();
+
+				// This is indeed an MDC node and so grab its pos.ition... reset the mobility if needed
+	//			pos = (pN->GetObject <MobilityModel> ())->GetPosition();
+	//			std::cout << "Current Pos(pre-clean) = " << pos << std::endl;
+				pos = CleanPosVector(mdcMobility->GetPosition());
+				std::cout << "Current Pos = [" << pos << "] at " << Simulator::Now ().GetSeconds () << std::endl;
+
+				// Get the position allocators if saved already
+				lpaIter = m_posAllocators.find(i);
+				if (lpaIter	== m_posAllocators.end())
+				{
+					m_posAllocators.insert(
+							std::pair<uint32_t, Ptr<ListPositionAllocator> >
+								(i, CreateObject<ListPositionAllocator> ())
+								);
+					lpaIter = m_posAllocators.find(i); // This time the entry should be present.
+				}
+				else
+				{
+					// If it exists then you should remove the existing one and replace with new
+					m_posAllocators.erase(lpaIter);
+					m_posAllocators.insert(
+							std::pair<uint32_t, Ptr<ListPositionAllocator> >
+								(i, CreateObject<ListPositionAllocator> ())
+								);
+					lpaIter = m_posAllocators.find(i); // This time the entry should be pointing to the new LPA.
+				}
+				Ptr<ListPositionAllocator> listPosAllocator = lpaIter->second;
+
+				// Consider the currentPos, depotPos and the list of pending vectors and then come with a most efficient path here.
+				Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
+				RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
+
+
+				// Apply the new path to the MDC node
+	//			(pN->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
+				mdcMobility->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
 			}
-			else
-			{
-				// If it exists then you should remove the existing one and replace with new
-				m_posAllocators.erase(lpaIter);
-				m_posAllocators.insert(
-						std::pair<uint32_t, Ptr<ListPositionAllocator> >
-							(i, CreateObject<ListPositionAllocator> ())
-							);
-				lpaIter = m_posAllocators.find(i); // This time the entry should be pointing to the new LPA.
-			}
-			Ptr<ListPositionAllocator> listPosAllocator = lpaIter->second;
-
-			// Consider the currentPos, depotPos and the list of pending vectors and then come with a most efficient path here.
-			Vector vDepotPos = Vector3D (0.0, 0.0, 0.0);
-			RecomputePosAllocator(pos, vDepotPos, &posVector, listPosAllocator);
-
-
-			// Apply the new path to the MDC node
-//			(pN->GetObject <MobilityModel> ())->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
-			mdcMobility->SetAttribute("PositionAllocator", PointerValue (listPosAllocator));
 		}
+		else if (m_mdcTrajectory==6)
+		{
+			Ptr<RandomWaypointMobilityModel> mdcMobility;
+
+			std::map<uint32_t, Ptr<ListPositionAllocator> >::iterator lpaIter;
+		}
+
+
 
 	}
 

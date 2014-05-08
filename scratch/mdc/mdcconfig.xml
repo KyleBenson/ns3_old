@@ -29,7 +29,7 @@
       <name>mdc.EventRadius</name>
       <description>Radius of affect of the events</description>
       <data-type>float</data-type>
-      <value>0.25</value>
+      <value>0.05</value>
    </param> 
    <param> 
       <name>mdc.MdcSpeed</name>
@@ -41,7 +41,7 @@
       <name>mdc.MdcPause</name>
       <description>Pause duration of the MDCs in seconds</description>
       <data-type>float</data-type>
-      <value>1</value>
+      <value>0.25</value>
    </param> 
    <param> 
       <name>mdc.SendFullData</name>
@@ -100,7 +100,8 @@
    <param> 
       <name>mdc.MDCTrajectory</name>
       <description>This is a config parameter where you can specify the mobility trajectory that can be applied to an MDC</description>
-      <!-- Valid Values... 0-Random, 1-NearestNeighbor from center, 2-TSP, 3-AprioriEventLoc, 4-EventLocOnDemand, 5-Graph  ... -->
+      <!-- Valid Values... 0-Random, 1-NearestNeighbor from center, 2-TSP, 3-AprioriEventLoc, 
+      4-EventLocOnDemand, 5-GraphWithNS2TraceFile, 6-GraphWithRouteChangeOnDemand  ... -->
       <data-type>int</data-type>
       <value>5</value>
    </param> 

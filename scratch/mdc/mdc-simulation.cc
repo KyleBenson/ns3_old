@@ -1090,7 +1090,70 @@ MdcMain::SetupMobility()
 		const char* traceInputFile = "mdcNS2TraceFile.txt";
 		Ns2MobilityHelper ns2mobHlpr = Ns2MobilityHelper (traceInputFile);
 		ns2mobHlpr.Install();
+	} else if (m_mdcTrajectory == 6) // The mobility model Dynamic Change uses the graph network
+	{
+		// Note that we are indeed hardcoding the graph network here...
+		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
+		//SetMDCVelocity(100.0); // TODO: Set this value from the config file hopefully.
+		std::cout << GetMDCVelocity() << std::endl;
+		GraphT g1, g2, g3, g4;
+
+		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_sensorLocations);
+		printTheGraph(g1, "g1.dot");
+		AddGraph("g1", g1);
+
+		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_sensorLocations);
+		printTheGraph(g2, "g2.dot");
+		AddGraph("g2", g2);
+
+		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_sensorLocations);
+		printTheGraph(g3, "g3.dot");
+		AddGraph("g3", g3);
+
+		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_sensorLocations);
+		printTheGraph(g4, "g4.dot");
+		AddGraph("g4", g4);
+
+		/*****
+		// Now call this method in mdc-utilities that will populate all the Waypoint vectors corresponding to the event locations
+		ComputeAllGraphWayPoints();
+		PrintWaypointVector("g1");
+		PrintWaypointVector("g2");
+		PrintWaypointVector("g3");
+		PrintWaypointVector("g4");
+		const char* traceFile = "mdcNS2TraceFile.txt";
+		CreateNS2TraceFromWaypointVector(0, "g1", traceFile, std::ofstream::out);
+		CreateNS2TraceFromWaypointVector(1, "g2", traceFile, std::ofstream::app);
+		CreateNS2TraceFromWaypointVector(2, "g3", traceFile, std::ofstream::app);
+		CreateNS2TraceFromWaypointVector(3, "g4", traceFile, std::ofstream::app);
+		// At the end of this, all the graphs will have their Waypoint vectors set and we can technically generate a static mobility model.
+		 *
+		 */
+
+		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
+		mdcListPosAllocator->Dispose();
+		//mdcListPosAllocator->Add(center);
+		mobHlpr.SetMobilityModel ("ns3::RandomWaypointMobilityModel"
+								 ,"Pause", PointerValue (constRandomPause)
+								 ,"Speed", PointerValue (constRandomSpeed)
+								 ,"PositionAllocator", PointerValue (mdcListPosAllocator)
+								 );
+		mobHlpr.Install (mdcNodes);
+		// Now position all the MDCs at their respective depots. This is the INITIAL position.
+		int gid = 1;
+		for (NodeContainer::Iterator it = mdcNodes.Begin ();it != mdcNodes.End (); it++)
+		{
+			std::string s = "";
+			if (gid==1) s="g1";
+			else if (gid==2) s="g2";
+			else if (gid==3) s="g3";
+			else if (gid==4) s="g4";
+			gid++;
+			(*it)->GetObject<MobilityModel>()->SetPosition (GetDepotPosition(s));
+		}
+
 	}
+
 
 }
 
@@ -1152,6 +1215,8 @@ MdcMain::InstallApplications()
 //	Ptr<NodeContainer> pMdcNC = &mdcNodes;
 //	sinkHelper.SetAttribute("MDC_NC_Pointer", PointerValue(&mdcNodes));
 
+
+	sinkHelper.SetAttribute("SetTrajectory", UintegerValue (m_mdcTrajectory));
 	if (m_mdcTrajectory == 4)
 		sinkHelper.SetAttribute("SetWayPointRouting", BooleanValue (true));
 	else
