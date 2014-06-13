@@ -120,6 +120,7 @@ namespace ns3 {
 	// A static variable keeping track of the velocity to compute ETA
 	void SetMDCVelocity (double vel);
 	double GetMDCVelocity ();
+	double GetMDCVelocity (std::string graphName);
 
 	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s);
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
@@ -140,9 +141,11 @@ namespace ns3 {
 	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Node_infoT> vertexList);
 	void printTheGraph(GraphT g, const char *graphFileName);
 
+	std::vector<Node_infoT> GetNodePositions();
+	void SetNodePositions(std::vector<Node_infoT> allNodePos);
 	std::vector<Vector> GetSensorPositions();
-	std::vector<EventStatsT> GetEventStats();
 	void SetSensorPositions(std::vector<Vector> senPos);
+	std::vector<EventStatsT> GetEventStats();
 	void StoreEventLocation(SensedEvent se);
 	void UpdateEventStats(uint32_t eventId, int statItem, double capTime);
 	void PrintEventStats();
@@ -154,6 +157,7 @@ namespace ns3 {
 	Vector GetDepotPosition(std::string graphName);
 	std::vector<WayPointT> GetWaypointVector(std::string graphName);
 	void PrintWaypointVector(std::string graphName);
+	void PrintGraphRoute(std::string graphName, const char *graphFileName);
 	void CreateNS2TraceFromWaypointVector(uint32_t mdcNodeId, std::string graphName, const char *ns2TraceFileName, const std::ofstream::openmode openmode);
 	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec);
 	void AddGraph(std::string graphName, GraphT g);
@@ -180,7 +184,9 @@ namespace ns3 {
 	// We keep track of the sensor locations here again...
 	// Ideally, we should have just one copy.
 	// We use these to compute the mobility values
-	static std::vector<Vector> x_sensorLocations;
+	static std::vector<Vector> x_sensorLocations; //TODO: Avoid using this.
+	static std::vector<Node_infoT> x_nodeLocations;
+	static std::map<int, Node_infoT> x_nodeMap; // Map of all nodes that map NodeId --- NodeInfo
 
 	// This is a structure that keeps the event data capture times in each stage
 	static std::vector<EventStatsT> x_eventStats;

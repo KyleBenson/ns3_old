@@ -594,11 +594,15 @@ MdcMain::Run()
 {
 	NS_LOG_FUNCTION_NOARGS ();
 
+    SetupEventList();
 	CreateNodes();
 	CreateChannels();
 	InstallInternetStack();
-    SetupEventList();
 	SetupMobility();
+
+	// Skipping Actual Simulation...
+	return;
+
 	// InstallEnergyModel(); TODO: This aspect has not been enabled for our tests
 	InstallApplications();
     SetupTraces();
@@ -759,10 +763,12 @@ MdcMain::InstallInternetStack()
 	//
 	NS_LOG_LOGIC ("Assign IP Addresses.");
 	Ipv4AddressHelper ipv4Hlpr;
-	ipv4Hlpr.SetBase ("10.1.1.0", "255.255.255.0");
+//	ipv4Hlpr.SetBase ("10.1.1.0", "255.255.255.0");
+	ipv4Hlpr.SetBase (Ipv4Address("10.1.0.0"), Ipv4Mask ("/16"));
 	wifiSensorInterfaces = ipv4Hlpr.Assign (wifiSensorDevices);
 	wifiMDCInterfaces = ipv4Hlpr.Assign (wifiMDCDevices);
 	sinkInterfaces = ipv4Hlpr.Assign (sinkNetDevices);
+
 
 	// The long-range wifi between sink and MDCs uses a different network
 	ipv4Hlpr.NewNetwork ();
@@ -779,9 +785,17 @@ MdcMain::SetupEventList()
 	int rnd;
 
 	// First populate the vector of the sensor locations...
-	m_nodeLocations = ReadVertexList("mdcSampleNodeList.txt");
+//	m_nodeLocations = ReadVertexList("mdcSampleNodeList.txt");
+//	m_nodeLocations = ReadVertexList("IIST0520Vertices.txt");
+	m_nodeLocations = ReadVertexList("IIST0520VerticesHT.txt");
+
 	// We are saving all the sensor Locations in the mdc-utilities code as well.
 	m_sensorLocations = GetSensorPositions();
+	if (m_sensorLocations.size() != m_nSensors)
+	{
+		std::cout << "NOTE: Number of Sensor Vertices from input file [" << m_sensorLocations.size() << "] does not match the init parameter [" << m_nSensors << "].\n";
+		m_nSensors = m_sensorLocations.size();
+	}
 
 
 	RandomVariable * radiusRandomVariable;
@@ -798,8 +812,8 @@ MdcMain::SetupEventList()
     for (uint32_t i = 0; i < m_nEvents; i++)
 	{
     	// Now use this random number and generate ids [0 - MaxSensors-1] which will coincide with the locations.
-    	rnd = rand() % m_sensorLocations.size();
-		Vector pos = m_sensorLocations[rnd];
+    	rnd = rand() % m_nodeLocations.size();
+		Vector pos = m_nodeLocations[rnd].nodePos;
 		double radius = radiusRandomVariable->GetValue ();
 		Time time = Seconds (eventTimeRandomVariable->GetValue ());
 
@@ -827,7 +841,7 @@ MdcMain::SetupEventList()
 		StoreEventLocation(*itr); // Stores the value in the mdc-utilities EventStats for further use.
 
 		std::stringstream s, csv;
-		s << "[EVENT_CREATED] Event " << itr->GetEventId() << " scheduled for Time=" << itr->GetTime().GetSeconds () << " seconds at Location=[" << itr->GetCenter() << "] with radius=" << itr->GetRadius() << std::endl;
+		s << "[EVENT_CREATED] Event " << itr->GetEventId() << " scheduled for Time=" << itr->GetTime().GetSeconds () << " seconds at NodeId [" << GetSensorNodeId(itr->GetCenter()) << "] Location=[" << itr->GetCenter() << "] with radius=" << itr->GetRadius() << std::endl;
 		csv << "EVENT_CREATED," << itr->GetEventId() << "," << itr->GetTime().GetSeconds () << "," << itr->GetCenter().x << "," << itr->GetCenter().y << "," << itr->GetCenter().z << "," << itr->GetRadius() << std::endl;
 		*(GetMDCOutputStream())->GetStream() << csv.str();
 		NS_LOG_INFO(s.str());
@@ -862,11 +876,6 @@ MdcMain::SetupMobility()
 
 	// This list would have been populated earlier.
 	std::vector<Vector> posVector = m_sensorLocations;
-	if (posVector.size() != m_nSensors)
-	{
-		std::cout << "NOTE: Number of Sensor Vertices from input file [" << posVector.size() << "] does not match the init parameter [" << m_nSensors << "].\n";
-		m_nSensors = posVector.size();
-	}
 	for (uint32_t i=0; i< m_nSensors; i++)
 	{
 		sensorListPosAllocator->Add(posVector.at(i));
@@ -1003,13 +1012,19 @@ MdcMain::SetupMobility()
 		// Note that we are indeed hardcoding the graph network here...
 		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
 		//SetMDCVelocity(100.0); // TODO: Set this value from the config file hopefully.
-		std::cout << GetMDCVelocity() << std::endl;
+		std::cout << "Assuming MDC Velocity= " << GetMDCVelocity() << std::endl;
 		GraphT g1, g2, g3, g4;
 
-		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
-		printTheGraph(g1, "g1.dot");
-		AddGraph("g1", g1);
+//		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
+		g1 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", m_nodeLocations);
+		printTheGraph(g1, "H.dot");
+		AddGraph("H", g1);
 
+		g2 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", m_nodeLocations);
+		printTheGraph(g2, "T.dot");
+		AddGraph("T", g2);
+
+		/*
 		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_nodeLocations);
 		printTheGraph(g2, "g2.dot");
 		AddGraph("g2", g2);
@@ -1021,18 +1036,24 @@ MdcMain::SetupMobility()
 		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_nodeLocations);
 		printTheGraph(g4, "g4.dot");
 		AddGraph("g4", g4);
+		*/
 
 		// Now call this method in mdc-utilities that will populate all the Waypoint vectors corresponding to the event locations
 		ComputeAllGraphWayPoints();
-		PrintWaypointVector("g1");
-		PrintWaypointVector("g2");
-		PrintWaypointVector("g3");
-		PrintWaypointVector("g4");
+		PrintWaypointVector("H");
+		PrintWaypointVector("T");
+		PrintGraphRoute("H", "H-WayPoints.dot");
+		PrintGraphRoute("T", "T-WayPoints.dot");
+
+		//		PrintWaypointVector("g2");
+//		PrintWaypointVector("g3");
+//		PrintWaypointVector("g4");
 		const char* traceFile = "mdcNS2TraceFile.txt";
-		CreateNS2TraceFromWaypointVector(0, "g1", traceFile, std::ofstream::out);
-		CreateNS2TraceFromWaypointVector(1, "g2", traceFile, std::ofstream::app);
-		CreateNS2TraceFromWaypointVector(2, "g3", traceFile, std::ofstream::app);
-		CreateNS2TraceFromWaypointVector(3, "g4", traceFile, std::ofstream::app);
+		CreateNS2TraceFromWaypointVector(0, "H", traceFile, std::ofstream::out);
+		CreateNS2TraceFromWaypointVector(1, "T", traceFile, std::ofstream::out);
+//		CreateNS2TraceFromWaypointVector(1, "g2", traceFile, std::ofstream::app);
+//		CreateNS2TraceFromWaypointVector(2, "g3", traceFile, std::ofstream::app);
+//		CreateNS2TraceFromWaypointVector(3, "g4", traceFile, std::ofstream::app);
 		// At the end of this, all the graphs will have their Waypoint vectors set and we can technically generate a static mobility model.
 
 		// Generate the ns2TraceFile
@@ -1099,14 +1120,16 @@ MdcMain::SetupMobility()
 		std::cout << GetMDCVelocity() << std::endl;
 		GraphT g1, g2, g3, g4;
 
-		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
-		printTheGraph(g1, "g1.dot");
-		AddGraph("g1", g1);
+//		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
+		g1 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", m_nodeLocations);
+		printTheGraph(g1, "H.dot");
+		AddGraph("H", g1);
 
-		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_nodeLocations);
-		printTheGraph(g2, "g2.dot");
-		AddGraph("g2", g2);
+		g2 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", m_nodeLocations);
+		printTheGraph(g2, "T.dot");
+		AddGraph("T", g2);
 
+		/*
 		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_nodeLocations);
 		printTheGraph(g3, "g3.dot");
 		AddGraph("g3", g3);
@@ -1114,6 +1137,7 @@ MdcMain::SetupMobility()
 		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_nodeLocations);
 		printTheGraph(g4, "g4.dot");
 		AddGraph("g4", g4);
+		*/
 
 		/*****
 		// Now call this method in mdc-utilities that will populate all the Waypoint vectors corresponding to the event locations
@@ -1145,10 +1169,9 @@ MdcMain::SetupMobility()
 		for (NodeContainer::Iterator it = mdcNodes.Begin ();it != mdcNodes.End (); it++)
 		{
 			std::string s = "";
-			if (gid==1) s="g1";
-			else if (gid==2) s="g2";
-			else if (gid==3) s="g3";
-			else if (gid==4) s="g4";
+			if (gid==1) s="H";
+			else if (gid==2) s="T";
+			else if (gid==3) s="P";
 			gid++;
 			(*it)->GetObject<MobilityModel>()->SetPosition (GetDepotPosition(s));
 		}

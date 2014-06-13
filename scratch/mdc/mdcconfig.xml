@@ -11,7 +11,7 @@
       <name>mdc.MDCs</name>
       <description>Number of Mobile Data Collectors</description>
       <data-type>int</data-type>
-      <value>4</value>
+      <value>1</value>
    </param> 
    <param> 
       <name>mdc.Events</name>
@@ -35,7 +35,7 @@
       <name>mdc.MdcSpeed</name>
       <description>Speed (in m/s) of the MDCs</description>
       <data-type>float</data-type>
-      <value>2.0</value>
+      <value>11.0</value>
    </param> 
    <param> 
       <name>mdc.MdcPause</name>
@@ -77,13 +77,13 @@
       <name>mdc.SimEndTime</name>
       <description>Simulation End Time in seconds</description>
       <data-type>float</data-type>
-      <value>100.0</value>
+      <value>3600.0</value>
    </param> 
    <param> 
       <name>mdc.TotalSimTime</name>
       <description>Total Simulation Time in seconds</description>
       <data-type>float</data-type>
-      <value>150.0</value>
+      <value>3600.0</value>
    </param> 
    <param> 
       <name>mdc.Pcap</name>
