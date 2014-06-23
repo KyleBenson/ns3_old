@@ -121,6 +121,8 @@ namespace ns3 {
 	void SetMDCVelocity (double vel);
 	double GetMDCVelocity ();
 	double GetMDCVelocity (std::string graphName);
+	void SetEventExpiry (double dt);
+	double GetEventExpiry ();
 
 	void CreateTSPInput(std::vector<Vector> * inputVector, std::stringstream &s);
 	void WriteTSPInputToFile(std::stringstream &s, const char *TSPFileName);
@@ -138,7 +140,7 @@ namespace ns3 {
 
 //	std::vector<Vector> ReadVertexList(const char *vertexFileName);
 	std::vector<Node_infoT> ReadVertexList(const char *vertexFileName);
-	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *graphName, std::vector<Node_infoT> vertexList);
+	GraphT ReadGraphEdgeList(const char *edgeFileName, const char *edgeType, const char *graphName, std::vector<Node_infoT> vertexList);
 	void printTheGraph(GraphT g, const char *graphFileName);
 
 	std::vector<Node_infoT> GetNodePositions();
@@ -157,15 +159,18 @@ namespace ns3 {
 	Vector GetDepotPosition(std::string graphName);
 	std::vector<WayPointT> GetWaypointVector(std::string graphName);
 	void PrintWaypointVector(std::string graphName);
+	void RegisterWaypointStats(double noOfEvents, double noOfExpiredEvents, double totalDistance, double cumEventResponse);
+	void PrintWaypointStats();
 	void PrintGraphRoute(std::string graphName, const char *graphFileName);
 	void CreateNS2TraceFromWaypointVector(uint32_t mdcNodeId, std::string graphName, const char *ns2TraceFileName, const std::ofstream::openmode openmode);
 	void SetWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec);
+	void SetCandidateWaypointVector(std::string graphName,std::vector<WayPointT> newWPVec);
 	void AddGraph(std::string graphName, GraphT g);
 	GraphT GetGraph(std::string graphName);
 	std::vector<WayPointT> CreateNewWaypointVector(std::string graphName, int insertLoc, WayPointT newPoint);
 	std::vector<int> GetShortestPathsFromSource(GraphT g, VertexDescriptor src, std::vector<VertexDescriptor>* predVectorPtr);
 	double GetBestCostBetweenVertices(GraphT g, std::vector<int> distVector, VertexDescriptor src, VertexDescriptor dest);
-	std::vector<VertexDescriptor> GetShortestPathBetweenVertices(GraphT g, std::vector<VertexDescriptor> predVector, VertexDescriptor src, VertexDescriptor dest);
+	std::vector<VertexDescriptor> GetShortestPathBetweenVertices(GraphT g, std::vector<VertexDescriptor> predVector, VertexDescriptor src, VertexDescriptor dest, bool printFlag);
 
 	void StoreEventList(std::list<SensedEvent> m_events);
 
@@ -174,7 +179,8 @@ namespace ns3 {
 
 	int GetInsertLocation(std::vector<WayPointT> WPVec, double eventTime);
 	double CompareWaypointVectorDistance(std::vector<WayPointT> WPVec, double currLowestCost);
-
+	void ProcessCandidateVectorMaps();
+	double CompareWaypointVectorCost(std::string graphStr, std::vector<WayPointT> WPVec, double currLowestCost);
 
 
 
@@ -210,6 +216,11 @@ namespace ns3 {
 	// This will let you keep a reference of a Graph object for each graphName
 	static std::map<std::string, GraphT > x_GraphMap;
 
+	// Map of MDC and best candidate waypoint vectors indexed by graph...
+	// This will give you a list of WayPoint vectors for each graph that can be considered for an event location...
+	// You need to pick the best vector that will navigate to that location.
+	static std::map<std::string, std::vector<WayPointT> > x_WPCandidateVectorMap;
+
 
 
 
@@ -217,6 +228,7 @@ namespace ns3 {
 	static std::vector<Ptr<Node> > m_allMDCNodes; // Keeping track of all the MDC Nodes
 	static std::map<uint32_t, SensedEvent> m_allEvents; // Keeps a list of all sensed events for easy translation
 	static Ptr<OutputStreamWrapper> m_mdcoutputStream; // output stream for tracing from MDC simulation
+
 	//--------------------------------- END OF STATIC VARIABLES ---------------------------
 
 

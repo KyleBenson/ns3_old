@@ -635,7 +635,7 @@ void
 MdcMain::Report (std::ostream &)
 {
 	NS_LOG_FUNCTION("MdcMain Report.");
-	PrintEventStats();
+	//PrintEventStats();
 }
 
 void
@@ -1007,53 +1007,74 @@ MdcMain::SetupMobility()
 		for (NodeContainer::Iterator it = mdcNodes.Begin ();it != mdcNodes.End (); it++)
 			(*it)->GetObject<MobilityModel>()->SetPosition (center);
 
-	} else if (m_mdcTrajectory == 5) // The mobility model now uses the graph network
+	} else if (m_mdcTrajectory == 5) // The mobility model now uses the graph network but applies the mobility via a ns2TraceFile
 	{
 		// Note that we are indeed hardcoding the graph network here...
-		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
+		// We divide the whole road network into n sub-graphs and assume that the MDCs travel only within that region.
 		//SetMDCVelocity(100.0); // TODO: Set this value from the config file hopefully.
 		std::cout << "Assuming MDC Velocity= " << GetMDCVelocity() << std::endl;
-		GraphT g1, g2, g3, g4;
 
-//		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
-		g1 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", m_nodeLocations);
-		printTheGraph(g1, "H.dot");
-		AddGraph("H", g1);
+		GraphT hGraph, tGraph;
 
-		g2 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", m_nodeLocations);
-		printTheGraph(g2, "T.dot");
-		AddGraph("T", g2);
-
+		hGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H1", m_nodeLocations);
+		AddGraph("H1", hGraph);
+		hGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H2", m_nodeLocations);
+		AddGraph("H2", hGraph);
 		/*
-		g2 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g2", m_nodeLocations);
-		printTheGraph(g2, "g2.dot");
-		AddGraph("g2", g2);
-
-		g3 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g3", m_nodeLocations);
-		printTheGraph(g3, "g3.dot");
-		AddGraph("g3", g3);
-
-		g4 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g4", m_nodeLocations);
-		printTheGraph(g4, "g4.dot");
-		AddGraph("g4", g4);
+		hGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H3", m_nodeLocations);
+		AddGraph("H3", hGraph);
+		hGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H4", m_nodeLocations);
+		AddGraph("H4", hGraph);
+		hGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H5", m_nodeLocations);
+		AddGraph("H5", hGraph);
 		*/
+		printTheGraph(hGraph, "HGraph.dot");
+		// We let the H nodes stay on the same graph route
+
+		tGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T1", m_nodeLocations);
+		AddGraph("T1", tGraph);
+		tGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T2", m_nodeLocations);
+		AddGraph("T2", tGraph);
+		tGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T3", m_nodeLocations);
+		AddGraph("T3", tGraph);
+		tGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T4", m_nodeLocations);
+		AddGraph("T4", tGraph);
+		tGraph = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T5", m_nodeLocations);
+		AddGraph("T5", tGraph);
+		/*
+		*/
+		printTheGraph(tGraph, "TGraph.dot");
+
 
 		// Now call this method in mdc-utilities that will populate all the Waypoint vectors corresponding to the event locations
 		ComputeAllGraphWayPoints();
-		PrintWaypointVector("H");
-		PrintWaypointVector("T");
-		PrintGraphRoute("H", "H-WayPoints.dot");
-		PrintGraphRoute("T", "T-WayPoints.dot");
+		PrintWaypointVector("H1");
+		PrintWaypointVector("H2");
+		//PrintWaypointVector("H3");
+		//PrintWaypointVector("H4");
+		//PrintWaypointVector("H5");
+		PrintWaypointVector("T1");
+		PrintWaypointVector("T2");
+		PrintWaypointVector("T3");
+		PrintWaypointVector("T4");
+		PrintWaypointVector("T5");
 
-		//		PrintWaypointVector("g2");
-//		PrintWaypointVector("g3");
-//		PrintWaypointVector("g4");
-		const char* traceFile = "mdcNS2TraceFile.txt";
-		CreateNS2TraceFromWaypointVector(0, "H", traceFile, std::ofstream::out);
-		CreateNS2TraceFromWaypointVector(1, "T", traceFile, std::ofstream::out);
-//		CreateNS2TraceFromWaypointVector(1, "g2", traceFile, std::ofstream::app);
-//		CreateNS2TraceFromWaypointVector(2, "g3", traceFile, std::ofstream::app);
-//		CreateNS2TraceFromWaypointVector(3, "g4", traceFile, std::ofstream::app);
+		//PrintGraphRoute("H1", "H1-WayPoints.dot");
+		//PrintGraphRoute("H2", "H2-WayPoints.dot");
+		//PrintGraphRoute("H3", "H3-WayPoints.dot");
+		//PrintGraphRoute("H4", "H4-WayPoints.dot");
+		//PrintGraphRoute("H5", "H5-WayPoints.dot");
+		//PrintGraphRoute("T1", "T1-WayPoints.dot");
+		//PrintGraphRoute("T2", "T2-WayPoints.dot");
+		//PrintGraphRoute("T3", "T3-WayPoints.dot");
+		//PrintGraphRoute("T4", "T4-WayPoints.dot");
+		//PrintGraphRoute("T5", "T5-WayPoints.dot");
+
+		PrintWaypointStats();
+
+//		const char* traceFile = "mdcNS2TraceFile.txt";
+//		CreateNS2TraceFromWaypointVector(0, "H1", traceFile, std::ofstream::out);
+//		CreateNS2TraceFromWaypointVector(1, "T1", traceFile, std::ofstream::out);
 		// At the end of this, all the graphs will have their Waypoint vectors set and we can technically generate a static mobility model.
 
 		// Generate the ns2TraceFile
@@ -1070,33 +1091,6 @@ MdcMain::SetupMobility()
 		 *
 		 */
 
-		/*
-		 * What to implement...
-		 * Assume there will be 1 MDC per graph.
-		 * For each Graph...
-		 *   Assign the first node in the graph as the Depot location for that MDC.
-		 *
-		 * For each Event location... Note that we will assume that events occur on a node...
-		 * in other words there will be a sensor at that event location to send some data over.
-		 *   Find the subgraph to which the sensor belongs/resides in
-		 *   Add the EventLoc to the VisitList[subgraph] of the MDC(s) for that subgraph.
-		 *   This may be a logic that needs to be polished...
-		 *
-		 *   Assuming the VisitList[sg] has been updated for the subgraph. Note that the VisitList is simply a set of locations
-		 *   that the MDC is supposed to cycle through and get the data from the nodes therein.
-		 *   There must be some way to determine which location has been added.
-		 *   Now the system must determine the exact location where the NewLocation needs to be placed.
-		 *   This is based on a choice made by the program to insert the NewLocation in the VisitList that generates the least cost for the MDC.
-		 *      There are two components to the cost of the path chosen thus...
-		 *      1. Total distance traveled should be minimal
-		 *      2. The sum of the delta time (ETA - EventDetectionTime) computed should be minimized... or if the delta > EventExpirationTime, then discard the route.
-		 *      One can use a combination of the same.
-		 *   Once a final visit sequence has been specified, update the MobilityModel of the MDC(s) running in that subgraph.
-		 *
-		 *   Now to update the MobilityModel, you must convert the route into equivalent ns2MobilityTrace input.
-		 *   Then apply the mobility model.
-		 */
-
 		Ptr<ListPositionAllocator> mdcListPosAllocator = CreateObject<ListPositionAllocator> ();
 		mdcListPosAllocator->Dispose();
 		mdcListPosAllocator->Add(center);
@@ -1108,11 +1102,10 @@ MdcMain::SetupMobility()
 		mobHlpr.Install (mdcNodes);
 		// You don't need to run this step...
 		//ExecuteSystemCommand("/u01/ns3/workspace/ns-3-dev-socis2013/ConvNS2ToNS3.sh");
-		//const char* traceInputFile = "mdcNS3TraceInput.txt";
-		const char* traceInputFile = "mdcNS2TraceFile.txt";
-		Ns2MobilityHelper ns2mobHlpr = Ns2MobilityHelper (traceInputFile);
-		ns2mobHlpr.Install();
-	} else if (m_mdcTrajectory == 6) // The mobility model Dynamic Change uses the graph network
+//		const char* traceInputFile = "mdcNS2TraceFile.txt";
+//		Ns2MobilityHelper ns2mobHlpr = Ns2MobilityHelper (traceInputFile);
+//		ns2mobHlpr.Install();
+	} else if (m_mdcTrajectory == 6) // UNUSED... The mobility model Dynamic Change uses the graph network
 	{
 		// Note that we are indeed hardcoding the graph network here...
 		// We divide the whole road network into 4 sub-graphs and assume that the MDCs travel only within that region.
@@ -1121,11 +1114,11 @@ MdcMain::SetupMobility()
 		GraphT g1, g2, g3, g4;
 
 //		g1 = ReadGraphEdgeList("mdcSampleEdgeList.txt", "g1", m_nodeLocations);
-		g1 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", m_nodeLocations);
+		g1 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "H", "H", m_nodeLocations);
 		printTheGraph(g1, "H.dot");
 		AddGraph("H", g1);
 
-		g2 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", m_nodeLocations);
+		g2 = ReadGraphEdgeList("IIST0520EdgesHT.txt", "T", "T", m_nodeLocations);
 		printTheGraph(g2, "T.dot");
 		AddGraph("T", g2);
 
